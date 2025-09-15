@@ -1263,6 +1263,59 @@ async def setlogpays(interaction: discord.Interaction, channel: discord.TextChan
 
 # Commande ranking
 @bot.tree.command(name="ranking", description="Affiche le classement des plus riches de l'économie")
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+@bot.tree.command(name="reset_economie", description="Réinitialise toute l'économie et supprime l'argent en circulation (admin seulement)")
+@app_commands.checks.has_permissions(administrator=True)
+async def reset_economie(interaction: discord.Interaction):
+    """Réinitialise l'économie : vide tous les fichiers de données économiques."""
+    await interaction.response.defer(ephemeral=True)
+    confirm_view = discord.ui.View()
+    confirm_button = discord.ui.Button(label="Confirmer la réinitialisation", style=discord.ButtonStyle.danger)
+    cancel_button = discord.ui.Button(label="Annuler", style=discord.ButtonStyle.secondary)
+    confirm_view.add_item(confirm_button)
+    confirm_view.add_item(cancel_button)
+
+    async def confirm_callback(interaction2: discord.Interaction):
+        if interaction2.user.id != interaction.user.id:
+            await interaction2.response.send_message("Vous n'êtes pas autorisé à confirmer cette action.", ephemeral=True)
+            return
+        # Vider les fichiers JSON économiques
+        for file_path, empty_value in [
+            (BALANCE_FILE, {}),
+            (BALANCE_BACKUP_FILE, {}),
+            (LOANS_FILE, []),
+            (PERSONNEL_FILE, {}),
+            (TRANSACTION_LOG_FILE, []),
+        ]:
+            try:
+                with open(file_path, "w") as f:
+                    json.dump(empty_value, f)
+            except Exception as e:
+                await interaction2.response.send_message(f"Erreur lors de la suppression de {os.path.basename(file_path)} : {e}", ephemeral=True)
+                return
+        # Recharger les données en mémoire
+        load_all_data()
+        await interaction2.response.edit_message(content="✅ Économie réinitialisée avec succès !", view=None)
+
+    async def cancel_callback(interaction2: discord.Interaction):
+        if interaction2.user.id != interaction.user.id:
+            await interaction2.response.send_message("Vous n'êtes pas autorisé à annuler cette action.", ephemeral=True)
+            return
+        await interaction2.response.edit_message(content="❌ Réinitialisation annulée.", view=None)
+
+    confirm_button.callback = confirm_callback
+    cancel_button.callback = cancel_callback
+
+    await interaction.followup.send(
+        "⚠️ Cette action va supprimer toutes les données économiques (balances, prêts, transactions, personnel). Confirmez-vous ?",
+        view=confirm_view,
+        ephemeral=True
+    )
+>>>>>>> 559ebf1 (Ajout de la commande /reset_economie pour réinitialiser l'économie)
+>>>>>>> ac12a6f (first commit)
 @app_commands.checks.has_permissions(administrator=True)  # Remplace view_channel par administrator
 async def ranking(interaction: discord.Interaction):
     """Affiche le classement économique du serveur avec top 15."""
