@@ -334,6 +334,7 @@ pays_log_channel_data = {}
 pays_images = {}
 mute_log_channel_data = {}
 warnings = {}
+developpements_data = {}
 bonus_xp_active = {}  # {guild_id: end_time}
 
 # Chargement des balances et autres données après la définition de la fonction
@@ -349,7 +350,7 @@ def format_number(number):
 # Fonction pour charger toutes les données
 def load_all_data():
     """Charge toutes les données nécessaires au démarrage."""
-    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings, developpements
+    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings, developpements_data
     
     # Chargement de toutes les données
     balances.update(load_balances())
@@ -360,7 +361,7 @@ def load_all_data():
     pays_log_channel_data.update(load_pays_log_channel())
     pays_images.update(load_pays_images())
     warnings.update(load_warnings())
-    developpements.update(load_developpements())
+    developpements_data.update(load_developpements())
 ## Fonction de chargement du canal de statut supprimée (obsolète)
 
 def load_pays_images():
