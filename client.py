@@ -4221,6 +4221,7 @@ async def help_command(interaction: discord.Interaction):
             ("/calendrier", "Lance les annonces du calendrier RP."),
             ("/reset-calendrier", "Réinitialise le calendrier RP en cours."),
             ("/creer_stats_voice_channels", "Génère les salons vocaux de statistiques."),
+            ("/bilan_techno", "Génère un bilan technologique militaire avec coûts."),
         ]
 
         sections_data = [
@@ -4951,6 +4952,190 @@ async def creer_webhook(interaction: discord.Interaction, nom: str, avatar: disc
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
         print(f"[ERROR] Erreur dans la commande creer_webhook: {e}")
+
+# === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
+
+# Vue pour le bouton de confirmation de développement technologique
+class TechnoConfirmView(discord.ui.View):
+    def __init__(self, user_id, role, cout_dev, nom_techno):
+        super().__init__(timeout=None)  # Durée indéfinie
+        self.user_id = user_id
+        self.role = role
+        self.cout_dev = cout_dev
+        self.nom_techno = nom_techno
+    
+    @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
+    async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Vérifier que c'est la même personne qui confirme
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'initiateur de la commande peut confirmer le développement.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        # Vérifier le budget du rôle
+        role_id = str(self.role.id)
+        budget_actuel = balances.get(role_id, 0)
+        
+        if budget_actuel < self.cout_dev:
+            embed = discord.Embed(
+                title="❌ Budget insuffisant",
+                description=f"**Coût du développement :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                           f"**Budget actuel :** {format_number(budget_actuel)} {MONNAIE_EMOJI}\n"
+                           f"**Manquant :** {format_number(self.cout_dev - budget_actuel)} {MONNAIE_EMOJI}",
+                color=0xff0000,
+                timestamp=datetime.datetime.now()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        
+        # Déduire le coût du budget
+        balances[role_id] = budget_actuel - self.cout_dev
+        save_balances(balances)
+        save_all_json_to_postgres()
+        
+        # Créer l'embed de confirmation
+        embed = discord.Embed(
+            title="✅ Développement confirmé !",
+            description=f"**Technologie :** {self.nom_techno}\n"
+                       f"**Pays :** {self.role.mention}\n"
+                       f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                       f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        
+        await interaction.followup.send(embed=embed)
+        
+        # Log dans le salon des logs
+        log_embed = discord.Embed(
+            title="🔬 Développement technologique",
+            description=f"**Pays :** {self.role.mention}\n"
+                       f"**Technologie :** {self.nom_techno}\n"
+                       f"**Coût :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                       f"**Développé par :** {interaction.user.mention}",
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        
+        await send_log(interaction.guild, embed=log_embed)
+
+@bot.tree.command(name="bilan_techno", description="Génère un bilan technologique avec coûts aléatoires pour développement")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(
+    role="Rôle (pays) pour lequel générer le bilan technologique",
+    image="URL de l'image pour illustrer le développement technologique (optionnel)"
+)
+async def bilan_techno(interaction: discord.Interaction, role: discord.Role, image: str = None):
+    """Génère un bilan technologique avec coûts et durées aléatoires."""
+    
+    await interaction.response.defer()
+    
+    # Données technologiques basées sur le CSV (excluant les armes à feu)
+    technologies = {
+        "🚗 Véhicules Terrestres": {
+            "Char léger": {"dev_range": (8, 11), "cout_range": (70, 120), "mois_range": (7, 10)},
+            "Char Moyen": {"dev_range": (8, 13), "cout_range": (130, 200), "mois_range": (7, 11)},
+            "Char Lourd": {"dev_range": (13, 15), "cout_range": (350, 500), "mois_range": (10, 15)},
+            "IFV": {"dev_range": (7, 11), "cout_range": (90, 160), "mois_range": (7, 13)},
+            "APC": {"dev_range": (6, 10), "cout_range": (80, 145), "mois_range": (7, 12)},
+            "Chasseur de chars": {"dev_range": (11, 17), "cout_range": (135, 200), "mois_range": (9, 13)},
+        },
+        
+        "🎯 Artillerie": {
+            "Artillerie de campagne (70-160mm)": {"dev_range": (5, 10), "cout_range": (10, 20), "mois_range": (4, 6)},
+            "Artillerie lourde (+160mm)": {"dev_range": (8, 13), "cout_range": (30, 50), "mois_range": (5, 8)},
+            "Artillerie légère (-70mm)": {"dev_range": (3, 5), "cout_range": (5, 10), "mois_range": (3, 5)},
+            "Mortier d'infanterie (-70mm)": {"dev_range": (4, 6), "cout_range": (1, 1), "mois_range": (3, 6)},
+            "Mortier de campagne (70-120mm)": {"dev_range": (5, 8), "cout_range": (1, 2), "mois_range": (4, 7)},
+            "Canon anti-aérien": {"dev_range": (3, 5), "cout_range": (5, 15), "mois_range": (3, 6)},
+        },
+        
+        "🚢 Bâtiments de guerre": {
+            "Destroyer": {"dev_range": (20, 25), "cout_range": (500, 1000), "mois_range": (6, 12)},
+            "Cuirassé": {"dev_range": (40, 50), "cout_range": (2000, 5000), "mois_range": (10, 15)},
+            "Croiseur léger": {"dev_range": (30, 35), "cout_range": (800, 1500), "mois_range": (8, 12)},
+            "Croiseur Lourd": {"dev_range": (40, 45), "cout_range": (1000, 2000), "mois_range": (10, 15)},
+            "Frégate": {"dev_range": (15, 20), "cout_range": (300, 700), "mois_range": (6, 10)},
+            "Porte-Hélicoptère": {"dev_range": (35, 45), "cout_range": (2000, 5000), "mois_range": (10, 15)},
+            "Porte-Avion": {"dev_range": (50, 80), "cout_range": (5000, 10000), "mois_range": (10, 18)},
+            "Sous-marin (Diesel)": {"dev_range": (15, 30), "cout_range": (500, 2000), "mois_range": (8, 15)},
+        },
+        
+        "✈️ Appareils aériens": {
+            "Avion multirôle": {"dev_range": (10, 15), "cout_range": (350, 700), "mois_range": (8, 12)},
+            "Avion d'attaque au sol": {"dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
+            "Avion de chasse": {"dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
+            "Bombardier tactique": {"dev_range": (20, 25), "cout_range": (500, 700), "mois_range": (8, 12)},
+            "Avion de reconnaissance": {"dev_range": (5, 10), "cout_range": (200, 300), "mois_range": (6, 9)},
+            "Hélicoptère d'attaque": {"dev_range": (9, 15), "cout_range": (100, 300), "mois_range": (6, 12)},
+            "Drone de reconnaissance": {"dev_range": (3, 5), "cout_range": (150, 500), "mois_range": (3, 6)},
+        },
+        
+        "🚀 Missiles": {
+            "SRBM (300-1000km)": {"dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
+            "MRBM (1000-3000km)": {"dev_range": (35, 50), "cout_range": (5000, 20000), "mois_range": (12, 18)},
+            "ICBM (+5500km)": {"dev_range": (150, 300), "cout_range": (50000, 50000), "mois_range": (24, 24)},
+            "IRBM (3500-5500km)": {"dev_range": (50, 75), "cout_range": (25000, 25000), "mois_range": (12, 24)},
+            "BRBM (-300km)": {"dev_range": (15, 20), "cout_range": (500, 1500), "mois_range": (8, 12)},
+            "SAM": {"dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
+        }
+    }
+    
+    # Générer des valeurs aléatoires pour chaque technologie
+    import random
+    
+    embed = discord.Embed(
+        title="📊 Bilan Technologique Militaire",
+        description=f"**Pays :** {role.mention}\n"
+                   f"**Généré pour :** {interaction.user.mention}\n\n"
+                   f"*Coûts et durées générés aléatoirement selon les standards militaires.*",
+        color=EMBED_COLOR,
+        timestamp=datetime.datetime.now()
+    )
+    
+    if image:
+        embed.set_image(url=image)
+    
+    total_cout_dev = 0
+    technologie_choisie = None
+    cout_dev_choisi = 0
+    
+    for categorie, items in technologies.items():
+        # Choisir aléatoirement UNE technologie par catégorie
+        nom_tech, specs = random.choice(list(items.items()))
+        
+        # Générer les valeurs aléatoires dans les fourchettes
+        cout_dev = random.randint(specs["dev_range"][0], specs["dev_range"][1]) * 1000000  # En millions
+        cout_unite = random.randint(specs["cout_range"][0], specs["cout_range"][1]) * 1000  # En milliers
+        mois = random.randint(specs["mois_range"][0], specs["mois_range"][1])
+        
+        # Pour la première itération, garder cette tech pour le bouton
+        if technologie_choisie is None:
+            technologie_choisie = nom_tech
+            cout_dev_choisi = cout_dev
+        
+        total_cout_dev += cout_dev
+        
+        embed.add_field(
+            name=f"{categorie}",
+            value=f"**{nom_tech}**\n"
+                  f"💰 Développement : {format_number(cout_dev)} {MONNAIE_EMOJI}\n"
+                  f"🏭 Prix unitaire : {format_number(cout_unite)} {MONNAIE_EMOJI}\n"
+                  f"⏱️ Durée : {mois} mois",
+            inline=True
+        )
+    
+    embed.add_field(
+        name="💎 Coût total estimé",
+        value=f"**{format_number(total_cout_dev)} {MONNAIE_EMOJI}**",
+        inline=False
+    )
+    
+    # Créer la vue avec le bouton de confirmation
+    view = TechnoConfirmView(interaction.user.id, role, total_cout_dev, "Package Technologique Complet")
+    
+    await interaction.followup.send(embed=embed, view=view)
 
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
