@@ -349,7 +349,7 @@ def format_number(number):
 # Fonction pour charger toutes les données
 def load_all_data():
     """Charge toutes les données nécessaires au démarrage."""
-    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings
+    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings, developpements
     
     # Chargement de toutes les données
     balances.update(load_balances())
@@ -360,6 +360,7 @@ def load_all_data():
     pays_log_channel_data.update(load_pays_log_channel())
     pays_images.update(load_pays_images())
     warnings.update(load_warnings())
+    developpements.update(load_developpements())
 ## Fonction de chargement du canal de statut supprimée (obsolète)
 
 def load_pays_images():
@@ -4174,6 +4175,7 @@ async def help_command(interaction: discord.Interaction):
     xp_et_autre_membres = [
         ("/lvl", "Affiche ton niveau et ta progression XP."),
         ("/classement_lvl", "Affiche le classement des membres par niveau."),
+        ("/developpements", "Consulte tes développements technologiques."),
         ("/help", "Affiche cette fenêtre d'aide."),
     ]
     
@@ -4957,12 +4959,18 @@ async def creer_webhook(interaction: discord.Interaction, nom: str, avatar: disc
 
 # Vue pour le bouton de confirmation de développement technologique
 class TechnoConfirmView(discord.ui.View):
-    def __init__(self, user_id, role, cout_dev, nom_techno):
+    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image):
         super().__init__(timeout=None)  # Durée indéfinie
         self.user_id = user_id
         self.role = role
         self.cout_dev = cout_dev
         self.nom_techno = nom_techno
+        self.nom_developpement = nom_developpement
+        self.categorie = categorie
+        self.nom_categorie = nom_categorie
+        self.cout_unite = cout_unite
+        self.mois = mois
+        self.image = image
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -4994,10 +5002,39 @@ class TechnoConfirmView(discord.ui.View):
         save_balances(balances)
         save_all_json_to_postgres()
         
+        # Sauvegarder le développement dans le JSON
+        developpements = load_developpements()
+        guild_id = str(interaction.guild.id)
+        
+        if guild_id not in developpements:
+            developpements[guild_id] = {}
+        if role_id not in developpements[guild_id]:
+            developpements[guild_id][role_id] = {}
+        if self.categorie not in developpements[guild_id][role_id]:
+            developpements[guild_id][role_id][self.categorie] = []
+        
+        # Créer l'entrée de développement
+        developpement_data = {
+            "nom": self.nom_developpement,
+            "technologie": self.nom_techno,
+            "categorie": self.categorie,
+            "nom_categorie": self.nom_categorie,
+            "cout_dev": self.cout_dev,
+            "cout_unite": self.cout_unite,
+            "mois": self.mois,
+            "image": self.image,
+            "date_creation": datetime.datetime.now().isoformat(),
+            "createur": interaction.user.id
+        }
+        
+        developpements[guild_id][role_id][self.categorie].append(developpement_data)
+        save_developpements(developpements)
+        
         # Créer l'embed de confirmation
         embed = discord.Embed(
             title="✅ Développement confirmé !",
-            description=f"**Technologie :** {self.nom_techno}\n"
+            description=f"**Nom :** {self.nom_developpement}\n"
+                       f"**Technologie :** {self.nom_techno}\n"
                        f"**Pays :** {self.role.mention}\n"
                        f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
                        f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
@@ -5011,6 +5048,7 @@ class TechnoConfirmView(discord.ui.View):
         log_embed = discord.Embed(
             title="🔬 Développement technologique",
             description=f"**Pays :** {self.role.mention}\n"
+                       f"**Nom :** {self.nom_developpement}\n"
                        f"**Technologie :** {self.nom_techno}\n"
                        f"**Coût :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
                        f"**Développé par :** {interaction.user.mention}",
@@ -5021,6 +5059,29 @@ class TechnoConfirmView(discord.ui.View):
         await send_log(interaction.guild, embed=log_embed)
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
+
+# Chemin du fichier pour les développements technologiques
+DEVELOPPEMENTS_FILE = os.path.join(DATA_DIR, "developpements.json")
+
+def load_developpements():
+    """Charge les développements technologiques depuis le fichier."""
+    if not os.path.exists(DEVELOPPEMENTS_FILE):
+        return {}
+    try:
+        with open(DEVELOPPEMENTS_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du chargement des développements: {e}")
+        return {}
+
+def save_developpements(data):
+    """Sauvegarde les développements technologiques dans le fichier."""
+    try:
+        with open(DEVELOPPEMENTS_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        save_all_json_to_postgres()
+    except Exception as e:
+        print(f"[ERROR] Erreur lors de la sauvegarde des développements: {e}")
 
 # Fonction d'autocomplétion pour les engins selon la catégorie
 async def engin_autocomplete(
@@ -5132,7 +5193,8 @@ async def engin_autocomplete(
 @bot.tree.command(name="bilan_techno", description="Génère un bilan technologique avec coûts aléatoires pour développement")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(
-    role="Rôle (pays) pour lequel générer le bilan technologique",
+    pays="Rôle (pays) pour lequel générer le bilan technologique",
+    nom="Nom à donner à ce développement technologique",
     categorie="Catégorie technologique à développer",
     engin="Type d'engin spécifique à développer",
     image="URL de l'image pour illustrer le développement technologique (optionnel)"
@@ -5145,7 +5207,7 @@ async def engin_autocomplete(
     discord.app_commands.Choice(name="Missiles", value="missiles")
 ])
 @app_commands.autocomplete(engin=engin_autocomplete)
-async def bilan_techno(interaction: discord.Interaction, role: discord.Role, categorie: str, engin: str, image: str = None):
+async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom: str, categorie: str, engin: str, image: str = None):
     """Génère un bilan technologique avec coûts et durées aléatoires pour un engin spécifique."""
     
     await interaction.response.defer()
@@ -5269,7 +5331,8 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
     # Créer l'embed de résultat
     embed = discord.Embed(
         title="📊 Bilan Technologique Militaire",
-        description=f"**Pays :** {role.mention}\n"
+        description=f"**Pays :** {pays.mention}\n"
+                   f"**Nom :** {nom}\n"
                    f"**Catégorie :** {technologies[categorie]['name']}\n"
                    f"**Technologie :** {engin_specs['name']}\n"
                    f"**Généré pour :** {interaction.user.mention}",
@@ -5300,8 +5363,8 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
     )
     
     embed.add_field(
-        name="� Informations",
-        value=f"*Coûts générés aléatoirement selon les standards militaires*\n\n"
+        name="ℹ️ Informations",
+        value=f"*Coûts générés par le Bot selon le Tableur*\n\n"
               f"**Fourchette de Coût de Développement :**\n"
               f"- {engin_specs['dev_range'][0]} / {engin_specs['dev_range'][1]} millions\n\n"
               f"**Fourchette de Coût à l'Unité :**\n"
@@ -5310,7 +5373,258 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
     )
     
     # Créer la vue avec le bouton de confirmation
-    view = TechnoConfirmView(interaction.user.id, role, cout_dev, engin_specs['name'])
+    view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois, image)
+    
+    await interaction.followup.send(embed=embed, view=view)
+
+# === COMMANDE POUR VOIR LES DÉVELOPPEMENTS ===
+
+# Vue pour la sélection de catégorie dans /developpements
+class DeveloppementsCategorieView(discord.ui.View):
+    def __init__(self, user_id, pays_roles, developpements_data):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.pays_roles = pays_roles  # Liste des rôles pays de l'utilisateur
+        self.developpements_data = developpements_data
+        
+        # Créer les boutons pour chaque catégorie disponible
+        categories_disponibles = set()
+        for role_id in [str(role.id) for role in pays_roles]:
+            if role_id in developpements_data:
+                categories_disponibles.update(developpements_data[role_id].keys())
+        
+        if not categories_disponibles:
+            return
+        
+        # Mapping des noms de catégories
+        categories_noms = {
+            "vehicules_terrestres": "Véhicules Terrestres",
+            "artillerie": "Artillerie",
+            "batiments_guerre": "Bâtiments de guerre",
+            "appareils_aeriens": "Appareils aériens",
+            "missiles": "Missiles"
+        }
+        
+        for i, categorie in enumerate(sorted(categories_disponibles)):
+            nom_categorie = categories_noms.get(categorie, categorie)
+            button = discord.ui.Button(
+                label=nom_categorie,
+                custom_id=f"cat_{categorie}",
+                style=discord.ButtonStyle.primary,
+                row=i // 5  # 5 boutons par ligne max
+            )
+            button.callback = self.categorie_callback
+            self.add_item(button)
+    
+    async def categorie_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'initiateur peut naviguer.", ephemeral=True)
+            return
+        
+        categorie = interaction.data['custom_id'].replace('cat_', '')
+        
+        # Créer la vue de navigation des développements
+        view = DeveloppementsNavigationView(self.user_id, self.pays_roles, self.developpements_data, categorie, 0)
+        embed = view.create_embed()
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+# Vue pour la navigation des développements dans une catégorie
+class DeveloppementsNavigationView(discord.ui.View):
+    def __init__(self, user_id, pays_roles, developpements_data, categorie, page):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.pays_roles = pays_roles
+        self.developpements_data = developpements_data
+        self.categorie = categorie
+        self.page = page
+        
+        # Collecter tous les développements de cette catégorie
+        self.all_developpements = []
+        for role in pays_roles:
+            role_id = str(role.id)
+            if role_id in developpements_data and categorie in developpements_data[role_id]:
+                for dev in developpements_data[role_id][categorie]:
+                    dev_copy = dev.copy()
+                    dev_copy['role'] = role
+                    self.all_developpements.append(dev_copy)
+        
+        # Ajouter les boutons de navigation
+        if len(self.all_developpements) > 1:
+            self.add_navigation_buttons()
+        
+        # Bouton retour
+        retour_button = discord.ui.Button(label="← Retour aux catégories", style=discord.ButtonStyle.secondary)
+        retour_button.callback = self.retour_callback
+        self.add_item(retour_button)
+    
+    def add_navigation_buttons(self):
+        # Bouton précédent
+        prev_button = discord.ui.Button(label="◀️ Précédent", style=discord.ButtonStyle.primary, disabled=self.page == 0)
+        prev_button.callback = self.prev_callback
+        self.add_item(prev_button)
+        
+        # Bouton suivant
+        next_button = discord.ui.Button(label="Suivant ▶️", style=discord.ButtonStyle.primary, disabled=self.page >= len(self.all_developpements) - 1)
+        next_button.callback = self.next_callback
+        self.add_item(next_button)
+    
+    def create_embed(self):
+        if not self.all_developpements:
+            return discord.Embed(
+                title="📋 Développements Technologiques",
+                description="Aucun développement trouvé dans cette catégorie.",
+                color=EMBED_COLOR
+            )
+        
+        dev = self.all_developpements[self.page]
+        categories_noms = {
+            "vehicules_terrestres": "Véhicules Terrestres",
+            "artillerie": "Artillerie",
+            "batiments_guerre": "Bâtiments de guerre",
+            "appareils_aeriens": "Appareils aériens",
+            "missiles": "Missiles"
+        }
+        
+        embed = discord.Embed(
+            title="📋 Développements Technologiques",
+            description=f"**Catégorie :** {categories_noms.get(self.categorie, self.categorie)}\n"
+                       f"**Page :** {self.page + 1}/{len(self.all_developpements)}",
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        
+        embed.add_field(
+            name="🏷️ Nom du développement",
+            value=dev['nom'],
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🔧 Technologie",
+            value=dev['technologie'],
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🏛️ Pays",
+            value=dev['role'].mention,
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💰 Coût de développement",
+            value=f"{format_number(dev['cout_dev'])} {MONNAIE_EMOJI}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🏭 Prix unitaire",
+            value=f"{format_number(dev['cout_unite'])} {MONNAIE_EMOJI}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="⏱️ Durée",
+            value=f"{dev['mois']} mois",
+            inline=True
+        )
+        
+        if dev.get('date_creation'):
+            try:
+                date_creation = datetime.datetime.fromisoformat(dev['date_creation'])
+                embed.add_field(
+                    name="📅 Date de création",
+                    value=date_creation.strftime("%d/%m/%Y à %H:%M"),
+                    inline=False
+                )
+            except:
+                pass
+        
+        if dev.get('image'):
+            embed.set_image(url=dev['image'])
+        
+        return embed
+    
+    async def prev_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'initiateur peut naviguer.", ephemeral=True)
+            return
+        
+        if self.page > 0:
+            new_view = DeveloppementsNavigationView(self.user_id, self.pays_roles, self.developpements_data, self.categorie, self.page - 1)
+            embed = new_view.create_embed()
+            await interaction.response.edit_message(embed=embed, view=new_view)
+    
+    async def next_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'initiateur peut naviguer.", ephemeral=True)
+            return
+        
+        if self.page < len(self.all_developpements) - 1:
+            new_view = DeveloppementsNavigationView(self.user_id, self.pays_roles, self.developpements_data, self.categorie, self.page + 1)
+            embed = new_view.create_embed()
+            await interaction.response.edit_message(embed=embed, view=new_view)
+    
+    async def retour_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'initiateur peut naviguer.", ephemeral=True)
+            return
+        
+        # Retourner à la sélection de catégorie
+        view = DeveloppementsCategorieView(self.user_id, self.pays_roles, self.developpements_data)
+        
+        embed = discord.Embed(
+            title="📋 Développements Technologiques",
+            description="Sélectionnez une catégorie pour voir vos développements :",
+            color=EMBED_COLOR
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+@bot.tree.command(name="developpements", description="Affiche vos développements technologiques")
+async def developpements(interaction: discord.Interaction):
+    """Affiche les développements technologiques de l'utilisateur."""
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    # Charger les développements
+    developpements_data = load_developpements()
+    guild_id = str(interaction.guild.id)
+    
+    if guild_id not in developpements_data:
+        embed = discord.Embed(
+            title="📋 Développements Technologiques",
+            description="Aucun développement technologique trouvé sur ce serveur.",
+            color=EMBED_COLOR
+        )
+        await interaction.followup.send(embed=embed)
+        return
+    
+    # Trouver les rôles pays de l'utilisateur
+    pays_roles = []
+    for role in interaction.user.roles:
+        role_id = str(role.id)
+        if role_id in developpements_data[guild_id]:
+            pays_roles.append(role)
+    
+    if not pays_roles:
+        embed = discord.Embed(
+            title="📋 Développements Technologiques",
+            description="Vous n'avez aucun développement technologique.",
+            color=EMBED_COLOR
+        )
+        await interaction.followup.send(embed=embed)
+        return
+    
+    # Créer la vue de sélection de catégorie
+    view = DeveloppementsCategorieView(interaction.user.id, pays_roles, developpements_data[guild_id])
+    
+    embed = discord.Embed(
+        title="📋 Développements Technologiques",
+        description="Sélectionnez une catégorie pour voir vos développements :",
+        color=EMBED_COLOR
+    )
     
     await interaction.followup.send(embed=embed, view=view)
 
