@@ -5138,11 +5138,11 @@ async def engin_autocomplete(
     image="URL de l'image pour illustrer le développement technologique (optionnel)"
 )
 @app_commands.choices(categorie=[
-    discord.app_commands.Choice(name="🚗 Véhicules Terrestres", value="vehicules_terrestres"),
-    discord.app_commands.Choice(name="🎯 Artillerie", value="artillerie"),
-    discord.app_commands.Choice(name="🚢 Bâtiments de guerre", value="batiments_guerre"),
-    discord.app_commands.Choice(name="✈️ Appareils aériens", value="appareils_aeriens"),
-    discord.app_commands.Choice(name="🚀 Missiles", value="missiles")
+    discord.app_commands.Choice(name="Véhicules Terrestres", value="vehicules_terrestres"),
+    discord.app_commands.Choice(name="Artillerie", value="artillerie"),
+    discord.app_commands.Choice(name="Bâtiments de guerre", value="batiments_guerre"),
+    discord.app_commands.Choice(name="Appareils aériens", value="appareils_aeriens"),
+    discord.app_commands.Choice(name="Missiles", value="missiles")
 ])
 @app_commands.autocomplete(engin=engin_autocomplete)
 async def bilan_techno(interaction: discord.Interaction, role: discord.Role, categorie: str, engin: str, image: str = None):
@@ -5153,7 +5153,7 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
     # Données technologiques basées sur le CSV (excluant les armes à feu)
     technologies = {
         "vehicules_terrestres": {
-            "name": "🚗 Véhicules Terrestres",
+            "name": "Véhicules Terrestres",
             "engins": {
                 "char_leger": {"name": "Char léger", "dev_range": (8, 11), "cout_range": (70, 120), "mois_range": (7, 10)},
                 "char_moyen": {"name": "Char Moyen", "dev_range": (8, 13), "cout_range": (130, 200), "mois_range": (7, 11)},
@@ -5167,7 +5167,7 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
         },
         
         "artillerie": {
-            "name": "🎯 Artillerie",
+            "name": "Artillerie",
             "engins": {
                 "artillerie_campagne": {"name": "Artillerie de campagne (70-160mm)", "dev_range": (5, 10), "cout_range": (10, 20), "mois_range": (4, 6)},
                 "artillerie_lourde": {"name": "Artillerie lourde (+160mm)", "dev_range": (8, 13), "cout_range": (30, 50), "mois_range": (5, 8)},
@@ -5182,7 +5182,7 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
         },
         
         "batiments_guerre": {
-            "name": "🚢 Bâtiments de guerre",
+            "name": "Bâtiments de guerre",
             "engins": {
                 "destroyer": {"name": "Destroyer", "dev_range": (20, 25), "cout_range": (500, 1000), "mois_range": (6, 12)},
                 "cuirasse": {"name": "Cuirassé", "dev_range": (40, 50), "cout_range": (2000, 5000), "mois_range": (10, 15)},
@@ -5203,7 +5203,7 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
         },
         
         "appareils_aeriens": {
-            "name": "✈️ Appareils aériens",
+            "name": "Appareils aériens",
             "engins": {
                 "avion_multirole": {"name": "Avion multirôle", "dev_range": (10, 15), "cout_range": (350, 700), "mois_range": (8, 12)},
                 "avion_attaque_sol": {"name": "Avion d'attaque au sol", "dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
@@ -5223,7 +5223,7 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
         },
         
         "missiles": {
-            "name": "🚀 Missiles",
+            "name": "Missiles",
             "engins": {
                 "srbm": {"name": "SRBM (300-1000km)", "dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
                 "mrbm": {"name": "MRBM (1000-3000km)", "dev_range": (35, 50), "cout_range": (5000, 20000), "mois_range": (12, 18)},
@@ -5301,9 +5301,11 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, cat
     
     embed.add_field(
         name="� Informations",
-        value=f"*Coûts générés aléatoirement selon les standards militaires*\n"
-              f"*Fourchette dev: {engin_specs['dev_range'][0]}-{engin_specs['dev_range'][1]}M*\n"
-              f"*Fourchette unité: {engin_specs['cout_range'][0]}-{engin_specs['cout_range'][1]}k*",
+        value=f"*Coûts générés aléatoirement selon les standards militaires*\n\n"
+              f"**Fourchette de Coût de Développement :**\n"
+              f"- {engin_specs['dev_range'][0]} / {engin_specs['dev_range'][1]} millions\n\n"
+              f"**Fourchette de Coût à l'Unité :**\n"
+              f"- {engin_specs['cout_range'][0]} / {engin_specs['cout_range'][1]} milliers",
         inline=False
     )
     
