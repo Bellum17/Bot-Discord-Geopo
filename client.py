@@ -2412,6 +2412,13 @@ async def supprimer_pays(interaction: discord.Interaction, pays: discord.Role, r
             pib_data.pop(str(pays.id))
             save_pib(pib_data)
             
+        # Suppression des développements technologiques associés au pays
+        developpements = load_developpements()
+        guild_id = str(interaction.guild.id)
+        if guild_id in developpements and str(pays.id) in developpements[guild_id]:
+            developpements[guild_id].pop(str(pays.id))
+            save_developpements(developpements)
+            
             # Suppression dans PostgreSQL
             try:
                 import psycopg2, os
@@ -4980,6 +4987,11 @@ class TechnoConfirmView(discord.ui.View):
             await interaction.response.send_message("❌ Seul l'initiateur de la commande peut confirmer le développement.", ephemeral=True)
             return
         
+        # Vérifier que l'utilisateur a bien le rôle du pays concerné
+        if self.role not in interaction.user.roles:
+            await interaction.response.send_message(f"❌ Vous devez avoir le rôle {self.role.mention} pour confirmer ce développement.", ephemeral=True)
+            return
+        
         await interaction.response.defer(ephemeral=True)
         
         # Vérifier le budget du rôle
@@ -5461,12 +5473,12 @@ class DeveloppementsNavigationView(discord.ui.View):
     
     def add_navigation_buttons(self):
         # Bouton précédent
-        prev_button = discord.ui.Button(label="◀️ Précédent", style=discord.ButtonStyle.primary, disabled=self.page == 0)
+        prev_button = discord.ui.Button(emoji="⬅️", style=discord.ButtonStyle.secondary, disabled=self.page == 0)
         prev_button.callback = self.prev_callback
         self.add_item(prev_button)
         
         # Bouton suivant
-        next_button = discord.ui.Button(label="Suivant ▶️", style=discord.ButtonStyle.primary, disabled=self.page >= len(self.all_developpements) - 1)
+        next_button = discord.ui.Button(emoji="➡️", style=discord.ButtonStyle.secondary, disabled=self.page >= len(self.all_developpements) - 1)
         next_button.callback = self.next_callback
         self.add_item(next_button)
     
