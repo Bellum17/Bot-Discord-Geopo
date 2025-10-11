@@ -5020,76 +5020,259 @@ class TechnoConfirmView(discord.ui.View):
         
         await send_log(interaction.guild, embed=log_embed)
 
+# === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
+
+# Fonction d'autocomplétion pour les engins selon la catégorie
+async def engin_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> typing.List[app_commands.Choice[str]]:
+    """Autocomplétion dynamique pour les engins selon la catégorie sélectionnée."""
+    
+    # Récupérer la catégorie sélectionnée depuis l'interaction
+    try:
+        # Dans Discord.py, nous devons récupérer la valeur depuis le namespace
+        categorie_value = interaction.namespace.categorie if hasattr(interaction, 'namespace') and hasattr(interaction.namespace, 'categorie') else None
+        
+        if not categorie_value:
+            # Si pas de catégorie sélectionnée, montrer toutes les options
+            return [
+                app_commands.Choice(name="Sélectionnez d'abord une catégorie", value="none")
+            ]
+        
+        # Définir les engins par catégorie
+        engins_par_categorie = {
+            "vehicules_terrestres": [
+                ("char_leger", "Char léger"),
+                ("char_moyen", "Char Moyen"),
+                ("char_lourd", "Char Lourd"),
+                ("ifv", "IFV"),
+                ("apc", "APC"),
+                ("chasseur_chars", "Chasseur de chars"),
+                ("char_super_lourd", "Char super lourd"),
+                ("lance_roquettes", "Lance-roquettes multiple"),
+            ],
+            "artillerie": [
+                ("artillerie_campagne", "Artillerie de campagne (70-160mm)"),
+                ("artillerie_lourde", "Artillerie lourde (+160mm)"),
+                ("artillerie_legere", "Artillerie légère (-70mm)"),
+                ("mortier_infanterie", "Mortier d'infanterie (-70mm)"),
+                ("mortier_campagne", "Mortier de campagne (70-120mm)"),
+                ("mortier_lourd", "Mortier lourd (+120mm)"),
+                ("canon_anti_aerien", "Canon anti-aérien"),
+                ("canon_anti_char", "Canon anti-char"),
+                ("spag", "SPAG"),
+            ],
+            "batiments_guerre": [
+                ("destroyer", "Destroyer"),
+                ("cuirasse", "Cuirassé"),
+                ("croiseur_leger", "Croiseur léger"),
+                ("croiseur_lourd", "Croiseur Lourd"),
+                ("fregate", "Frégate"),
+                ("porte_helicoptere", "Porte-Hélicoptère"),
+                ("porte_avion", "Porte-Avion"),
+                ("porte_avion_leger", "Porte-Avion léger"),
+                ("porte_avion_nucleaire", "Porte-Avion (Propulsion nucléaire)"),
+                ("sous_marin_diesel", "Sous-marin (Diesel)"),
+                ("snle", "SNLE"),
+                ("sna", "SNA"),
+                ("corvette", "Corvette"),
+                ("patrouilleur", "Patrouilleur"),
+                ("barge_debarquement", "Barge de Débarquement"),
+            ],
+            "appareils_aeriens": [
+                ("avion_multirole", "Avion multirôle"),
+                ("avion_attaque_sol", "Avion d'attaque au sol"),
+                ("avion_chasse", "Avion de chasse (interception)"),
+                ("bombardier_tactique", "Bombardier tactique"),
+                ("bombardier_strategique", "Bombardier stratégique"),
+                ("avion_reconnaissance", "Avion de reconnaissance"),
+                ("avion_transport", "Avion de transport (matériel/troupe)"),
+                ("awacs", "AWACS"),
+                ("helicoptere_attaque", "Hélicoptère d'attaque"),
+                ("helicoptere_reconnaissance", "Hélicoptère de reconnaissance"),
+                ("helicoptere_transport", "Hélicoptère de transport"),
+                ("drone_reconnaissance", "Drone de reconnaissance"),
+                ("drone_suicide", "Drone suicide"),
+                ("drone_attaque", "Drone d'Attaque"),
+            ],
+            "missiles": [
+                ("srbm", "SRBM (300-1000km)"),
+                ("mrbm", "MRBM (1000-3000km)"),
+                ("icbm", "ICBM (+5500km)"),
+                ("irbm", "IRBM (3500-5500km)"),
+                ("brbm", "BRBM (-300km)"),
+                ("sam", "SAM"),
+                ("atgm", "ATGM"),
+                ("manpads", "MANPADS"),
+            ],
+        }
+        
+        # Récupérer les engins pour la catégorie sélectionnée
+        engins = engins_par_categorie.get(categorie_value, [])
+        
+        # Filtrer selon l'input utilisateur et limiter à 25 résultats
+        filtered_engins = [
+            app_commands.Choice(name=name, value=value)
+            for value, name in engins
+            if current.lower() in name.lower()
+        ][:25]
+        
+        return filtered_engins
+        
+    except Exception:
+        # En cas d'erreur, retourner les options de base
+        return [
+            app_commands.Choice(name="Char léger", value="char_leger"),
+            app_commands.Choice(name="Destroyer", value="destroyer"),
+            app_commands.Choice(name="Avion multirôle", value="avion_multirole"),
+            app_commands.Choice(name="SRBM (300-1000km)", value="srbm"),
+        ]
+
 @bot.tree.command(name="bilan_techno", description="Génère un bilan technologique avec coûts aléatoires pour développement")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(
     role="Rôle (pays) pour lequel générer le bilan technologique",
+    categorie="Catégorie technologique à développer",
+    engin="Type d'engin spécifique à développer",
     image="URL de l'image pour illustrer le développement technologique (optionnel)"
 )
-async def bilan_techno(interaction: discord.Interaction, role: discord.Role, image: str = None):
-    """Génère un bilan technologique avec coûts et durées aléatoires."""
+@app_commands.choices(categorie=[
+    discord.app_commands.Choice(name="🚗 Véhicules Terrestres", value="vehicules_terrestres"),
+    discord.app_commands.Choice(name="🎯 Artillerie", value="artillerie"),
+    discord.app_commands.Choice(name="🚢 Bâtiments de guerre", value="batiments_guerre"),
+    discord.app_commands.Choice(name="✈️ Appareils aériens", value="appareils_aeriens"),
+    discord.app_commands.Choice(name="🚀 Missiles", value="missiles")
+])
+@app_commands.autocomplete(engin=engin_autocomplete)
+async def bilan_techno(interaction: discord.Interaction, role: discord.Role, categorie: str, engin: str, image: str = None):
+    """Génère un bilan technologique avec coûts et durées aléatoires pour un engin spécifique."""
     
     await interaction.response.defer()
     
     # Données technologiques basées sur le CSV (excluant les armes à feu)
     technologies = {
-        "🚗 Véhicules Terrestres": {
-            "Char léger": {"dev_range": (8, 11), "cout_range": (70, 120), "mois_range": (7, 10)},
-            "Char Moyen": {"dev_range": (8, 13), "cout_range": (130, 200), "mois_range": (7, 11)},
-            "Char Lourd": {"dev_range": (13, 15), "cout_range": (350, 500), "mois_range": (10, 15)},
-            "IFV": {"dev_range": (7, 11), "cout_range": (90, 160), "mois_range": (7, 13)},
-            "APC": {"dev_range": (6, 10), "cout_range": (80, 145), "mois_range": (7, 12)},
-            "Chasseur de chars": {"dev_range": (11, 17), "cout_range": (135, 200), "mois_range": (9, 13)},
+        "vehicules_terrestres": {
+            "name": "🚗 Véhicules Terrestres",
+            "engins": {
+                "char_leger": {"name": "Char léger", "dev_range": (8, 11), "cout_range": (70, 120), "mois_range": (7, 10)},
+                "char_moyen": {"name": "Char Moyen", "dev_range": (8, 13), "cout_range": (130, 200), "mois_range": (7, 11)},
+                "char_lourd": {"name": "Char Lourd", "dev_range": (13, 15), "cout_range": (350, 500), "mois_range": (10, 15)},
+                "ifv": {"name": "IFV", "dev_range": (7, 11), "cout_range": (90, 160), "mois_range": (7, 13)},
+                "apc": {"name": "APC", "dev_range": (6, 10), "cout_range": (80, 145), "mois_range": (7, 12)},
+                "chasseur_chars": {"name": "Chasseur de chars", "dev_range": (11, 17), "cout_range": (135, 200), "mois_range": (9, 13)},
+                "char_super_lourd": {"name": "Char super lourd", "dev_range": (20, 25), "cout_range": (400, 500), "mois_range": (9, 12)},
+                "lance_roquettes": {"name": "Lance-roquettes multiple", "dev_range": (9, 15), "cout_range": (120, 200), "mois_range": (8, 13)},
+            }
         },
         
-        "🎯 Artillerie": {
-            "Artillerie de campagne (70-160mm)": {"dev_range": (5, 10), "cout_range": (10, 20), "mois_range": (4, 6)},
-            "Artillerie lourde (+160mm)": {"dev_range": (8, 13), "cout_range": (30, 50), "mois_range": (5, 8)},
-            "Artillerie légère (-70mm)": {"dev_range": (3, 5), "cout_range": (5, 10), "mois_range": (3, 5)},
-            "Mortier d'infanterie (-70mm)": {"dev_range": (4, 6), "cout_range": (1, 1), "mois_range": (3, 6)},
-            "Mortier de campagne (70-120mm)": {"dev_range": (5, 8), "cout_range": (1, 2), "mois_range": (4, 7)},
-            "Canon anti-aérien": {"dev_range": (3, 5), "cout_range": (5, 15), "mois_range": (3, 6)},
+        "artillerie": {
+            "name": "🎯 Artillerie",
+            "engins": {
+                "artillerie_campagne": {"name": "Artillerie de campagne (70-160mm)", "dev_range": (5, 10), "cout_range": (10, 20), "mois_range": (4, 6)},
+                "artillerie_lourde": {"name": "Artillerie lourde (+160mm)", "dev_range": (8, 13), "cout_range": (30, 50), "mois_range": (5, 8)},
+                "artillerie_legere": {"name": "Artillerie légère (-70mm)", "dev_range": (3, 5), "cout_range": (5, 10), "mois_range": (3, 5)},
+                "mortier_infanterie": {"name": "Mortier d'infanterie (-70mm)", "dev_range": (4, 6), "cout_range": (1, 1), "mois_range": (3, 6)},
+                "mortier_campagne": {"name": "Mortier de campagne (70-120mm)", "dev_range": (5, 8), "cout_range": (1, 2), "mois_range": (4, 7)},
+                "mortier_lourd": {"name": "Mortier lourd (+120mm)", "dev_range": (5, 10), "cout_range": (1, 2), "mois_range": (6, 9)},
+                "canon_anti_aerien": {"name": "Canon anti-aérien", "dev_range": (3, 5), "cout_range": (5, 15), "mois_range": (3, 6)},
+                "canon_anti_char": {"name": "Canon anti-char", "dev_range": (3, 5), "cout_range": (5, 15), "mois_range": (3, 6)},
+                "spag": {"name": "SPAG", "dev_range": (9, 15), "cout_range": (150, 300), "mois_range": (7, 12)},
+            }
         },
         
-        "🚢 Bâtiments de guerre": {
-            "Destroyer": {"dev_range": (20, 25), "cout_range": (500, 1000), "mois_range": (6, 12)},
-            "Cuirassé": {"dev_range": (40, 50), "cout_range": (2000, 5000), "mois_range": (10, 15)},
-            "Croiseur léger": {"dev_range": (30, 35), "cout_range": (800, 1500), "mois_range": (8, 12)},
-            "Croiseur Lourd": {"dev_range": (40, 45), "cout_range": (1000, 2000), "mois_range": (10, 15)},
-            "Frégate": {"dev_range": (15, 20), "cout_range": (300, 700), "mois_range": (6, 10)},
-            "Porte-Hélicoptère": {"dev_range": (35, 45), "cout_range": (2000, 5000), "mois_range": (10, 15)},
-            "Porte-Avion": {"dev_range": (50, 80), "cout_range": (5000, 10000), "mois_range": (10, 18)},
-            "Sous-marin (Diesel)": {"dev_range": (15, 30), "cout_range": (500, 2000), "mois_range": (8, 15)},
+        "batiments_guerre": {
+            "name": "🚢 Bâtiments de guerre",
+            "engins": {
+                "destroyer": {"name": "Destroyer", "dev_range": (20, 25), "cout_range": (500, 1000), "mois_range": (6, 12)},
+                "cuirasse": {"name": "Cuirassé", "dev_range": (40, 50), "cout_range": (2000, 5000), "mois_range": (10, 15)},
+                "croiseur_leger": {"name": "Croiseur léger", "dev_range": (30, 35), "cout_range": (800, 1500), "mois_range": (8, 12)},
+                "croiseur_lourd": {"name": "Croiseur Lourd", "dev_range": (40, 45), "cout_range": (1000, 2000), "mois_range": (10, 15)},
+                "fregate": {"name": "Frégate", "dev_range": (15, 20), "cout_range": (300, 700), "mois_range": (6, 10)},
+                "porte_helicoptere": {"name": "Porte-Hélicoptère", "dev_range": (35, 45), "cout_range": (2000, 5000), "mois_range": (10, 15)},
+                "porte_avion": {"name": "Porte-Avion", "dev_range": (50, 80), "cout_range": (5000, 10000), "mois_range": (10, 18)},
+                "porte_avion_leger": {"name": "Porte-Avion léger", "dev_range": (25, 40), "cout_range": (2000, 4000), "mois_range": (10, 15)},
+                "porte_avion_nucleaire": {"name": "Porte-Avion (Propulsion nucléaire)", "dev_range": (100, 150), "cout_range": (50000, 80000), "mois_range": (24, 24)},
+                "sous_marin_diesel": {"name": "Sous-marin (Diesel)", "dev_range": (15, 30), "cout_range": (500, 2000), "mois_range": (8, 15)},
+                "snle": {"name": "SNLE", "dev_range": (30, 70), "cout_range": (10000, 30000), "mois_range": (10, 18)},
+                "sna": {"name": "SNA", "dev_range": (30, 70), "cout_range": (10000, 30000), "mois_range": (10, 18)},
+                "corvette": {"name": "Corvette", "dev_range": (20, 30), "cout_range": (400, 800), "mois_range": (6, 10)},
+                "patrouilleur": {"name": "Patrouilleur", "dev_range": (5, 10), "cout_range": (100, 500), "mois_range": (3, 5)},
+                "barge_debarquement": {"name": "Barge de Débarquement", "dev_range": (2, 5), "cout_range": (100, 300), "mois_range": (3, 5)},
+            }
         },
         
-        "✈️ Appareils aériens": {
-            "Avion multirôle": {"dev_range": (10, 15), "cout_range": (350, 700), "mois_range": (8, 12)},
-            "Avion d'attaque au sol": {"dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
-            "Avion de chasse": {"dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
-            "Bombardier tactique": {"dev_range": (20, 25), "cout_range": (500, 700), "mois_range": (8, 12)},
-            "Avion de reconnaissance": {"dev_range": (5, 10), "cout_range": (200, 300), "mois_range": (6, 9)},
-            "Hélicoptère d'attaque": {"dev_range": (9, 15), "cout_range": (100, 300), "mois_range": (6, 12)},
-            "Drone de reconnaissance": {"dev_range": (3, 5), "cout_range": (150, 500), "mois_range": (3, 6)},
+        "appareils_aeriens": {
+            "name": "✈️ Appareils aériens",
+            "engins": {
+                "avion_multirole": {"name": "Avion multirôle", "dev_range": (10, 15), "cout_range": (350, 700), "mois_range": (8, 12)},
+                "avion_attaque_sol": {"name": "Avion d'attaque au sol", "dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
+                "avion_chasse": {"name": "Avion de chasse (interception)", "dev_range": (10, 20), "cout_range": (300, 600), "mois_range": (6, 12)},
+                "bombardier_tactique": {"name": "Bombardier tactique", "dev_range": (20, 25), "cout_range": (500, 700), "mois_range": (8, 12)},
+                "bombardier_strategique": {"name": "Bombardier stratégique", "dev_range": (30, 35), "cout_range": (750, 1000), "mois_range": (10, 12)},
+                "avion_reconnaissance": {"name": "Avion de reconnaissance", "dev_range": (5, 10), "cout_range": (200, 300), "mois_range": (6, 9)},
+                "avion_transport": {"name": "Avion de transport (matériel/troupe)", "dev_range": (10, 20), "cout_range": (500, 700), "mois_range": (6, 12)},
+                "awacs": {"name": "AWACS", "dev_range": (10, 20), "cout_range": (300, 500), "mois_range": (6, 12)},
+                "helicoptere_attaque": {"name": "Hélicoptère d'attaque", "dev_range": (9, 15), "cout_range": (100, 300), "mois_range": (6, 12)},
+                "helicoptere_reconnaissance": {"name": "Hélicoptère de reconnaissance", "dev_range": (5, 10), "cout_range": (75, 200), "mois_range": (6, 9)},
+                "helicoptere_transport": {"name": "Hélicoptère de transport", "dev_range": (9, 15), "cout_range": (200, 400), "mois_range": (6, 12)},
+                "drone_reconnaissance": {"name": "Drone de reconnaissance", "dev_range": (3, 5), "cout_range": (150, 500), "mois_range": (3, 6)},
+                "drone_suicide": {"name": "Drone suicide", "dev_range": (1, 2), "cout_range": (10, 30), "mois_range": (3, 6)},
+                "drone_attaque": {"name": "Drone d'Attaque", "dev_range": (5, 15), "cout_range": (300, 1000), "mois_range": (6, 12)},
+            }
         },
         
-        "🚀 Missiles": {
-            "SRBM (300-1000km)": {"dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
-            "MRBM (1000-3000km)": {"dev_range": (35, 50), "cout_range": (5000, 20000), "mois_range": (12, 18)},
-            "ICBM (+5500km)": {"dev_range": (150, 300), "cout_range": (50000, 50000), "mois_range": (24, 24)},
-            "IRBM (3500-5500km)": {"dev_range": (50, 75), "cout_range": (25000, 25000), "mois_range": (12, 24)},
-            "BRBM (-300km)": {"dev_range": (15, 20), "cout_range": (500, 1500), "mois_range": (8, 12)},
-            "SAM": {"dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
+        "missiles": {
+            "name": "🚀 Missiles",
+            "engins": {
+                "srbm": {"name": "SRBM (300-1000km)", "dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
+                "mrbm": {"name": "MRBM (1000-3000km)", "dev_range": (35, 50), "cout_range": (5000, 20000), "mois_range": (12, 18)},
+                "icbm": {"name": "ICBM (+5500km)", "dev_range": (150, 300), "cout_range": (50000, 50000), "mois_range": (24, 24)},
+                "irbm": {"name": "IRBM (3500-5500km)", "dev_range": (50, 75), "cout_range": (25000, 25000), "mois_range": (12, 24)},
+                "brbm": {"name": "BRBM (-300km)", "dev_range": (15, 20), "cout_range": (500, 1500), "mois_range": (8, 12)},
+                "sam": {"name": "SAM", "dev_range": (20, 25), "cout_range": (500, 2000), "mois_range": (8, 15)},
+                "atgm": {"name": "ATGM", "dev_range": (5, 7), "cout_range": (2, 2), "mois_range": (5, 8)},
+                "manpads": {"name": "MANPADS", "dev_range": (5, 8), "cout_range": (2, 2), "mois_range": (5, 8)},
+            }
         }
     }
     
-    # Générer des valeurs aléatoires pour chaque technologie
-    import random
+    # Vérifier que la catégorie existe
+    if categorie not in technologies:
+        embed = discord.Embed(
+            title="❌ Erreur",
+            description="Catégorie technologique non trouvée.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
     
+    # Vérifier que l'engin existe dans la catégorie
+    if engin not in technologies[categorie]["engins"]:
+        embed = discord.Embed(
+            title="❌ Erreur",
+            description=f"Engin non trouvé dans la catégorie {technologies[categorie]['name']}.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Récupérer les spécifications de l'engin
+    import random
+    engin_specs = technologies[categorie]["engins"][engin]
+    
+    # Générer les valeurs aléatoires
+    cout_dev = random.randint(engin_specs["dev_range"][0], engin_specs["dev_range"][1]) * 1000000  # En millions
+    cout_unite = random.randint(engin_specs["cout_range"][0], engin_specs["cout_range"][1]) * 1000  # En milliers
+    mois = random.randint(engin_specs["mois_range"][0], engin_specs["mois_range"][1])
+    
+    # Créer l'embed de résultat
     embed = discord.Embed(
         title="📊 Bilan Technologique Militaire",
         description=f"**Pays :** {role.mention}\n"
-                   f"**Généré pour :** {interaction.user.mention}\n\n"
-                   f"*Coûts et durées générés aléatoirement selon les standards militaires.*",
+                   f"**Catégorie :** {technologies[categorie]['name']}\n"
+                   f"**Technologie :** {engin_specs['name']}\n"
+                   f"**Généré pour :** {interaction.user.mention}",
         color=EMBED_COLOR,
         timestamp=datetime.datetime.now()
     )
@@ -5097,43 +5280,35 @@ async def bilan_techno(interaction: discord.Interaction, role: discord.Role, ima
     if image:
         embed.set_image(url=image)
     
-    total_cout_dev = 0
-    technologie_choisie = None
-    cout_dev_choisi = 0
-    
-    for categorie, items in technologies.items():
-        # Choisir aléatoirement UNE technologie par catégorie
-        nom_tech, specs = random.choice(list(items.items()))
-        
-        # Générer les valeurs aléatoires dans les fourchettes
-        cout_dev = random.randint(specs["dev_range"][0], specs["dev_range"][1]) * 1000000  # En millions
-        cout_unite = random.randint(specs["cout_range"][0], specs["cout_range"][1]) * 1000  # En milliers
-        mois = random.randint(specs["mois_range"][0], specs["mois_range"][1])
-        
-        # Pour la première itération, garder cette tech pour le bouton
-        if technologie_choisie is None:
-            technologie_choisie = nom_tech
-            cout_dev_choisi = cout_dev
-        
-        total_cout_dev += cout_dev
-        
-        embed.add_field(
-            name=f"{categorie}",
-            value=f"**{nom_tech}**\n"
-                  f"💰 Développement : {format_number(cout_dev)} {MONNAIE_EMOJI}\n"
-                  f"🏭 Prix unitaire : {format_number(cout_unite)} {MONNAIE_EMOJI}\n"
-                  f"⏱️ Durée : {mois} mois",
-            inline=True
-        )
+    # Ajouter les détails techniques
+    embed.add_field(
+        name="💰 Coût de développement",
+        value=f"{format_number(cout_dev)} {MONNAIE_EMOJI}",
+        inline=True
+    )
     
     embed.add_field(
-        name="💎 Coût total estimé",
-        value=f"**{format_number(total_cout_dev)} {MONNAIE_EMOJI}**",
+        name="🏭 Prix unitaire",
+        value=f"{format_number(cout_unite)} {MONNAIE_EMOJI}",
+        inline=True
+    )
+    
+    embed.add_field(
+        name="⏱️ Durée de développement",
+        value=f"{mois} mois",
+        inline=True
+    )
+    
+    embed.add_field(
+        name="� Informations",
+        value=f"*Coûts générés aléatoirement selon les standards militaires*\n"
+              f"*Fourchette dev: {engin_specs['dev_range'][0]}-{engin_specs['dev_range'][1]}M*\n"
+              f"*Fourchette unité: {engin_specs['cout_range'][0]}-{engin_specs['cout_range'][1]}k*",
         inline=False
     )
     
     # Créer la vue avec le bouton de confirmation
-    view = TechnoConfirmView(interaction.user.id, role, total_cout_dev, "Package Technologique Complet")
+    view = TechnoConfirmView(interaction.user.id, role, cout_dev, engin_specs['name'])
     
     await interaction.followup.send(embed=embed, view=view)
 
