@@ -5061,46 +5061,20 @@ async def debat(
                 # Attribuer le rôle
                 await membre.add_roles(debat_role, reason=f"Rôle débat attribué par {interaction.user}")
                 
-                # Message au membre concerné (visible uniquement pour lui)
-                message_content = f"> <:PX_Info:1423870991712653442> | Merci d'aller dans le salon <#{DEBAT_CHANNEL_ID}> afin de ne pas polluer la discussion."
-                
-                # Essayer d'envoyer en DM d'abord
-                try:
-                    await membre.send(message_content)
-                    membres_traités.append((membre, "DM"))
-                except discord.Forbidden:
-                    # Si impossible d'envoyer en DM, créer un webhook temporaire pour un message ciblé
-                    try:
-                        webhook = await interaction.channel.create_webhook(name="Débat Temporaire")
-                        await webhook.send(
-                            content=f"{membre.mention}\n{message_content}",
-                            username="Système de Débat",
-                            avatar_url=interaction.client.user.avatar.url if interaction.client.user.avatar else None
-                        )
-                        await webhook.delete()
-                        membres_traités.append((membre, "salon"))
-                    except:
-                        # En dernier recours, marquer comme traité sans message
-                        membres_traités.append((membre, "simple"))
-                
+                membres_traités.append(membre)
                 print(f"[DEBAT] Rôle attribué à {membre.display_name} par {interaction.user.display_name}")
                 
             except Exception as e:
                 print(f"[ERROR] Erreur pour {membre.display_name}: {e}")
                 membres_erreur.append(membre)
         
-        # Message de confirmation pour l'administrateur (visible uniquement pour lui)
+        # Répondre à l'administrateur avec la confirmation
         confirmation_parts = []
         
         if membres_traités:
             confirmation_parts.append("**✅ Rôles attribués avec succès :**")
-            for membre, method in membres_traités:
-                if method == "DM":
-                    confirmation_parts.append(f"• {membre.mention} (message privé envoyé)")
-                elif method == "salon":
-                    confirmation_parts.append(f"• {membre.mention} (message public envoyé)")
-                else:
-                    confirmation_parts.append(f"• {membre.mention}")
+            for membre in membres_traités:
+                confirmation_parts.append(f"• {membre.mention}")
         
         if membres_avec_role:
             confirmation_parts.append("\n**⚠️ Membres ayant déjà le rôle :**")
@@ -5120,9 +5094,45 @@ async def debat(
             ephemeral=True
         )
         
+        # Envoyer un message temporaire à chaque membre traité
+        # Le message apparaît brièvement dans le salon puis se supprime automatiquement
+        import asyncio
+        for membre in membres_traités:
+            try:
+                message_content = f"{membre.mention}\n> <:PX_Info:1423870991712653442> | Merci d'aller dans le salon <#{DEBAT_CHANNEL_ID}> afin de ne pas polluer la discussion."
+                
+                # Envoyer le message temporaire
+                temp_message = await interaction.channel.send(content=message_content)
+                
+                # Programmer la suppression automatique après 8 secondes
+                async def delete_after_delay():
+                    await asyncio.sleep(8)
+                    try:
+                        await temp_message.delete()
+                    except:
+                        pass
+                
+                asyncio.create_task(delete_after_delay())
+                
+            except Exception as e:
+                print(f"[ERROR] Impossible d'envoyer le message à {membre.display_name}: {e}")
+        
     except discord.Forbidden:
-        await interaction.response.send_message("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
+    except discord.Forbidden:
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
     except Exception as e:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
+        print(f"[ERROR] Erreur dans la commande debat: {e}")
         if not interaction.response.is_done():
             await interaction.response.send_message(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
         else:
