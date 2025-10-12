@@ -1270,13 +1270,27 @@ async def creer_pays(
                 pass  # Utiliser la couleur par défaut
         print(f"[DEBUG] Création du rôle pays : {role_name}")
         role = await interaction.guild.create_role(**role_kwargs)
-        # Définir l'emoji comme icône du rôle si possible
-        if emoji_pays:
+        
+        # Définir l'emoji drapeau_perso comme icône du rôle si fourni
+        if drapeau_perso:
             try:
-                await role.edit(unicode_emoji=emoji_pays)
-                print(f"[DEBUG] Icône du rôle définie sur l'emoji : {emoji_pays}")
+                # Vérifier si c'est un emoji unicode ou personnalisé
+                if drapeau_perso.startswith('<:') or drapeau_perso.startswith('<a:'):
+                    # Emoji personnalisé Discord
+                    await role.edit(display_icon=drapeau_perso)
+                    print(f"[DEBUG] Icône du rôle définie sur l'emoji personnalisé : {drapeau_perso}")
+                else:
+                    # Emoji unicode
+                    await role.edit(unicode_emoji=drapeau_perso)
+                    print(f"[DEBUG] Icône du rôle définie sur l'emoji unicode : {drapeau_perso}")
             except Exception as e:
                 print(f"[ERROR] Impossible de définir l'emoji comme icône de rôle : {e}")
+                # Fallback : essayer avec display_icon si unicode_emoji échoue
+                try:
+                    await role.edit(display_icon=drapeau_perso)
+                    print(f"[DEBUG] Icône du rôle définie via display_icon : {drapeau_perso}")
+                except Exception as e2:
+                    print(f"[ERROR] Échec total pour l'icône de rôle : {e2}")
         # Enregistrement du budget dans balances
         print(f"[DEBUG] Enregistrement du budget pour le pays {role.id} : {budget}")
         balances[str(role.id)] = budget
