@@ -868,6 +868,19 @@ async def on_message(message):
     global levels, xp_system_status, bonus_xp_active
     if message.author.bot or not message.guild:
         return
+    
+    # === SYSTÈME DE DÉBAT - Retrait automatique du rôle ===
+    if message.channel.id == DEBAT_CHANNEL_ID:
+        debat_role = message.guild.get_role(DEBAT_ROLE_ID)
+        if debat_role and debat_role in message.author.roles:
+            try:
+                await message.author.remove_roles(debat_role, reason="A parlé dans le salon débat")
+                print(f"[DEBAT] Rôle débat retiré à {message.author} (ID: {message.author.id}) pour avoir parlé dans le salon débat")
+            except discord.Forbidden:
+                print(f"[DEBAT] Impossible de retirer le rôle débat à {message.author} - permissions insuffisantes")
+            except Exception as e:
+                print(f"[DEBAT] Erreur lors du retrait du rôle débat à {message.author}: {e}")
+    
     guild_id = str(message.guild.id)
     if not xp_system_status["servers"].get(guild_id, False):
         await bot.process_commands(message)
@@ -4991,6 +5004,44 @@ async def creer_webhook(interaction: discord.Interaction, nom: str, avatar: disc
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
         print(f"[ERROR] Erreur dans la commande creer_webhook: {e}")
+
+# === SYSTÈME DE DÉBAT ===
+
+# Configuration du système de débat
+DEBAT_ROLE_ID = 1426763928943333436
+DEBAT_CHANNEL_ID = 1412796642477871268
+
+@bot.tree.command(name="debat", description="Attribue le rôle débat à un membre")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(membre="Membre à qui attribuer le rôle débat")
+async def debat(interaction: discord.Interaction, membre: discord.Member):
+    """Attribue le rôle débat à un membre avec un message d'information."""
+    
+    try:
+        # Récupérer le rôle débat
+        debat_role = interaction.guild.get_role(DEBAT_ROLE_ID)
+        if not debat_role:
+            await interaction.response.send_message("❌ Le rôle débat n'a pas été trouvé sur ce serveur.", ephemeral=True)
+            return
+        
+        # Vérifier si le membre a déjà le rôle
+        if debat_role in membre.roles:
+            await interaction.response.send_message(f"❌ {membre.mention} a déjà le rôle débat.", ephemeral=True)
+            return
+        
+        # Attribuer le rôle
+        await membre.add_roles(debat_role, reason=f"Rôle débat attribué par {interaction.user}")
+        
+        # Envoyer le message (pas en embed)
+        message_content = f"> <:PX_Info:1423870991712653442> | Merci d'aller dans le salon <#1412796642477871268> afin de ne pas polluer la discussion."
+        
+        await interaction.response.send_message(f"{membre.mention}\n{message_content}")
+        
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
+        print(f"[ERROR] Erreur dans la commande debat: {e}")
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
