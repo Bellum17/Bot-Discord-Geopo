@@ -5011,11 +5011,24 @@ async def creer_webhook(interaction: discord.Interaction, nom: str, avatar: disc
 DEBAT_ROLE_ID = 1426763928943333436
 DEBAT_CHANNEL_ID = 1412796642477871268
 
-@bot.tree.command(name="debat", description="Attribue le rôle débat à un membre")
+@bot.tree.command(name="debat", description="Attribue le rôle débat à un ou plusieurs membres")
 @app_commands.checks.has_permissions(administrator=True)
-@app_commands.describe(membre="Membre à qui attribuer le rôle débat")
-async def debat(interaction: discord.Interaction, membre: discord.Member):
-    """Attribue le rôle débat à un membre avec un message d'information."""
+@app_commands.describe(
+    membre1="Premier membre à qui attribuer le rôle débat",
+    membre2="Deuxième membre (optionnel)",
+    membre3="Troisième membre (optionnel)",
+    membre4="Quatrième membre (optionnel)",
+    membre5="Cinquième membre (optionnel)"
+)
+async def debat(
+    interaction: discord.Interaction, 
+    membre1: discord.Member,
+    membre2: discord.Member = None,
+    membre3: discord.Member = None,
+    membre4: discord.Member = None,
+    membre5: discord.Member = None
+):
+    """Attribue le rôle débat à un ou plusieurs membres avec message d'information."""
     
     try:
         # Récupérer le rôle débat
@@ -5024,23 +5037,96 @@ async def debat(interaction: discord.Interaction, membre: discord.Member):
             await interaction.response.send_message("❌ Le rôle débat n'a pas été trouvé sur ce serveur.", ephemeral=True)
             return
         
-        # Vérifier si le membre a déjà le rôle
-        if debat_role in membre.roles:
-            await interaction.response.send_message(f"❌ {membre.mention} a déjà le rôle débat.", ephemeral=True)
-            return
+        # Collecter tous les membres non-None
+        membres = [membre for membre in [membre1, membre2, membre3, membre4, membre5] if membre is not None]
         
-        # Attribuer le rôle
-        await membre.add_roles(debat_role, reason=f"Rôle débat attribué par {interaction.user}")
+        # Supprimer les doublons en conservant l'ordre
+        membres_uniques = []
+        for membre in membres:
+            if membre not in membres_uniques:
+                membres_uniques.append(membre)
         
-        # Envoyer le message (pas en embed)
-        message_content = f"> <:PX_Info:1423870991712653442> | Merci d'aller dans le salon <#1412796642477871268> afin de ne pas polluer la discussion."
+        membres_traités = []
+        membres_avec_role = []
+        membres_erreur = []
         
-        await interaction.response.send_message(f"{membre.mention}\n{message_content}")
+        # Traiter chaque membre
+        for membre in membres_uniques:
+            try:
+                # Vérifier si le membre a déjà le rôle
+                if debat_role in membre.roles:
+                    membres_avec_role.append(membre)
+                    continue
+                
+                # Attribuer le rôle
+                await membre.add_roles(debat_role, reason=f"Rôle débat attribué par {interaction.user}")
+                
+                # Message au membre concerné (visible uniquement pour lui)
+                message_content = f"> <:PX_Info:1423870991712653442> | Merci d'aller dans le salon <#{DEBAT_CHANNEL_ID}> afin de ne pas polluer la discussion."
+                
+                # Essayer d'envoyer en DM d'abord
+                try:
+                    await membre.send(message_content)
+                    membres_traités.append((membre, "DM"))
+                except discord.Forbidden:
+                    # Si impossible d'envoyer en DM, créer un webhook temporaire pour un message ciblé
+                    try:
+                        webhook = await interaction.channel.create_webhook(name="Débat Temporaire")
+                        await webhook.send(
+                            content=f"{membre.mention}\n{message_content}",
+                            username="Système de Débat",
+                            avatar_url=interaction.client.user.avatar.url if interaction.client.user.avatar else None
+                        )
+                        await webhook.delete()
+                        membres_traités.append((membre, "salon"))
+                    except:
+                        # En dernier recours, marquer comme traité sans message
+                        membres_traités.append((membre, "simple"))
+                
+                print(f"[DEBAT] Rôle attribué à {membre.display_name} par {interaction.user.display_name}")
+                
+            except Exception as e:
+                print(f"[ERROR] Erreur pour {membre.display_name}: {e}")
+                membres_erreur.append(membre)
+        
+        # Message de confirmation pour l'administrateur (visible uniquement pour lui)
+        confirmation_parts = []
+        
+        if membres_traités:
+            confirmation_parts.append("**✅ Rôles attribués avec succès :**")
+            for membre, method in membres_traités:
+                if method == "DM":
+                    confirmation_parts.append(f"• {membre.mention} (message privé envoyé)")
+                elif method == "salon":
+                    confirmation_parts.append(f"• {membre.mention} (message public envoyé)")
+                else:
+                    confirmation_parts.append(f"• {membre.mention}")
+        
+        if membres_avec_role:
+            confirmation_parts.append("\n**⚠️ Membres ayant déjà le rôle :**")
+            for membre in membres_avec_role:
+                confirmation_parts.append(f"• {membre.mention}")
+        
+        if membres_erreur:
+            confirmation_parts.append("\n**❌ Erreurs :**")
+            for membre in membres_erreur:
+                confirmation_parts.append(f"• {membre.mention}")
+        
+        if not confirmation_parts:
+            confirmation_parts.append("❌ Aucune action effectuée.")
+        
+        await interaction.response.send_message(
+            "\n".join(confirmation_parts),
+            ephemeral=True
+        )
         
     except discord.Forbidden:
         await interaction.response.send_message("❌ Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
         print(f"[ERROR] Erreur dans la commande debat: {e}")
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
