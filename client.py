@@ -345,6 +345,35 @@ def format_number(number):
         return f"{number:,}".replace(",", " ")
     return str(number)
 
+def format_unit_cost(cost, unit_multiplier):
+    """Formate le coût unitaire avec la bonne unité (milliers/millions)."""
+    if unit_multiplier == 1000000:
+        # Coût en millions
+        millions = cost / 1000000
+        if millions == int(millions):
+            return f"{int(millions)} millions"
+        else:
+            return f"{millions:.1f} millions"
+    elif unit_multiplier == 1000:
+        # Coût en milliers
+        milliers = cost / 1000
+        if milliers == int(milliers):
+            return f"{int(milliers)}k"
+        else:
+            return f"{milliers:.1f}k"
+    else:
+        # Coût en unités de base
+        return f"{format_number(cost)}"
+
+def format_unit_range(min_val, max_val, unit_multiplier):
+    """Formate une fourchette de coûts avec la bonne unité."""
+    if unit_multiplier == 1000000:
+        return f"{min_val} / {max_val} millions"
+    elif unit_multiplier == 1000:
+        return f"{min_val} / {max_val} milliers"
+    else:
+        return f"{min_val} / {max_val}"
+
 # ===== FONCTIONS DE GESTION DES DONNÉES =====
 
 # Fonction pour charger toutes les données
@@ -4967,7 +4996,7 @@ async def creer_webhook(interaction: discord.Interaction, nom: str, avatar: disc
 
 # Vue pour le bouton de confirmation de développement technologique
 class TechnoConfirmView(discord.ui.View):
-    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image):
+    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image, unit_multiplier):
         super().__init__(timeout=None)  # Durée indéfinie
         self.user_id = user_id
         self.role = role
@@ -4979,6 +5008,7 @@ class TechnoConfirmView(discord.ui.View):
         self.cout_unite = cout_unite
         self.mois = mois
         self.image = image
+        self.unit_multiplier = unit_multiplier
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -5034,6 +5064,7 @@ class TechnoConfirmView(discord.ui.View):
             "nom_categorie": self.nom_categorie,
             "cout_dev": self.cout_dev,
             "cout_unite": self.cout_unite,
+            "unit_multiplier": self.unit_multiplier,
             "mois": self.mois,
             "image": self.image,
             "date_creation": datetime.datetime.now().isoformat(),
@@ -5365,7 +5396,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     
     embed.add_field(
         name="🏭 Prix unitaire",
-        value=f"{format_number(cout_unite)} {MONNAIE_EMOJI}",
+        value=f"{format_unit_cost(cout_unite, engin_specs['unit_multiplier'])} {MONNAIE_EMOJI}",
         inline=True
     )
     
@@ -5381,12 +5412,12 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
               f"**Fourchette de Coût de Développement :**\n"
               f"- {engin_specs['dev_range'][0]} / {engin_specs['dev_range'][1]} millions\n\n"
               f"**Fourchette de Coût à l'Unité :**\n"
-              f"- {engin_specs['cout_range'][0]} / {engin_specs['cout_range'][1]} milliers",
+              f"- {format_unit_range(engin_specs['cout_range'][0], engin_specs['cout_range'][1], engin_specs['unit_multiplier'])}",
         inline=False
     )
     
     # Créer la vue avec le bouton de confirmation
-    view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois, image)
+    view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois, image, engin_specs['unit_multiplier'])
     
     await interaction.followup.send(embed=embed, view=view)
 
@@ -5533,7 +5564,7 @@ class DeveloppementsNavigationView(discord.ui.View):
         
         embed.add_field(
             name="🏭 Prix unitaire",
-            value=f"{format_number(dev['cout_unite'])} {MONNAIE_EMOJI}",
+            value=f"{format_unit_cost(dev['cout_unite'], dev.get('unit_multiplier', 1000))} {MONNAIE_EMOJI}",
             inline=True
         )
         
