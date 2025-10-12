@@ -5012,11 +5012,6 @@ class TechnoConfirmView(discord.ui.View):
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Vérifier que c'est la même personne qui confirme
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Seul l'initiateur de la commande peut confirmer le développement.", ephemeral=True)
-            return
-        
         # Vérifier que l'utilisateur a bien le rôle du pays concerné
         if self.role not in interaction.user.roles:
             await interaction.response.send_message(f"❌ Vous devez avoir le rôle {self.role.mention} pour confirmer ce développement.", ephemeral=True)
@@ -5255,6 +5250,17 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     """Génère un bilan technologique avec coûts et durées aléatoires pour un engin spécifique."""
     
     await interaction.response.defer()
+    
+    # Vérifier que l'utilisateur a le rôle pays mentionné
+    if pays not in interaction.user.roles:
+        embed = discord.Embed(
+            title="❌ Accès refusé",
+            description=f"Vous devez avoir le rôle {pays.mention} pour générer un bilan technologique pour ce pays.",
+            color=0xff0000,
+            timestamp=datetime.datetime.now()
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
     
     # Données technologiques basées sur le CSV (excluant les armes à feu)
     technologies = {
