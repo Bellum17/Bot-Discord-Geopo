@@ -5285,9 +5285,9 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Conversion du bonus d'école
     bonus_ecole = int(ecole)
     
-    # Roll de base (1-100) + bonus d'école
+    # Roll de base (1-100) + bonus d'école, plafonné à 100
     roll_base = random.randint(1, 100)
-    roll_final = roll_base + bonus_ecole
+    roll_final = min(roll_base + bonus_ecole, 100)
     
     # Détermination du type de général selon le roll final
     if roll_final <= 19:
@@ -5364,7 +5364,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     
     # Construction de l'embed de résultat
     embed = discord.Embed(
-        title="🎲 Génération de Général",
+        title="🎲 Génération du Général",
         color=EMBED_COLOR
     )
     
