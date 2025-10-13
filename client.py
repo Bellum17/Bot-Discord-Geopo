@@ -5331,8 +5331,12 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Sélection des traits positifs
     traits_positifs_selectionnes = []
     if nb_traits_positifs > 0:
-        # Génie a 1% de chance d'être sélectionné
-        if random.randint(1, 100) == 1:
+        # Génie : 1% de chance de base + 5% supplémentaires si roll > 95
+        chance_genie = 1
+        if roll_final > 95:
+            chance_genie = 5
+        
+        if random.randint(1, 100) <= chance_genie:
             traits_positifs_selectionnes.append("Génie")
             nb_traits_positifs -= 1
         
@@ -5344,10 +5348,15 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Sélection des traits négatifs
     traits_negatifs_selectionnes = []
     if nb_traits_negatifs > 0:
-        # Incompétent a 1% de chance d'être sélectionné, mais seulement si Génie n'est pas déjà présent
-        if "Génie" not in traits_positifs_selectionnes and random.randint(1, 100) == 1:
-            traits_negatifs_selectionnes.append("Incompétent")
-            nb_traits_negatifs -= 1
+        # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Génie n'est pas déjà présent
+        if "Génie" not in traits_positifs_selectionnes:
+            chance_incompetent = 1
+            if roll_final < 16:
+                chance_incompetent = 5
+            
+            if random.randint(1, 100) <= chance_incompetent:
+                traits_negatifs_selectionnes.append("Incompétent")
+                nb_traits_negatifs -= 1
         
         # Compléter avec les autres traits négatifs
         if nb_traits_negatifs > 0:
