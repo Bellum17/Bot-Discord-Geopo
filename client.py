@@ -5318,7 +5318,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     
     # Listes des traits et spécialités
     traits_positifs_base = ["Charismatique", "Courageux", "Sang-froid", "Calculateur", "Orateur de Guerre"]
-    traits_negatifs_base = ["Alcoolique", "Lâche", "Mégalomanie", "Arrogant", "Fanatisme"]
+    traits_negatifs_base = ["Alcoolique", "Lâche", "Mégalomanie", "Arrogant", "Fanatisme", "Indécis", "Colérique", "Paranoïa"]
     
     # Spécialisations selon le domaine
     specialisations = {
@@ -5351,7 +5351,15 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         
         # Compléter avec les autres traits négatifs
         if nb_traits_negatifs > 0:
-            traits_restants = random.sample(traits_negatifs_base, min(nb_traits_negatifs, len(traits_negatifs_base)))
+            # Créer une liste des traits négatifs disponibles
+            traits_negatifs_disponibles = traits_negatifs_base.copy()
+            
+            # Vérifier les conflits : si "Courageux" est dans les traits positifs, retirer "Lâche"
+            if "Courageux" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
+                traits_negatifs_disponibles.remove("Lâche")
+            
+            # Sélectionner les traits négatifs sans conflit
+            traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
             traits_negatifs_selectionnes.extend(traits_restants)
     
     # Sélection des spécialités
