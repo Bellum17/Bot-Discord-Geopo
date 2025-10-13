@@ -5344,8 +5344,8 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Sélection des traits négatifs
     traits_negatifs_selectionnes = []
     if nb_traits_negatifs > 0:
-        # Incompétent a 1% de chance d'être sélectionné
-        if random.randint(1, 100) == 1:
+        # Incompétent a 1% de chance d'être sélectionné, mais seulement si Génie n'est pas déjà présent
+        if "Génie" not in traits_positifs_selectionnes and random.randint(1, 100) == 1:
             traits_negatifs_selectionnes.append("Incompétent")
             nb_traits_negatifs -= 1
         
@@ -5357,6 +5357,10 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
             # Vérifier les conflits : si "Courageux" est dans les traits positifs, retirer "Lâche"
             if "Courageux" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
                 traits_negatifs_disponibles.remove("Lâche")
+            
+            # Vérifier les conflits : si "Génie" est dans les traits positifs, retirer "Incompétent"
+            if "Génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
+                traits_negatifs_disponibles.remove("Incompétent")
             
             # Sélectionner les traits négatifs sans conflit
             traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
