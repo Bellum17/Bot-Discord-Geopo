@@ -5271,8 +5271,8 @@ import random
     discord.app_commands.Choice(name="Petite école (+0)", value="0"),
     discord.app_commands.Choice(name="École militaire moyenne (+5)", value="5"),
     discord.app_commands.Choice(name="Grande École militaire (+10)", value="10"),
-    discord.app_commands.Choice(name="Académie militaire (+20)", value="20"),
-    discord.app_commands.Choice(name="Complexe Universitaire militaire (+40)", value="40")
+    discord.app_commands.Choice(name="Académie militaire (+15)", value="15"),
+    discord.app_commands.Choice(name="Complexe Universitaire militaire (+30)", value="30")
 ])
 @app_commands.choices(domaine=[
     discord.app_commands.Choice(name="Terrestre", value="terrestre"),
@@ -5401,8 +5401,8 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         "0": "Petite école",
         "5": "École militaire moyenne", 
         "10": "Grande École militaire",
-        "20": "Académie militaire",
-        "40": "Complexe Universitaire militaire"
+        "15": "Académie militaire",
+        "30": "Complexe Universitaire militaire"
     }
     
     embed.set_footer(
