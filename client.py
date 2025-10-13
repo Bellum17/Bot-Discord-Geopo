@@ -5258,6 +5258,159 @@ class TechnoConfirmView(discord.ui.View):
         
         await send_log(interaction.guild, embed=log_embed)
 
+# === SYSTÈME DE ROLL GÉNÉRAL ===
+
+import random
+
+@bot.tree.command(name="roll_general", description="Génère un général aléatoire avec traits et spécialités")
+@app_commands.describe(
+    ecole="École militaire du général (influence le bonus de base)",
+    domaine="Domaine de spécialisation du général"
+)
+@app_commands.choices(ecole=[
+    discord.app_commands.Choice(name="Petite école (+0)", value="0"),
+    discord.app_commands.Choice(name="École militaire moyenne (+5)", value="5"),
+    discord.app_commands.Choice(name="Grande École militaire (+10)", value="10"),
+    discord.app_commands.Choice(name="Académie militaire (+20)", value="20"),
+    discord.app_commands.Choice(name="Complexe Universitaire militaire (+40)", value="40")
+])
+@app_commands.choices(domaine=[
+    discord.app_commands.Choice(name="Terrestre", value="terrestre"),
+    discord.app_commands.Choice(name="Aérien", value="aerien"),
+    discord.app_commands.Choice(name="Marine", value="marine")
+])
+async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
+    """Génère un général aléatoire avec traits et spécialités selon le domaine."""
+    
+    # Conversion du bonus d'école
+    bonus_ecole = int(ecole)
+    
+    # Roll de base (1-100) + bonus d'école
+    roll_base = random.randint(1, 100)
+    roll_final = roll_base + bonus_ecole
+    
+    # Détermination du type de général selon le roll final
+    if roll_final <= 19:
+        type_general = "Général médiocre"
+        nb_traits_negatifs = 3
+        nb_traits_positifs = 1
+        nb_specialites = 0
+    elif roll_final <= 39:
+        type_general = "Général peu expérimenté"
+        nb_traits_negatifs = 2
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 59:
+        type_general = "Général expérimenté"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 95:
+        type_general = "Grand Général"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 3
+        nb_specialites = 1
+    else:  # 96-100+
+        type_general = "Excellent Général"
+        nb_traits_negatifs = 0
+        nb_traits_positifs = 3
+        nb_specialites = 2
+    
+    # Listes des traits et spécialités
+    traits_positifs_base = ["Charismatique", "Courageux", "Sang-froid", "Calculateur", "Orateur de Guerre"]
+    traits_negatifs_base = ["Alcoolique", "Lâche", "Mégalomanie", "Arrogant", "Fanatisme"]
+    
+    # Spécialisations selon le domaine
+    specialisations = {
+        "aerien": ["As de la Chasse", "Planificateur de Bombardement"],
+        "terrestre": ["Expert de l'Offensive", "Expert Défensif", "Maître de la Blitzkrieg", 
+                     "Coordinateur de l'Infanterie", "Planificateur de l'Artillerie"],
+        "marine": ["Amiral de ligne", "Loup de mer", "Planificateur de débarquements"]
+    }
+    
+    # Sélection des traits positifs
+    traits_positifs_selectionnes = []
+    if nb_traits_positifs > 0:
+        # Génie a 1% de chance d'être sélectionné
+        if random.randint(1, 100) == 1:
+            traits_positifs_selectionnes.append("Génie")
+            nb_traits_positifs -= 1
+        
+        # Compléter avec les autres traits positifs
+        if nb_traits_positifs > 0:
+            traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
+            traits_positifs_selectionnes.extend(traits_restants)
+    
+    # Sélection des traits négatifs
+    traits_negatifs_selectionnes = []
+    if nb_traits_negatifs > 0:
+        # Incompétent a 1% de chance d'être sélectionné
+        if random.randint(1, 100) == 1:
+            traits_negatifs_selectionnes.append("Incompétent")
+            nb_traits_negatifs -= 1
+        
+        # Compléter avec les autres traits négatifs
+        if nb_traits_negatifs > 0:
+            traits_restants = random.sample(traits_negatifs_base, min(nb_traits_negatifs, len(traits_negatifs_base)))
+            traits_negatifs_selectionnes.extend(traits_restants)
+    
+    # Sélection des spécialités
+    specialites_selectionnees = []
+    if nb_specialites > 0 and domaine in specialisations:
+        specialites_selectionnees = random.sample(
+            specialisations[domaine], 
+            min(nb_specialites, len(specialisations[domaine]))
+        )
+    
+    # Construction de l'embed de résultat
+    embed = discord.Embed(
+        title="🎲 Génération de Général",
+        color=EMBED_COLOR
+    )
+    
+    # Formatage du résultat
+    result_text = f"> − **Résultat du Roll :** {roll_final}\n"
+    result_text += f"> − **Type de Général tiré :** {type_general}\n"
+    
+    # Traits positifs
+    result_text += "> − **Traits positifs :**\n"
+    if traits_positifs_selectionnes:
+        result_text += f"> - {', '.join(traits_positifs_selectionnes)}\n"
+    else:
+        result_text += "> - Aucun\n"
+    
+    # Traits négatifs
+    result_text += "> − **Traits négatifs :**\n"
+    if traits_negatifs_selectionnes:
+        result_text += f"> - {', '.join(traits_negatifs_selectionnes)}\n"
+    else:
+        result_text += "> - Aucun\n"
+    
+    # Spécialités
+    result_text += "> − **Spécialité :**\n"
+    if specialites_selectionnees:
+        result_text += f"> - {', '.join(specialites_selectionnees)}\n"
+    else:
+        result_text += "> - Aucune spécialité\n"
+    
+    embed.description = result_text
+    embed.set_image(url=IMAGE_URL)
+    
+    # Informations supplémentaires en footer
+    ecole_names = {
+        "0": "Petite école",
+        "5": "École militaire moyenne", 
+        "10": "Grande École militaire",
+        "20": "Académie militaire",
+        "40": "Complexe Universitaire militaire"
+    }
+    
+    embed.set_footer(
+        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole})"
+    )
+    
+    await interaction.response.send_message(embed=embed)
+
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
 # Chemin du fichier pour les développements technologiques
