@@ -1,0 +1,14 @@
+{
+  "ruina_ai": {
+    "api_key": "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",
+    "api_url": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "anthropic/claude-3.5-sonnet",
+    "max_tokens": 1000,
+    "temperature": 0.7,
+    "system_prompt": "Tu es Ruina AI, une intelligence artificielle spécialisée dans l'assistance aux membres du serveur Discord Geoppo. Tu es utile, créative et adaptée au contexte géopolitique et militaire du serveur. Tu peux aider avec les stratégies, l'analyse géopolitique, les conseils militaires, et toute question liée au jeu de rôle. Réponds de manière claire et concise en français.",
+    "headers": {
+      "HTTP-Referer": "https://discord-bot-geoppo.com",
+      "X-Title": "Bot Discord Geoppo - Ruina AI"
+    }
+  }
+}

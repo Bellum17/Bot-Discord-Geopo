@@ -5676,7 +5676,44 @@ class BackupConfirmView(discord.ui.Modal, title="Confirmation de Backup"):
             
             embed.set_footer(text=f"Backup créée par {interaction.user.display_name}")
             
-            await interaction.edit_original_response(content=None, embed=embed)
+            # Message de confirmation avec mention
+            confirmation_message = f"🎉 **{interaction.user.mention}** Votre backup a été créée avec succès !\n📁 Fichier : `{filename}`"
+            
+            await interaction.edit_original_response(content=confirmation_message, embed=embed)
+            
+            # Envoyer aussi un message de confirmation dans le salon (non éphémère)
+            try:
+                confirmation_embed = discord.Embed(
+                    title="✅ Backup Créée",
+                    description=(
+                        f"Une backup du serveur **{guild.name}** a été créée avec succès !\n\n"
+                        f"📁 **Fichier :** `{filename}`\n"
+                        f"👤 **Créée par :** {interaction.user.mention}\n"
+                        f"📊 **Éléments sauvegardés :** {sum(stats.values())} au total\n"
+                        f"⏰ **Horodatage :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M:%S')}"
+                    ),
+                    color=0x00ff00,
+                    timestamp=datetime.datetime.now()
+                )
+                
+                stats_text = "\n".join([f"• **{key} :** {value}" for key, value in stats.items()])
+                confirmation_embed.add_field(
+                    name="📈 Détails de la Sauvegarde",
+                    value=stats_text,
+                    inline=False
+                )
+                
+                confirmation_embed.add_field(
+                    name="🔒 Sécurité",
+                    value="Cette backup contient des données sensibles. Stockez-la en lieu sûr !",
+                    inline=False
+                )
+                
+                # Envoyer dans le salon actuel
+                await interaction.followup.send(embed=confirmation_embed)
+                
+            except Exception as follow_error:
+                print(f"[ERROR] Erreur lors de l'envoi du message de confirmation : {follow_error}")
             
         except Exception as e:
             error_embed = discord.Embed(
@@ -6159,6 +6196,521 @@ async def select_backup_error(interaction: discord.Interaction, error: app_comma
     else:
         await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
         print(f"[ERROR] Erreur dans select_backup: {error}")
+
+# Vue pour la confirmation de suppression de backup avec code
+class DeleteBackupConfirmView(discord.ui.Modal, title="Confirmation de Suppression"):
+    def __init__(self, filename):
+        super().__init__()
+        self.filename = filename
+    
+    code = discord.ui.TextInput(
+        label="Code de confirmation",
+        placeholder="Entrez le code de confirmation pour supprimer...",
+        required=True,
+        max_length=6
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.code.value != "240806":
+            await interaction.response.send_message("❌ Code de confirmation incorrect !", ephemeral=True)
+            return
+        
+        try:
+            filepath = os.path.join(DATA_DIR, self.filename)
+            
+            # Vérifier que le fichier existe
+            if not os.path.exists(filepath):
+                await interaction.response.send_message(
+                    f"❌ Le fichier `{self.filename}` n'existe pas.",
+                    ephemeral=True
+                )
+                return
+            
+            # Charger les informations de la backup avant suppression
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    backup_data = json.load(f)
+                
+                server_name = backup_data.get("guild_info", {}).get("name", "Serveur Inconnu")
+                backup_timestamp = backup_data.get("backup_timestamp", "Date inconnue")
+                
+                # Calculer les statistiques
+                stats = {
+                    "Rôles": len(backup_data.get("roles", [])),
+                    "Catégories": len(backup_data.get("categories", [])),
+                    "Salons": len(backup_data.get("channels", [])),
+                    "Fils": len(backup_data.get("threads", [])),
+                    "Webhooks": len(backup_data.get("webhooks", [])),
+                    "Emojis": len(backup_data.get("emojis", [])),
+                    "Stickers": len(backup_data.get("stickers", [])),
+                    "Membres": len(backup_data.get("members", [])),
+                    "Bannissements": len(backup_data.get("bans", [])),
+                    "Invitations": len(backup_data.get("invites", [])),
+                    "Salons avec messages": len(backup_data.get("messages", {}))
+                }
+                
+            except (json.JSONDecodeError, KeyError):
+                server_name = "Serveur Inconnu"
+                backup_timestamp = "Date inconnue"
+                stats = {"Éléments": "Impossible de lire"}
+            
+            # Supprimer le fichier
+            os.remove(filepath)
+            
+            # Créer l'embed de confirmation de suppression
+            embed = discord.Embed(
+                title="🗑️ Backup Supprimée",
+                description=f"La backup **{self.filename}** a été supprimée avec succès !",
+                color=0xff6600,
+                timestamp=datetime.datetime.now()
+            )
+            
+            embed.add_field(
+                name="📋 Informations de la Backup Supprimée",
+                value=(
+                    f"**Serveur :** {server_name}\n"
+                    f"**Date de création :** {backup_timestamp[:19] if len(backup_timestamp) > 19 else backup_timestamp}\n"
+                    f"**Supprimée par :** {interaction.user.mention}"
+                ),
+                inline=False
+            )
+            
+            if isinstance(stats.get("Éléments"), str):
+                embed.add_field(
+                    name="⚠️ Contenu",
+                    value="Impossible de lire le contenu (fichier corrompu)",
+                    inline=False
+                )
+            else:
+                stats_text = "\n".join([f"• **{key} :** {value}" for key, value in stats.items()])
+                embed.add_field(
+                    name="📊 Contenu Supprimé",
+                    value=stats_text,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="⚠️ Action Irréversible",
+                value="Cette backup ne peut plus être récupérée. Assurez-vous d'avoir une copie si nécessaire.",
+                inline=False
+            )
+            
+            embed.set_footer(text=f"Suppression effectuée par {interaction.user.display_name}")
+            
+            await interaction.response.send_message(embed=embed)
+            
+            # Message de confirmation dans le salon (non éphémère)
+            try:
+                public_embed = discord.Embed(
+                    title="🗑️ Backup Supprimée",
+                    description=(
+                        f"Une backup a été supprimée du système.\n\n"
+                        f"📁 **Fichier :** `{self.filename}`\n"
+                        f"🏛️ **Serveur :** {server_name}\n"
+                        f"👤 **Supprimée par :** {interaction.user.mention}\n"
+                        f"⏰ **Suppression :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M:%S')}"
+                    ),
+                    color=0xff6600,
+                    timestamp=datetime.datetime.now()
+                )
+                
+                public_embed.add_field(
+                    name="🔒 Sécurité",
+                    value="Action irréversible effectuée avec code de confirmation.",
+                    inline=False
+                )
+                
+                await interaction.followup.send(embed=public_embed)
+                
+            except Exception as follow_error:
+                print(f"[ERROR] Erreur lors de l'envoi du message public de suppression : {follow_error}")
+            
+        except FileNotFoundError:
+            await interaction.response.send_message(
+                f"❌ Le fichier `{self.filename}` n'existe pas.",
+                ephemeral=True
+            )
+        except PermissionError:
+            await interaction.response.send_message(
+                f"❌ Permissions insuffisantes pour supprimer le fichier `{self.filename}`.",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Erreur lors de la suppression : {str(e)}",
+                ephemeral=True
+            )
+            print(f"[ERROR] Erreur lors de la suppression de backup: {e}")
+
+# Classe pour la sélection de backup à supprimer
+class DeleteBackupSelectView(discord.ui.View):
+    def __init__(self, backup_files):
+        super().__init__(timeout=300)
+        self.backup_files = backup_files
+        
+        # Menu déroulant pour sélectionner la backup à supprimer
+        options = []
+        for filename in backup_files:
+            # Extraire les infos du nom de fichier
+            parts = filename.replace('.json', '').split('_')
+            if len(parts) >= 3:
+                server_name = '_'.join(parts[1:-2]) if len(parts) > 3 else parts[1]
+                date_part = parts[-2]
+                time_part = parts[-1]
+                
+                # Formater la date et l'heure
+                try:
+                    date_formatted = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                    time_formatted = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                    label = f"{server_name} - {date_formatted} {time_formatted}"
+                except:
+                    label = filename.replace('.json', '')
+                
+                options.append(discord.SelectOption(
+                    label=label[:100],  # Limite Discord
+                    description=f"Supprimer la backup de {server_name}"[:100],
+                    value=filename,
+                    emoji="🗑️"
+                ))
+        
+        if options:
+            self.select_backup = discord.ui.Select(
+                placeholder="Choisissez une backup à supprimer...",
+                options=options[:25]  # Limite Discord de 25 options
+            )
+            self.select_backup.callback = self.backup_selected
+            self.add_item(self.select_backup)
+    
+    async def backup_selected(self, interaction: discord.Interaction):
+        """Callback quand une backup est sélectionnée pour suppression."""
+        filename = self.select_backup.values[0]
+        
+        # Confirmation avant suppression
+        embed = discord.Embed(
+            title="⚠️ Confirmation de Suppression",
+            description=(
+                f"Vous êtes sur le point de **SUPPRIMER DÉFINITIVEMENT** la backup :\n"
+                f"📁 `{filename}`\n\n"
+                "**🚨 ATTENTION CRITIQUE :**\n"
+                "• Cette action est **IRRÉVERSIBLE**\n"
+                "• Le fichier sera **DÉFINITIVEMENT SUPPRIMÉ**\n"
+                "• Aucune récupération ne sera possible\n"
+                "• Assurez-vous d'avoir une copie si nécessaire\n\n"
+                "Pour confirmer cette suppression définitive, cliquez sur le bouton ci-dessous et entrez le code de confirmation."
+            ),
+            color=0xff0000
+        )
+        
+        # Bouton de confirmation finale
+        confirm_view = discord.ui.View(timeout=60)
+        
+        confirm_btn = discord.ui.Button(
+            label="SUPPRIMER DÉFINITIVEMENT",
+            style=discord.ButtonStyle.danger,
+            emoji="🗑️"
+        )
+        
+        cancel_btn = discord.ui.Button(
+            label="Annuler",
+            style=discord.ButtonStyle.secondary,
+            emoji="❌"
+        )
+        
+        async def confirm_delete(btn_interaction):
+            if btn_interaction.user.id != interaction.user.id:
+                await btn_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
+                return
+            
+            modal = DeleteBackupConfirmView(filename)
+            await btn_interaction.response.send_modal(modal)
+        
+        async def cancel_delete(btn_interaction):
+            if btn_interaction.user.id != interaction.user.id:
+                await btn_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut annuler.", ephemeral=True)
+                return
+            
+            cancel_embed = discord.Embed(
+                title="❌ Suppression Annulée",
+                description="La suppression de la backup a été annulée.",
+                color=0x808080
+            )
+            await btn_interaction.response.edit_message(embed=cancel_embed, view=None)
+        
+        confirm_btn.callback = confirm_delete
+        cancel_btn.callback = cancel_delete
+        
+        confirm_view.add_item(confirm_btn)
+        confirm_view.add_item(cancel_btn)
+        
+        await interaction.response.edit_message(embed=embed, view=confirm_view)
+
+@bot.tree.command(name="supprimer_backup", description="Supprime définitivement une backup du serveur")
+@app_commands.checks.has_permissions(administrator=True)
+async def supprimer_backup(interaction: discord.Interaction):
+    """Permet de supprimer définitivement une backup existante."""
+    
+    # Chercher tous les fichiers de backup
+    backup_files = []
+    if os.path.exists(DATA_DIR):
+        for filename in os.listdir(DATA_DIR):
+            if filename.startswith("backup_") and filename.endswith(".json"):
+                backup_files.append(filename)
+    
+    if not backup_files:
+        embed = discord.Embed(
+            title="❌ Aucune Backup Trouvée",
+            description="Aucun fichier de backup n'a été trouvé dans le dossier data/.",
+            color=0xff0000
+        )
+        embed.add_field(
+            name="💡 Information",
+            value="Il n'y a actuellement aucune backup à supprimer.",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Trier les fichiers par date (plus récent en premier)
+    backup_files.sort(reverse=True)
+    
+    # Créer l'embed de sélection
+    embed = discord.Embed(
+        title="🗑️ Suppression de Backup",
+        description=(
+            f"**{len(backup_files)} backup(s) disponible(s) pour suppression**\n\n"
+            "Sélectionnez la backup à supprimer dans le menu ci-dessous.\n\n"
+            "⚠️ **ATTENTION :** Cette action est **IRRÉVERSIBLE** !\n"
+            "🔐 **Code de confirmation requis :** 240806"
+        ),
+        color=0xff6600
+    )
+    
+    embed.add_field(
+        name="📋 Backups Disponibles",
+        value=f"Utilisez le menu déroulant pour voir les {len(backup_files)} backup(s)",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🚨 Avertissement",
+        value="Une fois supprimée, une backup ne peut plus être récupérée. Assurez-vous d'avoir une copie de sauvegarde si nécessaire.",
+        inline=False
+    )
+    
+    embed.set_footer(text="Cette action nécessite les permissions administrateur")
+    
+    # Créer la vue avec le menu déroulant
+    view = DeleteBackupSelectView(backup_files)
+    
+    if not view.children:  # Aucun select menu créé (pas de backups valides)
+        embed.description = "❌ Aucune backup valide trouvée."
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+@supprimer_backup.error
+async def supprimer_backup_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Gestionnaire d'erreur pour la commande supprimer_backup."""
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("❌ Vous devez être administrateur pour utiliser cette commande.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
+        print(f"[ERROR] Erreur dans supprimer_backup: {error}")
+
+# === SYSTÈME RUINA AI ===
+
+import requests
+
+# Fichier de configuration pour Ruina AI
+AI_CONFIG_FILE = os.path.join(DATA_DIR, "ai_config.json")
+
+def load_ai_config():
+    """Charge la configuration AI depuis le fichier JSON."""
+    if not os.path.exists(AI_CONFIG_FILE):
+        return None
+    
+    try:
+        with open(AI_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config.get("ruina_ai")
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du chargement de la config AI: {e}")
+        return None
+
+async def call_ruina_ai(user_content: str) -> str:
+    """Appelle l'API Ruina AI et retourne la réponse."""
+    config = load_ai_config()
+    if not config:
+        return "❌ Configuration AI non disponible. Contactez un administrateur."
+    
+    headers = {
+        "Authorization": f"Bearer {config['api_key']}",
+        "Content-Type": "application/json"
+    }
+    
+    # Ajouter les headers optionnels pour OpenRouter
+    if "headers" in config:
+        headers.update(config["headers"])
+    
+    data = {
+        "model": config["model"],
+        "messages": [
+            {
+                "role": "system", 
+                "content": config["system_prompt"]
+            },
+            {
+                "role": "user", 
+                "content": user_content
+            }
+        ],
+        "max_tokens": config["max_tokens"],
+        "temperature": config["temperature"]
+    }
+    
+    try:
+        response = requests.post(
+            config["api_url"],
+            headers=headers,
+            json=data,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if "choices" in result and len(result["choices"]) > 0:
+                ai_response = result["choices"][0]["message"]["content"]
+                
+                # Limiter la taille de la réponse pour Discord (2000 caractères max)
+                if len(ai_response) > 1900:
+                    ai_response = ai_response[:1900] + "\n\n*[Réponse tronquée]*"
+                
+                return ai_response
+            else:
+                return "❌ Réponse vide de l'IA. Réessayez plus tard."
+        else:
+            print(f"[ERROR] API AI Error {response.status_code}: {response.text}")
+            return "❌ Erreur lors de la communication avec l'IA. Réessayez plus tard."
+            
+    except requests.exceptions.Timeout:
+        return "❌ Timeout - L'IA met trop de temps à répondre. Réessayez avec une question plus courte."
+    except requests.exceptions.ConnectionError:
+        return "❌ Erreur de connexion à l'IA. Vérifiez votre connexion internet."
+    except Exception as e:
+        print(f"[ERROR] Erreur AI: {e}")
+        return "❌ Erreur inattendue lors de l'appel à l'IA."
+
+@bot.tree.command(name="ruina_ai", description="Posez une question à Ruina AI, l'assistant IA du serveur")
+@app_commands.describe(
+    contenu="Votre question ou demande pour Ruina AI"
+)
+async def ruina_ai(interaction: discord.Interaction, contenu: str):
+    """Commande pour interagir avec Ruina AI."""
+    
+    # Vérification de la longueur du contenu
+    if len(contenu) > 1500:
+        await interaction.response.send_message(
+            "❌ Votre message est trop long (max 1500 caractères). Veuillez le raccourcir.",
+            ephemeral=True
+        )
+        return
+    
+    if len(contenu.strip()) < 3:
+        await interaction.response.send_message(
+            "❌ Votre message est trop court. Posez une vraie question !",
+            ephemeral=True
+        )
+        return
+    
+    # Embed de chargement
+    loading_embed = discord.Embed(
+        title="🤖 Ruina AI",
+        description="⏳ Ruina AI réfléchit à votre question...",
+        color=0x7289da,
+        timestamp=datetime.datetime.now()
+    )
+    
+    loading_embed.add_field(
+        name="📝 Votre question",
+        value=f"```{contenu}```",
+        inline=False
+    )
+    
+    loading_embed.set_footer(
+        text=f"Demandé par {interaction.user.display_name}",
+        icon_url=interaction.user.display_avatar.url
+    )
+    
+    await interaction.response.send_message(embed=loading_embed)
+    
+    # Appeler l'IA
+    try:
+        ai_response = await call_ruina_ai(contenu)
+        
+        # Embed de réponse
+        response_embed = discord.Embed(
+            title="🤖 Ruina AI",
+            description=ai_response,
+            color=0x00ff00,
+            timestamp=datetime.datetime.now()
+        )
+        
+        response_embed.add_field(
+            name="📝 Votre question",
+            value=f"```{contenu}```",
+            inline=False
+        )
+        
+        response_embed.set_footer(
+            text=f"Réponse pour {interaction.user.display_name} • Modèle: Claude 3.5 Sonnet",
+            icon_url=interaction.user.display_avatar.url
+        )
+        
+        await interaction.edit_original_response(embed=response_embed)
+        
+        # Log de l'utilisation
+        print(f"[AI] {interaction.user.display_name} a utilisé Ruina AI: {contenu[:50]}...")
+        
+    except Exception as e:
+        error_embed = discord.Embed(
+            title="🤖 Ruina AI",
+            description="❌ Une erreur s'est produite lors du traitement de votre demande.",
+            color=0xff0000,
+            timestamp=datetime.datetime.now()
+        )
+        
+        error_embed.add_field(
+            name="🔧 Que faire ?",
+            value="• Réessayez dans quelques secondes\n• Vérifiez que votre question est claire\n• Contactez un administrateur si le problème persiste",
+            inline=False
+        )
+        
+        await interaction.edit_original_response(embed=error_embed)
+        print(f"[ERROR] Erreur Ruina AI pour {interaction.user.display_name}: {e}")
+
+@ruina_ai.error
+async def ruina_ai_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Gestionnaire d'erreur pour la commande ruina_ai."""
+    error_embed = discord.Embed(
+        title="❌ Erreur Ruina AI",
+        description="Une erreur s'est produite lors de l'exécution de la commande.",
+        color=0xff0000
+    )
+    
+    if isinstance(error, app_commands.CommandOnCooldown):
+        error_embed.description = f"⏰ Commande en cooldown. Réessayez dans {error.retry_after:.1f} secondes."
+    
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+        else:
+            await interaction.edit_original_response(embed=error_embed)
+    except:
+        pass
+    
+    print(f"[ERROR] Erreur dans ruina_ai: {error}")
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
