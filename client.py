@@ -5313,6 +5313,15 @@ async def action_tech(
     except Exception as e:
         print(f"[ERROR] Erreur lors de l'envoi du log action_tech: {e}")
 
+@action_tech.error
+async def action_tech_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Gestionnaire d'erreur pour la commande action_tech."""
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("❌ Vous devez être administrateur pour utiliser cette commande.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
+        print(f"[ERROR] Erreur dans action_tech: {error}")
+
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
 # Vue pour le bouton de confirmation de développement technologique
