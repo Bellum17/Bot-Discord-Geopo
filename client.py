@@ -5321,6 +5321,845 @@ async def action_tech_error(interaction: discord.Interaction, error: app_command
         await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
         print(f"[ERROR] Erreur dans action_tech: {error}")
 
+# === SYSTÈME DE BACKUP SERVEUR ===
+
+# Vue pour la confirmation de backup avec code
+class BackupConfirmView(discord.ui.Modal, title="Confirmation de Backup"):
+    def __init__(self, guild_id):
+        super().__init__()
+        self.guild_id = guild_id
+    
+    code = discord.ui.TextInput(
+        label="Code de confirmation",
+        placeholder="Entrez le code de confirmation...",
+        required=True,
+        max_length=6
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.code.value != "240806":
+            await interaction.response.send_message("❌ Code de confirmation incorrect !", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        
+        try:
+            # Créer la structure de backup
+            backup_data = {
+                "guild_info": {
+                    "name": guild.name,
+                    "description": guild.description,
+                    "icon_url": str(guild.icon.url) if guild.icon else None,
+                    "banner_url": str(guild.banner.url) if guild.banner else None,
+                    "splash_url": str(guild.splash.url) if guild.splash else None,
+                    "verification_level": str(guild.verification_level),
+                    "default_notifications": str(guild.default_notifications),
+                    "explicit_content_filter": str(guild.explicit_content_filter),
+                    "preferred_locale": str(guild.preferred_locale),
+                    "afk_timeout": guild.afk_timeout,
+                    "mfa_level": guild.mfa_level,
+                    "vanity_url": guild.vanity_url_code,
+                    "premium_tier": guild.premium_tier,
+                    "system_channel_flags": guild.system_channel_flags.value if guild.system_channel_flags else None,
+                    "features": list(guild.features)
+                },
+                "roles": [],
+                "categories": [],
+                "channels": [],
+                "threads": [],
+                "webhooks": [],
+                "emojis": [],
+                "stickers": [],
+                "members": [],
+                "bans": [],
+                "invites": [],
+                "messages": {},
+                "backup_timestamp": datetime.datetime.now().isoformat()
+            }
+            
+            # Sauvegarder les rôles
+            for role in guild.roles:
+                if not role.is_default():  # Ignorer @everyone
+                    role_data = {
+                        "name": role.name,
+                        "color": role.color.value,
+                        "hoist": role.hoist,
+                        "mentionable": role.mentionable,
+                        "permissions": role.permissions.value,
+                        "position": role.position,
+                        "icon_url": str(role.icon.url) if role.icon else None,
+                        "unicode_emoji": role.unicode_emoji
+                    }
+                    backup_data["roles"].append(role_data)
+            
+            # Sauvegarder les catégories
+            for category in guild.categories:
+                category_data = {
+                    "name": category.name,
+                    "position": category.position,
+                    "nsfw": category.nsfw,
+                    "overwrites": {}
+                }
+                
+                # Permissions de la catégorie
+                for target, overwrite in category.overwrites.items():
+                    if isinstance(target, discord.Role):
+                        category_data["overwrites"][f"role_{target.name}"] = {
+                            "allow": overwrite.pair()[0].value,
+                            "deny": overwrite.pair()[1].value
+                        }
+                    elif isinstance(target, discord.Member):
+                        category_data["overwrites"][f"member_{target.id}"] = {
+                            "allow": overwrite.pair()[0].value,
+                            "deny": overwrite.pair()[1].value
+                        }
+                
+                backup_data["categories"].append(category_data)
+            
+            # Sauvegarder les salons
+            for channel in guild.channels:
+                if isinstance(channel, discord.CategoryChannel):
+                    continue  # Déjà traité
+                
+                channel_data = {
+                    "name": channel.name,
+                    "type": str(channel.type),
+                    "position": channel.position,
+                    "category": channel.category.name if channel.category else None,
+                    "overwrites": {},
+                    "nsfw": getattr(channel, 'nsfw', False)
+                }
+                
+                # Attributs spécifiques selon le type
+                if isinstance(channel, discord.TextChannel):
+                    channel_data.update({
+                        "topic": channel.topic,
+                        "slowmode_delay": channel.slowmode_delay,
+                        "default_auto_archive_duration": channel.default_auto_archive_duration,
+                        "default_thread_slowmode_delay": getattr(channel, 'default_thread_slowmode_delay', 0)
+                    })
+                elif isinstance(channel, discord.VoiceChannel):
+                    channel_data.update({
+                        "bitrate": channel.bitrate,
+                        "user_limit": channel.user_limit,
+                        "rtc_region": str(channel.rtc_region) if channel.rtc_region else None
+                    })
+                elif isinstance(channel, discord.ForumChannel):
+                    channel_data.update({
+                        "topic": channel.topic,
+                        "slowmode_delay": channel.slowmode_delay,
+                        "default_auto_archive_duration": channel.default_auto_archive_duration,
+                        "default_sort_order": str(channel.default_sort_order) if channel.default_sort_order else None,
+                        "default_layout": str(channel.default_layout) if channel.default_layout else None,
+                        "available_tags": [{"name": tag.name, "emoji": str(tag.emoji) if tag.emoji else None, "moderated": tag.moderated} for tag in channel.available_tags]
+                    })
+                elif isinstance(channel, discord.StageChannel):
+                    channel_data.update({
+                        "bitrate": channel.bitrate,
+                        "user_limit": channel.user_limit,
+                        "rtc_region": str(channel.rtc_region) if channel.rtc_region else None,
+                        "topic": channel.topic
+                    })
+                
+                # Permissions du salon
+                for target, overwrite in channel.overwrites.items():
+                    if isinstance(target, discord.Role):
+                        channel_data["overwrites"][f"role_{target.name}"] = {
+                            "allow": overwrite.pair()[0].value,
+                            "deny": overwrite.pair()[1].value
+                        }
+                    elif isinstance(target, discord.Member):
+                        channel_data["overwrites"][f"member_{target.id}"] = {
+                            "allow": overwrite.pair()[0].value,
+                            "deny": overwrite.pair()[1].value
+                        }
+                
+                backup_data["channels"].append(channel_data)
+            
+            # Sauvegarder les fils de discussion
+            for channel in guild.text_channels:
+                try:
+                    async for thread in channel.archived_threads(limit=None):
+                        thread_data = {
+                            "name": thread.name,
+                            "parent_channel": channel.name,
+                            "auto_archive_duration": thread.auto_archive_duration,
+                            "slowmode_delay": thread.slowmode_delay,
+                            "locked": thread.locked,
+                            "archived": thread.archived,
+                            "invitable": getattr(thread, 'invitable', True),
+                            "type": str(thread.type),
+                            "created_at": thread.created_at.isoformat() if thread.created_at else None
+                        }
+                        backup_data["threads"].append(thread_data)
+                    
+                    # Fils actifs
+                    for thread in channel.threads:
+                        thread_data = {
+                            "name": thread.name,
+                            "parent_channel": channel.name,
+                            "auto_archive_duration": thread.auto_archive_duration,
+                            "slowmode_delay": thread.slowmode_delay,
+                            "locked": thread.locked,
+                            "archived": thread.archived,
+                            "invitable": getattr(thread, 'invitable', True),
+                            "type": str(thread.type),
+                            "created_at": thread.created_at.isoformat() if thread.created_at else None
+                        }
+                        backup_data["threads"].append(thread_data)
+                except:
+                    pass  # Ignorer les erreurs de permissions
+            
+            # Sauvegarder les webhooks
+            for channel in guild.text_channels:
+                try:
+                    webhooks = await channel.webhooks()
+                    for webhook in webhooks:
+                        webhook_data = {
+                            "name": webhook.name,
+                            "channel": channel.name,
+                            "avatar_url": str(webhook.avatar.url) if webhook.avatar else None,
+                            "url": webhook.url
+                        }
+                        backup_data["webhooks"].append(webhook_data)
+                except:
+                    pass  # Ignorer les erreurs de permissions
+            
+            # Sauvegarder les emojis
+            for emoji in guild.emojis:
+                emoji_data = {
+                    "name": emoji.name,
+                    "animated": emoji.animated,
+                    "url": str(emoji.url),
+                    "available": emoji.available,
+                    "managed": emoji.managed,
+                    "require_colons": emoji.require_colons,
+                    "roles": [role.name for role in emoji.roles] if emoji.roles else []
+                }
+                backup_data["emojis"].append(emoji_data)
+            
+            # Sauvegarder les stickers
+            for sticker in guild.stickers:
+                sticker_data = {
+                    "name": sticker.name,
+                    "description": sticker.description,
+                    "emoji": str(sticker.emoji) if sticker.emoji else None,
+                    "format": str(sticker.format),
+                    "available": sticker.available,
+                    "url": str(sticker.url)
+                }
+                backup_data["stickers"].append(sticker_data)
+            
+            # Sauvegarder les membres (info de base uniquement)
+            for member in guild.members:
+                if not member.bot:  # Ignorer les bots
+                    member_data = {
+                        "id": member.id,
+                        "name": member.name,
+                        "display_name": member.display_name,
+                        "discriminator": member.discriminator,
+                        "avatar_url": str(member.avatar.url) if member.avatar else None,
+                        "joined_at": member.joined_at.isoformat() if member.joined_at else None,
+                        "roles": [role.name for role in member.roles if not role.is_default()],
+                        "premium_since": member.premium_since.isoformat() if member.premium_since else None,
+                        "nick": member.nick
+                    }
+                    backup_data["members"].append(member_data)
+            
+            # Sauvegarder les bannissements
+            try:
+                async for ban in guild.bans():
+                    ban_data = {
+                        "user_id": ban.user.id,
+                        "user_name": ban.user.name,
+                        "reason": ban.reason
+                    }
+                    backup_data["bans"].append(ban_data)
+            except:
+                pass  # Ignorer les erreurs de permissions
+            
+            # Sauvegarder les invitations
+            try:
+                invites = await guild.invites()
+                for invite in invites:
+                    invite_data = {
+                        "code": invite.code,
+                        "channel": invite.channel.name if invite.channel else None,
+                        "inviter": invite.inviter.name if invite.inviter else None,
+                        "uses": invite.uses,
+                        "max_uses": invite.max_uses,
+                        "max_age": invite.max_age,
+                        "temporary": invite.temporary,
+                        "created_at": invite.created_at.isoformat() if invite.created_at else None,
+                        "expires_at": invite.expires_at.isoformat() if invite.expires_at else None
+                    }
+                    backup_data["invites"].append(invite_data)
+            except:
+                pass  # Ignorer les erreurs de permissions
+            
+            # Sauvegarder les messages (limité aux 1000 derniers par salon)
+            await interaction.edit_original_response(content="📨 Sauvegarde des messages en cours...")
+            
+            for channel in guild.text_channels:
+                try:
+                    messages = []
+                    async for message in channel.history(limit=1000):
+                        message_data = {
+                            "id": message.id,
+                            "author": message.author.name,
+                            "author_id": message.author.id,
+                            "content": message.content,
+                            "timestamp": message.created_at.isoformat(),
+                            "edited_at": message.edited_at.isoformat() if message.edited_at else None,
+                            "pinned": message.pinned,
+                            "tts": message.tts,
+                            "embeds": [embed.to_dict() for embed in message.embeds],
+                            "attachments": [{"filename": att.filename, "url": att.url} for att in message.attachments],
+                            "reactions": [{"emoji": str(reaction.emoji), "count": reaction.count} for reaction in message.reactions]
+                        }
+                        messages.append(message_data)
+                    
+                    if messages:
+                        backup_data["messages"][channel.name] = messages
+                except:
+                    pass  # Ignorer les erreurs de permissions
+            
+            # Sauvegarder dans un fichier JSON
+            filename = f"backup_{guild.name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(backup_data, f, indent=2, ensure_ascii=False)
+            
+            # Calculer les statistiques
+            stats = {
+                "Rôles": len(backup_data["roles"]),
+                "Catégories": len(backup_data["categories"]),
+                "Salons": len(backup_data["channels"]),
+                "Fils": len(backup_data["threads"]),
+                "Webhooks": len(backup_data["webhooks"]),
+                "Emojis": len(backup_data["emojis"]),
+                "Stickers": len(backup_data["stickers"]),
+                "Membres": len(backup_data["members"]),
+                "Bannissements": len(backup_data["bans"]),
+                "Invitations": len(backup_data["invites"]),
+                "Salons avec messages": len(backup_data["messages"])
+            }
+            
+            # Créer l'embed de confirmation
+            embed = discord.Embed(
+                title="✅ Backup Terminée",
+                description=f"La sauvegarde complète du serveur **{guild.name}** a été créée avec succès !",
+                color=0x00ff00,
+                timestamp=datetime.datetime.now()
+            )
+            
+            stats_text = "\n".join([f"**{key} :** {value}" for key, value in stats.items()])
+            embed.add_field(
+                name="📊 Statistiques de la Backup",
+                value=stats_text,
+                inline=False
+            )
+            
+            embed.add_field(
+                name="📁 Fichier",
+                value=f"`{filename}`",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="⚠️ Note",
+                value="Cette backup contient tous les éléments du serveur. Gardez ce fichier en sécurité !",
+                inline=False
+            )
+            
+            embed.set_footer(text=f"Backup créée par {interaction.user.display_name}")
+            
+            await interaction.edit_original_response(content=None, embed=embed)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Erreur de Backup",
+                description=f"Une erreur s'est produite lors de la création de la backup :\n```{str(e)}```",
+                color=0xff0000
+            )
+            await interaction.edit_original_response(content=None, embed=error_embed)
+            print(f"[ERROR] Erreur lors de la backup: {e}")
+
+@bot.tree.command(name="backup", description="Crée une sauvegarde complète du serveur")
+@app_commands.checks.has_permissions(administrator=True)
+async def backup(interaction: discord.Interaction):
+    """Crée une backup complète du serveur avec confirmation par code."""
+    
+    # Embed d'avertissement
+    embed = discord.Embed(
+        title="⚠️ Backup du Serveur",
+        description=(
+            "Vous êtes sur le point de créer une **sauvegarde complète** du serveur.\n\n"
+            "**Cette backup incluera :**\n"
+            "🏛️ Informations du serveur\n"
+            "🎭 Tous les rôles et permissions\n"
+            "📁 Toutes les catégories\n"
+            "💬 Tous les salons (texte, vocal, forum, stage)\n"
+            "🧵 Tous les fils de discussion\n"
+            "🔗 Tous les webhooks\n"
+            "😄 Tous les emojis et stickers\n"
+            "👥 Informations des membres\n"
+            "🚫 Liste des bannissements\n"
+            "🎟️ Invitations actives\n"
+            "📨 Messages récents (100 derniers par salon)\n\n"
+            "**⚠️ Attention :** Cette opération peut prendre plusieurs minutes selon la taille du serveur."
+        ),
+        color=0xff9900
+    )
+    
+    embed.add_field(
+        name="🔐 Confirmation Requise",
+        value="Pour confirmer cette action, cliquez sur le bouton ci-dessous et entrez le code de confirmation.",
+        inline=False
+    )
+    
+    embed.set_footer(text="Cette action nécessite les permissions administrateur")
+    
+    # Vue avec bouton de confirmation
+    view = discord.ui.View()
+    
+    confirm_button = discord.ui.Button(
+        label="Confirmer la Backup",
+        style=discord.ButtonStyle.danger,
+        emoji="💾"
+    )
+    
+    async def confirm_callback(button_interaction):
+        if button_interaction.user.id != interaction.user.id:
+            await button_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
+            return
+        
+        modal = BackupConfirmView(interaction.guild.id)
+        await button_interaction.response.send_modal(modal)
+    
+    confirm_button.callback = confirm_callback
+    view.add_item(confirm_button)
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+@backup.error
+async def backup_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Gestionnaire d'erreur pour la commande backup."""
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("❌ Vous devez être administrateur pour utiliser cette commande.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
+        print(f"[ERROR] Erreur dans backup: {error}")
+
+# Classe pour la sélection de backup avec menu déroulant
+class BackupSelectView(discord.ui.View):
+    def __init__(self, backup_files):
+        super().__init__(timeout=300)
+        self.backup_files = backup_files
+        
+        # Menu déroulant pour sélectionner la backup
+        options = []
+        for filename in backup_files:
+            # Extraire les infos du nom de fichier
+            parts = filename.replace('.json', '').split('_')
+            if len(parts) >= 3:
+                server_name = '_'.join(parts[1:-2]) if len(parts) > 3 else parts[1]
+                date_part = parts[-2]
+                time_part = parts[-1]
+                
+                # Formater la date et l'heure
+                try:
+                    date_formatted = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                    time_formatted = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                    label = f"{server_name} - {date_formatted} {time_formatted}"
+                except:
+                    label = filename.replace('.json', '')
+                
+                options.append(discord.SelectOption(
+                    label=label[:100],  # Limite Discord
+                    description=f"Backup du serveur {server_name}"[:100],
+                    value=filename
+                ))
+        
+        if options:
+            self.select_backup = discord.ui.Select(
+                placeholder="Choisissez une backup à restaurer...",
+                options=options[:25]  # Limite Discord de 25 options
+            )
+            self.select_backup.callback = self.backup_selected
+            self.add_item(self.select_backup)
+    
+    async def backup_selected(self, interaction: discord.Interaction):
+        """Callback quand une backup est sélectionnée."""
+        filename = self.select_backup.values[0]
+        
+        # Confirmation avant restauration
+        embed = discord.Embed(
+            title="⚠️ Confirmation de Restauration",
+            description=(
+                f"Vous êtes sur le point de **RESTAURER** la backup :\n"
+                f"📁 `{filename}`\n\n"
+                "**🚨 ATTENTION CRITIQUE :**\n"
+                "• **TOUS les éléments actuels du serveur seront SUPPRIMÉS**\n"
+                "• Cette action est **IRRÉVERSIBLE**\n"
+                "• Le serveur sera entièrement reconstruit selon la backup\n\n"
+                "**Éléments qui seront restaurés :**\n"
+                "🎭 Rôles • 📁 Catégories • 💬 Salons\n"
+                "🧵 Fils • 🔗 Webhooks • 😄 Emojis\n"
+                "👥 Membres (rôles) • 🚫 Bans\n\n"
+                "⏱️ **Temps estimé :** 5-30 minutes selon la taille"
+            ),
+            color=0xff0000
+        )
+        
+        # Boutons de confirmation finale
+        confirm_view = discord.ui.View(timeout=60)
+        
+        confirm_btn = discord.ui.Button(
+            label="CONFIRMER LA RESTAURATION",
+            style=discord.ButtonStyle.danger,
+            emoji="💥"
+        )
+        
+        cancel_btn = discord.ui.Button(
+            label="Annuler",
+            style=discord.ButtonStyle.secondary,
+            emoji="❌"
+        )
+        
+        async def confirm_restore(btn_interaction):
+            if btn_interaction.user.id != interaction.user.id:
+                await btn_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
+                return
+            
+            await btn_interaction.response.defer()
+            await self.restore_backup(btn_interaction, filename)
+        
+        async def cancel_restore(btn_interaction):
+            if btn_interaction.user.id != interaction.user.id:
+                await btn_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut annuler.", ephemeral=True)
+                return
+            
+            cancel_embed = discord.Embed(
+                title="❌ Restauration Annulée",
+                description="La restauration de la backup a été annulée.",
+                color=0x808080
+            )
+            await btn_interaction.response.edit_message(embed=cancel_embed, view=None)
+        
+        confirm_btn.callback = confirm_restore
+        cancel_btn.callback = cancel_restore
+        
+        confirm_view.add_item(confirm_btn)
+        confirm_view.add_item(cancel_btn)
+        
+        await interaction.response.edit_message(embed=embed, view=confirm_view)
+    
+    async def restore_backup(self, interaction: discord.Interaction, filename: str):
+        """Restaure une backup complète."""
+        try:
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            # Charger les données de backup
+            with open(filepath, 'r', encoding='utf-8') as f:
+                backup_data = json.load(f)
+            
+            guild = interaction.guild
+            
+            # Embed de progression
+            progress_embed = discord.Embed(
+                title="🔄 Restauration en cours...",
+                description="Suppression des éléments actuels...",
+                color=0xff9900
+            )
+            await interaction.edit_original_response(embed=progress_embed, view=None)
+            
+            # 1. Supprimer tous les salons existants (sauf celui où on écrit)
+            current_channel = interaction.channel
+            progress_embed.description = "🗑️ Suppression des salons existants..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            for channel in list(guild.channels):
+                if channel.id != current_channel.id and not isinstance(channel, discord.CategoryChannel):
+                    try:
+                        await channel.delete(reason="Restauration de backup")
+                    except:
+                        pass
+            
+            # 2. Supprimer les catégories
+            for category in list(guild.categories):
+                try:
+                    await category.delete(reason="Restauration de backup")
+                except:
+                    pass
+            
+            # 3. Supprimer les rôles (sauf @everyone et rôles protégés)
+            progress_embed.description = "🎭 Suppression des rôles existants..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            for role in list(guild.roles):
+                if not role.is_default() and not role.is_bot_managed() and not role.is_premium_subscriber():
+                    try:
+                        await role.delete(reason="Restauration de backup")
+                    except:
+                        pass
+            
+            # 4. Recréer les rôles
+            progress_embed.description = "🎭 Création des rôles..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            role_mapping = {}  # Pour mapper les anciens noms aux nouveaux rôles
+            
+            # Trier les rôles par position (du plus bas au plus haut)
+            sorted_roles = sorted(backup_data.get("roles", []), key=lambda r: r.get("position", 0))
+            
+            for role_data in sorted_roles:
+                try:
+                    permissions = discord.Permissions(role_data.get("permissions", 0))
+                    new_role = await guild.create_role(
+                        name=role_data["name"],
+                        color=discord.Color(role_data.get("color", 0)),
+                        hoist=role_data.get("hoist", False),
+                        mentionable=role_data.get("mentionable", False),
+                        permissions=permissions,
+                        reason="Restauration de backup"
+                    )
+                    role_mapping[role_data["name"]] = new_role
+                except Exception as e:
+                    print(f"Erreur création rôle {role_data['name']}: {e}")
+            
+            # 5. Recréer les catégories
+            progress_embed.description = "📁 Création des catégories..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            category_mapping = {}
+            
+            for category_data in backup_data.get("categories", []):
+                try:
+                    # Créer les overwrites
+                    overwrites = {}
+                    for target_name, overwrite_data in category_data.get("overwrites", {}).items():
+                        if target_name.startswith("role_"):
+                            role_name = target_name[5:]  # Enlever "role_"
+                            if role_name in role_mapping:
+                                allow = discord.Permissions(overwrite_data.get("allow", 0))
+                                deny = discord.Permissions(overwrite_data.get("deny", 0))
+                                overwrites[role_mapping[role_name]] = discord.PermissionOverwrite.from_pair(allow, deny)
+                    
+                    new_category = await guild.create_category(
+                        name=category_data["name"],
+                        overwrites=overwrites,
+                        reason="Restauration de backup"
+                    )
+                    category_mapping[category_data["name"]] = new_category
+                except Exception as e:
+                    print(f"Erreur création catégorie {category_data['name']}: {e}")
+            
+            # 6. Recréer les salons
+            progress_embed.description = "💬 Création des salons..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            channel_mapping = {}
+            
+            # Trier les salons par position
+            sorted_channels = sorted(backup_data.get("channels", []), key=lambda c: c.get("position", 0))
+            
+            for channel_data in sorted_channels:
+                try:
+                    # Déterminer la catégorie
+                    category = None
+                    if channel_data.get("category") and channel_data["category"] in category_mapping:
+                        category = category_mapping[channel_data["category"]]
+                    
+                    # Créer les overwrites
+                    overwrites = {}
+                    for target_name, overwrite_data in channel_data.get("overwrites", {}).items():
+                        if target_name.startswith("role_"):
+                            role_name = target_name[5:]
+                            if role_name in role_mapping:
+                                allow = discord.Permissions(overwrite_data.get("allow", 0))
+                                deny = discord.Permissions(overwrite_data.get("deny", 0))
+                                overwrites[role_mapping[role_name]] = discord.PermissionOverwrite.from_pair(allow, deny)
+                    
+                    # Créer selon le type
+                    channel_type = channel_data.get("type", "text")
+                    
+                    if "text" in channel_type.lower():
+                        new_channel = await guild.create_text_channel(
+                            name=channel_data["name"],
+                            category=category,
+                            topic=channel_data.get("topic"),
+                            slowmode_delay=channel_data.get("slowmode_delay", 0),
+                            nsfw=channel_data.get("nsfw", False),
+                            overwrites=overwrites,
+                            reason="Restauration de backup"
+                        )
+                    elif "voice" in channel_type.lower():
+                        new_channel = await guild.create_voice_channel(
+                            name=channel_data["name"],
+                            category=category,
+                            bitrate=min(channel_data.get("bitrate", 64000), guild.bitrate_limit),
+                            user_limit=channel_data.get("user_limit", 0),
+                            overwrites=overwrites,
+                            reason="Restauration de backup"
+                        )
+                    elif "forum" in channel_type.lower():
+                        # Les forums nécessitent des permissions spéciales
+                        new_channel = await guild.create_forum(
+                            name=channel_data["name"],
+                            category=category,
+                            topic=channel_data.get("topic"),
+                            overwrites=overwrites,
+                            reason="Restauration de backup"
+                        )
+                    elif "stage" in channel_type.lower():
+                        new_channel = await guild.create_stage_channel(
+                            name=channel_data["name"],
+                            category=category,
+                            topic=channel_data.get("topic"),
+                            overwrites=overwrites,
+                            reason="Restauration de backup"
+                        )
+                    else:
+                        # Par défaut, salon texte
+                        new_channel = await guild.create_text_channel(
+                            name=channel_data["name"],
+                            category=category,
+                            overwrites=overwrites,
+                            reason="Restauration de backup"
+                        )
+                    
+                    channel_mapping[channel_data["name"]] = new_channel
+                    
+                except Exception as e:
+                    print(f"Erreur création salon {channel_data['name']}: {e}")
+            
+            # 7. Restaurer les rôles des membres
+            progress_embed.description = "👥 Restauration des rôles des membres..."
+            await interaction.edit_original_response(embed=progress_embed)
+            
+            for member_data in backup_data.get("members", []):
+                try:
+                    member = guild.get_member(member_data["id"])
+                    if member:
+                        # Assigner les rôles
+                        roles_to_add = []
+                        for role_name in member_data.get("roles", []):
+                            if role_name in role_mapping:
+                                roles_to_add.append(role_mapping[role_name])
+                        
+                        if roles_to_add:
+                            await member.add_roles(*roles_to_add, reason="Restauration de backup")
+                        
+                        # Restaurer le surnom
+                        if member_data.get("nick") and member_data["nick"] != member.display_name:
+                            try:
+                                await member.edit(nick=member_data["nick"], reason="Restauration de backup")
+                            except:
+                                pass
+                except Exception as e:
+                    print(f"Erreur restauration membre {member_data.get('name', 'Unknown')}: {e}")
+            
+            # 8. Finalisation
+            progress_embed.title = "✅ Restauration Terminée"
+            progress_embed.description = (
+                f"La backup **{filename}** a été restaurée avec succès !\n\n"
+                f"**Éléments restaurés :**\n"
+                f"🎭 Rôles : {len(backup_data.get('roles', []))}\n"
+                f"📁 Catégories : {len(backup_data.get('categories', []))}\n"
+                f"💬 Salons : {len(backup_data.get('channels', []))}\n"
+                f"👥 Membres traités : {len(backup_data.get('members', []))}\n\n"
+                f"⚠️ **Note :** Les messages, webhooks et emojis nécessitent une restauration manuelle."
+            )
+            progress_embed.color = 0x00ff00
+            
+            await interaction.edit_original_response(embed=progress_embed)
+            
+        except FileNotFoundError:
+            error_embed = discord.Embed(
+                title="❌ Fichier non trouvé",
+                description=f"Le fichier de backup `{filename}` n'existe pas.",
+                color=0xff0000
+            )
+            await interaction.edit_original_response(embed=error_embed, view=None)
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Erreur de Restauration",
+                description=f"Une erreur s'est produite lors de la restauration :\n```{str(e)}```",
+                color=0xff0000
+            )
+            await interaction.edit_original_response(embed=error_embed, view=None)
+            print(f"[ERROR] Erreur lors de la restauration: {e}")
+
+@bot.tree.command(name="select_backup", description="Sélectionne et restaure une backup du serveur")
+@app_commands.checks.has_permissions(administrator=True)
+async def select_backup(interaction: discord.Interaction):
+    """Permet de sélectionner et restaurer une backup existante."""
+    
+    # Chercher tous les fichiers de backup
+    backup_files = []
+    if os.path.exists(DATA_DIR):
+        for filename in os.listdir(DATA_DIR):
+            if filename.startswith("backup_") and filename.endswith(".json"):
+                backup_files.append(filename)
+    
+    if not backup_files:
+        embed = discord.Embed(
+            title="❌ Aucune Backup Trouvée",
+            description="Aucun fichier de backup n'a été trouvé dans le dossier data/.",
+            color=0xff0000
+        )
+        embed.add_field(
+            name="💡 Suggestion",
+            value="Utilisez `/backup` pour créer une sauvegarde d'abord.",
+            inline=False
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Trier les fichiers par date (plus récent en premier)
+    backup_files.sort(reverse=True)
+    
+    # Créer l'embed de sélection
+    embed = discord.Embed(
+        title="🔄 Sélection de Backup",
+        description=(
+            f"**{len(backup_files)} backup(s) disponible(s)**\n\n"
+            "Sélectionnez la backup à restaurer dans le menu ci-dessous.\n\n"
+            "⚠️ **ATTENTION :** La restauration supprimera **TOUT** le contenu actuel du serveur !"
+        ),
+        color=0x0099ff
+    )
+    
+    embed.add_field(
+        name="📋 Backups Disponibles",
+        value=f"Utilisez le menu déroulant pour voir les {len(backup_files)} backup(s)",
+        inline=False
+    )
+    
+    embed.set_footer(text="Cette action nécessite les permissions administrateur")
+    
+    # Créer la vue avec le menu déroulant
+    view = BackupSelectView(backup_files)
+    
+    if not view.children:  # Aucun select menu créé (pas de backups valides)
+        embed.description = "❌ Aucune backup valide trouvée."
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+@select_backup.error
+async def select_backup_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Gestionnaire d'erreur pour la commande select_backup."""
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("❌ Vous devez être administrateur pour utiliser cette commande.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Une erreur s'est produite lors de l'exécution de la commande.", ephemeral=True)
+        print(f"[ERROR] Erreur dans select_backup: {error}")
+
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
 # Vue pour le bouton de confirmation de développement technologique
