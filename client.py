@@ -5184,20 +5184,20 @@ async def action_tech(
         return
     
     # Calcul des coefficients selon les critères
-    # Base : 1 point technologique
-    points_base = 1.0
+    # Base : 5 points technologiques
+    points_base = 5.0
     
-    # Coefficient Qualité (Q) : ×1.5 max
-    # Échelle : 1=×0.3, 2=×0.6, 3=×0.9, 4=×1.2, 5=×1.5
-    coeff_qualite = (qualite * 1.5) / 5
+    # Coefficient Qualité (Q) : ×2 max
+    # Échelle : 1=×0.4, 2=×0.8, 3=×1.2, 4=×1.6, 5=×2.0
+    coeff_qualite = (qualite * 2.0) / 5
     
     # Coefficient Applicabilité (A) : ×1.25 max  
     # Échelle : 1=×0.25, 2=×0.5, 3=×0.75, 4=×1.0, 5=×1.25
     coeff_applicabilite = (applicabilite * 1.25) / 5
     
-    # Coefficient Impact (M) : ×1.25 max
-    # Échelle : 1=×0.25, 2=×0.5, 3=×0.75, 4=×1.0, 5=×1.25
-    coeff_impact = (impact * 1.25) / 5
+    # Coefficient Impact (M) : ×1.5 max
+    # Échelle : 1=×0.3, 2=×0.6, 3=×0.9, 4=×1.2, 5=×1.5
+    coeff_impact = (impact * 1.5) / 5
     
     # Calcul du total
     total_coefficient = coeff_qualite + coeff_applicabilite + coeff_impact
@@ -5251,7 +5251,7 @@ async def action_tech(
     embed.add_field(
         name="🧮 Calcul Final",
         value=(
-            f"**Base :** {points_base} point technologique\n"
+            f"**Base :** {points_base} points technologiques\n"
             f"**Coefficient total :** ×{total_coefficient:.2f}\n"
             f"**Points attribués :** {points_finaux:.2f} points"
         ),
@@ -5275,10 +5275,10 @@ async def action_tech(
     embed.add_field(
         name="⚡ Coefficients Max",
         value=(
-            "**Qualité :** ×1.5\n"
+            "**Qualité :** ×2.0\n"
             "**Applicabilité :** ×1.25\n"
-            "**Impact :** ×1.25\n"
-            "**Total max :** ×4.0"
+            "**Impact :** ×1.5\n"
+            "**Total max :** ×4.75"
         ),
         inline=True
     )
