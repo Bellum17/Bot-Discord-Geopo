@@ -6520,8 +6520,6 @@ async def supprimer_backup_error(interaction: discord.Interaction, error: app_co
 
 # === SYSTÈME RUINA AI ===
 
-import requests
-
 # Fichier de configuration pour Ruina AI
 AI_CONFIG_FILE = os.path.join(DATA_DIR, "ai_config.json")
 
@@ -6539,68 +6537,59 @@ def load_ai_config():
         return None
 
 async def call_ruina_ai(user_content: str) -> str:
-    """Appelle l'API Ruina AI et retourne la réponse."""
+    """Appelle Ruina AI en mode gratuit (sans API externe)."""
     config = load_ai_config()
     if not config:
         return "❌ Configuration AI non disponible. Contactez un administrateur."
     
-    headers = {
-        "Authorization": f"Bearer {config['api_key']}",
-        "Content-Type": "application/json"
-    }
+    # Utiliser uniquement le système de réponses intelligentes
+    return get_fallback_response(user_content, config)
+
+def get_fallback_response(user_content: str, config: dict) -> str:
+    """Retourne une réponse intelligente basée sur des mots-clés."""
+    import random
     
-    # Ajouter les headers optionnels pour OpenRouter
-    if "headers" in config:
-        headers.update(config["headers"])
+    user_lower = user_content.lower()
     
-    data = {
-        "model": config["model"],
-        "messages": [
-            {
-                "role": "system", 
-                "content": config["system_prompt"]
-            },
-            {
-                "role": "user", 
-                "content": user_content
-            }
-        ],
-        "max_tokens": config["max_tokens"],
-        "temperature": config["temperature"]
-    }
+    # Réponses spécialisées selon les mots-clés
+    if any(word in user_lower for word in ["stratégie", "militaire", "guerre", "combat", "attaque"]):
+        responses = [
+            "🎯 **Analyse stratégique :** Pour une stratégie militaire efficace, considérez :\n• **Reconnaissance** : Évaluez les forces ennemies\n• **Logistique** : Assurez vos approvisionnements\n• **Terrain** : Exploitez les avantages géographiques\n• **Timing** : Choisissez le moment optimal",
+            "⚔️ **Conseil militaire :** La supériorité tactique repose sur :\n• **Intelligence** : Collecte d'informations\n• **Mobilité** : Rapidité de déploiement\n• **Coordination** : Synchronisation des forces\n• **Adaptabilité** : Flexibilité face à l'imprévu"
+        ]
     
-    try:
-        response = requests.post(
-            config["api_url"],
-            headers=headers,
-            json=data,
-            timeout=60
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            
-            if "choices" in result and len(result["choices"]) > 0:
-                ai_response = result["choices"][0]["message"]["content"]
-                
-                # Limiter la taille de la réponse pour Discord (2000 caractères max)
-                if len(ai_response) > 1900:
-                    ai_response = ai_response[:1900] + "\n\n*[Réponse tronquée]*"
-                
-                return ai_response
-            else:
-                return "❌ Réponse vide de l'IA. Réessayez plus tard."
-        else:
-            print(f"[ERROR] API AI Error {response.status_code}: {response.text}")
-            return "❌ Erreur lors de la communication avec l'IA. Réessayez plus tard."
-            
-    except requests.exceptions.Timeout:
-        return "❌ Timeout - L'IA met trop de temps à répondre. Réessayez avec une question plus courte."
-    except requests.exceptions.ConnectionError:
-        return "❌ Erreur de connexion à l'IA. Vérifiez votre connexion internet."
-    except Exception as e:
-        print(f"[ERROR] Erreur AI: {e}")
-        return "❌ Erreur inattendue lors de l'appel à l'IA."
+    elif any(word in user_lower for word in ["diplomatie", "alliance", "négociation", "traité"]):
+        responses = [
+            "🤝 **Analyse diplomatique :** Pour réussir en diplomatie :\n• **Écoute active** : Comprenez les intérêts adverses\n• **Win-Win** : Cherchez des bénéfices mutuels\n• **Patience** : Les négociations prennent du temps\n• **Crédibilité** : Respectez vos engagements",
+            "🌐 **Géopolitique :** Les alliances réussies nécessitent :\n• **Intérêts communs** : Objectifs partagés\n• **Équilibre des forces** : Partenaires équivalents\n• **Flexibilité** : Adaptation aux circonstances\n• **Communication** : Dialogue constant"
+        ]
+    
+    elif any(word in user_lower for word in ["économie", "ressources", "commerce", "finance"]):
+        responses = [
+            "💰 **Analyse économique :** Pour une économie forte :\n• **Diversification** : Variez vos sources de revenus\n• **Innovation** : Investissez dans la technologie\n• **Commerce** : Développez les échanges\n• **Stabilité** : Maintenez l'équilibre budgétaire",
+            "📈 **Stratégie économique :** Les piliers de la prospérité :\n• **Infrastructure** : Routes, ports, communications\n• **Éducation** : Formation de la population\n• **Recherche** : Développement technologique\n• **Partenariats** : Coopération internationale"
+        ]
+    
+    elif any(word in user_lower for word in ["salut", "bonjour", "hello", "présent"]):
+        responses = [
+            f"👋 Salut ! Je suis **Ruina AI**, votre assistant IA spécialisé en géopolitique pour le serveur Geoppo !\n\n🎯 Je peux vous aider avec :\n• Stratégies militaires\n• Analyses géopolitiques\n• Conseils diplomatiques\n• Gestion des ressources\n\nPosez-moi vos questions !",
+            f"🤖 Bonjour ! **Ruina AI** à votre service !\n\nEn tant qu'expert en géopolitique, je peux analyser :\n• 🗺️ Situations géographiques\n• ⚔️ Tactiques militaires\n• 🤝 Relations diplomatiques\n• 📊 Données économiques\n\nQue puis-je analyser pour vous ?"
+        ]
+    
+    else:
+        # Réponses générales du config
+        responses = config.get("fallback_responses", [
+            "🤖 Ruina AI analyse votre question... En tant qu'expert en géopolitique, je recommande une approche méthodique pour résoudre ce type de problème.",
+            "🎯 Excellente question ! Pour le contexte du serveur Geoppo, il faut considérer les aspects diplomatiques, militaires et économiques de cette situation.",
+            "⚔️ D'un point de vue stratégique, cette situation nécessite une analyse approfondie des forces en présence et des alliances possibles."
+        ])
+    
+    response = random.choice(responses)
+    
+    # Ajouter une note sur l'IA gratuite
+    response += f"\n\n*💡 Ruina AI fonctionne en mode gratuit optimisé pour Geoppo*"
+    
+    return response
 
 @bot.tree.command(name="ruina_ai", description="Posez une question à Ruina AI, l'assistant IA du serveur")
 @app_commands.describe(
@@ -6664,7 +6653,7 @@ async def ruina_ai(interaction: discord.Interaction, contenu: str):
         )
         
         response_embed.set_footer(
-            text=f"Réponse pour {interaction.user.display_name} • Modèle: Claude 3.5 Sonnet",
+            text=f"Réponse pour {interaction.user.display_name} • Mode IA Gratuit",
             icon_url=interaction.user.display_avatar.url
         )
         
