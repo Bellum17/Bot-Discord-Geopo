@@ -6536,14 +6536,78 @@ def load_ai_config():
         print(f"[ERROR] Erreur lors du chargement de la config AI: {e}")
         return None
 
-async def call_ruina_ai(user_content: str) -> str:
-    """Appelle Ruina AI en mode gratuit (sans API externe)."""
+async def call_ruina_ai(user_content: str, guild_id: int = None, channel_id: int = None, user_id: int = None) -> str:
+    """Appelle Ruina AI avec analyse contextuelle du serveur."""
     config = load_ai_config()
     if not config:
         return "❌ Configuration AI non disponible. Contactez un administrateur."
     
-    # Utiliser uniquement le système de réponses intelligentes
-    return get_fallback_response(user_content, config)
+    try:
+        # Analyse contextuelle du serveur
+        context_info = ""
+        if guild_id:
+            try:
+                guild = bot.get_guild(guild_id)
+                if guild:
+                    # Informations du serveur
+                    member_count = guild.member_count
+                    channel_count = len(guild.channels)
+                    role_count = len(guild.roles)
+                    
+                    context_info = f"\n\n🏛️ **Contexte serveur {guild.name}:**\n"
+                    context_info += f"• 👥 {member_count} membres\n"
+                    context_info += f"• 📝 {channel_count} canaux\n"
+                    context_info += f"• 🎭 {role_count} rôles\n"
+                    
+                    # Analyse des canaux récents si possible
+                    if channel_id:
+                        channel = bot.get_channel(channel_id)
+                        if channel and hasattr(channel, 'history'):
+                            recent_messages = []
+                            async for message in channel.history(limit=5):
+                                if message.content and not message.author.bot:
+                                    # Extraire les liens des messages
+                                    links = []
+                                    import re
+                                    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+                                    links = re.findall(url_pattern, message.content)
+                                    
+                                    msg_info = f"@{message.author.display_name}: {message.content[:100]}"
+                                    if links:
+                                        msg_info += f" [🔗{len(links)} liens]"
+                                    recent_messages.append(msg_info)
+                            
+                            if recent_messages:
+                                context_info += f"\n📋 **Messages récents dans #{channel.name}:**\n"
+                                for msg in recent_messages[:3]:
+                                    context_info += f"• {msg}\n"
+            except Exception as e:
+                print(f"Erreur analyse contexte: {e}")
+        
+        # Générer la réponse de base
+        response = get_fallback_response(user_content, config)
+        
+        # Analyser les liens dans la question de l'utilisateur
+        import re
+        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        user_links = re.findall(url_pattern, user_content)
+        
+        if user_links:
+            response += f"\n\n🔗 **Liens détectés dans votre message:** {len(user_links)} lien(s)\n"
+            for i, link in enumerate(user_links[:3], 1):
+                response += f"{i}. {link}\n"
+            response += "*💡 Ruina AI peut analyser le contexte des liens fournis*"
+        
+        # Ajouter le contexte du serveur
+        if context_info:
+            response += context_info
+        
+        response += f"\n\n*🤖 Ruina AI fonctionne en mode gratuit optimisé pour Pax Ruinae*"
+        return response
+        
+    except Exception as e:
+        print(f"Erreur Ruina AI: {e}")
+        return f"⚠️ Ruina AI rencontre une difficulté technique. Mes systèmes d'analyse géopolitique sont temporairement perturbés.\n\n*Mode dégradé activé pour Pax Ruinae*"
 
 def get_fallback_response(user_content: str, config: dict) -> str:
     """Retourne une réponse intelligente basée sur des mots-clés."""
@@ -6570,13 +6634,13 @@ def get_fallback_response(user_content: str, config: dict) -> str:
             "📈 **Stratégie économique :** Les piliers de la prospérité :\n• **Infrastructure** : Routes, ports, communications\n• **Éducation** : Formation de la population\n• **Recherche** : Développement technologique\n• **Partenariats** : Coopération internationale"
         ]
     
-        elif any(word in user_lower for word in ["salut", "bonjour", "hello", "présent"]):
-            responses = [
-                f"👋 Salut ! Je suis **Ruina AI**, votre assistant IA spécialisé en géopolitique pour le serveur Pax Ruinae !\n\n🎯 Je peux vous aider avec :\n• Stratégies militaires\n• Analyses géopolitiques\n• Conseils diplomatiques\n• Gestion des ressources\n\nPosez-moi vos questions !",
-                f"🤖 Bonjour ! **Ruina AI** à votre service !\n\nEn tant qu'expert en géopolitique, je peux analyser :\n• 🗺️ Situations géographiques\n• ⚔️ Tactiques militaires\n• 🤝 Relations diplomatiques\n• 📊 Données économiques\n\nQue puis-je analyser pour vous ?"
-            ]
-        
-        else:
+    elif any(word in user_lower for word in ["salut", "bonjour", "hello", "présent"]):
+        responses = [
+            f"👋 Salut ! Je suis **Ruina AI**, votre assistant IA spécialisé en géopolitique pour le serveur Pax Ruinae !\n\n🎯 Je peux vous aider avec :\n• Stratégies militaires\n• Analyses géopolitiques\n• Conseils diplomatiques\n• Gestion des ressources\n\nPosez-moi vos questions !",
+            f"🤖 Bonjour ! **Ruina AI** à votre service !\n\nEn tant qu'expert en géopolitique, je peux analyser :\n• 🗺️ Situations géographiques\n• ⚔️ Tactiques militaires\n• 🤝 Relations diplomatiques\n• 📊 Données économiques\n\nQue puis-je analyser pour vous ?"
+        ]
+    
+    else:
         # Réponses générales du config
         responses = config.get("fallback_responses", [
             "🤖 Ruina AI analyse votre question... En tant qu'expert en géopolitique, je recommande une approche méthodique pour résoudre ce type de problème.",
@@ -6634,9 +6698,14 @@ async def ruina_ai(interaction: discord.Interaction, contenu: str):
     
     await interaction.response.send_message(embed=loading_embed)
     
-    # Appeler l'IA
+    # Appeler l'IA avec le contexte du serveur
     try:
-        ai_response = await call_ruina_ai(contenu)
+        ai_response = await call_ruina_ai(
+            contenu, 
+            guild_id=interaction.guild.id if interaction.guild else None,
+            channel_id=interaction.channel.id if interaction.channel else None,
+            user_id=interaction.user.id
+        )
         
         # Embed de réponse
         response_embed = discord.Embed(
