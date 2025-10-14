@@ -5153,6 +5153,166 @@ async def debat(
             await interaction.followup.send(f"❌ Une erreur est survenue : {str(e)}", ephemeral=True)
         print(f"[ERROR] Erreur dans la commande debat: {e}")
 
+# === SYSTÈME D'ACTION TECHNOLOGIQUE ===
+
+@bot.tree.command(name="action_tech", description="Calcule le coefficient technologique d'une action")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(
+    qualite="Qualité d'écriture - Clarté, structure, richesse du contenu (1-5)",
+    applicabilite="Applicabilité - Possibilité à mettre en œuvre (1-5)",
+    impact="Impact - Importance stratégique et bénéfices apportés (1-5)"
+)
+async def action_tech(
+    interaction: discord.Interaction,
+    qualite: int,
+    applicabilite: int,
+    impact: int
+):
+    """Calcule et attribue les points technologiques selon les critères de qualité."""
+    
+    # Vérification des valeurs
+    if not (1 <= qualite <= 5):
+        await interaction.response.send_message("❌ La qualité doit être entre 1 et 5.", ephemeral=True)
+        return
+    
+    if not (1 <= applicabilite <= 5):
+        await interaction.response.send_message("❌ L'applicabilité doit être entre 1 et 5.", ephemeral=True)
+        return
+    
+    if not (1 <= impact <= 5):
+        await interaction.response.send_message("❌ L'impact doit être entre 1 et 5.", ephemeral=True)
+        return
+    
+    # Calcul des coefficients selon les critères
+    # Base : 1 point technologique
+    points_base = 1.0
+    
+    # Coefficient Qualité (Q) : ×1.5 max
+    # Échelle : 1=×0.3, 2=×0.6, 3=×0.9, 4=×1.2, 5=×1.5
+    coeff_qualite = (qualite * 1.5) / 5
+    
+    # Coefficient Applicabilité (A) : ×1.25 max  
+    # Échelle : 1=×0.25, 2=×0.5, 3=×0.75, 4=×1.0, 5=×1.25
+    coeff_applicabilite = (applicabilite * 1.25) / 5
+    
+    # Coefficient Impact (M) : ×1.25 max
+    # Échelle : 1=×0.25, 2=×0.5, 3=×0.75, 4=×1.0, 5=×1.25
+    coeff_impact = (impact * 1.25) / 5
+    
+    # Calcul du total
+    total_coefficient = coeff_qualite + coeff_applicabilite + coeff_impact
+    points_finaux = points_base * total_coefficient
+    
+    # Détermination de la notation générale
+    moyenne = (qualite + applicabilite + impact) / 3
+    if moyenne >= 4.5:
+        notation = "Excellent"
+        emoji = "🏆"
+        couleur = 0x00ff00  # Vert
+    elif moyenne >= 3.5:
+        notation = "Très Bien"
+        emoji = "🥇"
+        couleur = 0x32cd32  # Vert lime
+    elif moyenne >= 2.5:
+        notation = "Bien"
+        emoji = "🥈"
+        couleur = 0xffd700  # Or
+    elif moyenne >= 1.5:
+        notation = "Passable"
+        emoji = "🥉"
+        couleur = 0xffa500  # Orange
+    else:
+        notation = "Insuffisant"
+        emoji = "❌"
+        couleur = 0xff0000  # Rouge
+    
+    # Construction de l'embed de résultat
+    embed = discord.Embed(
+        title=f"{emoji} Évaluation Action Technologique",
+        description=f"**Notation générale :** {notation}",
+        color=couleur
+    )
+    
+    # Détails des critères
+    embed.add_field(
+        name="📊 Évaluation Détaillée",
+        value=(
+            f"**🎯 Qualité d'Écriture :** {qualite}/5 (×{coeff_qualite:.2f})\n"
+            f"*Clarté, structure, richesse du contenu*\n\n"
+            f"**⚙️ Applicabilité :** {applicabilite}/5 (×{coeff_applicabilite:.2f})\n"
+            f"*Possibilité de mise en œuvre*\n\n"
+            f"**🎖️ Impact :** {impact}/5 (×{coeff_impact:.2f})\n"
+            f"*Importance stratégique et bénéfices*"
+        ),
+        inline=False
+    )
+    
+    # Calcul final
+    embed.add_field(
+        name="🧮 Calcul Final",
+        value=(
+            f"**Base :** {points_base} point technologique\n"
+            f"**Coefficient total :** ×{total_coefficient:.2f}\n"
+            f"**Points attribués :** {points_finaux:.2f} points"
+        ),
+        inline=False
+    )
+    
+    # Barème de notation
+    embed.add_field(
+        name="📋 Barème de Notation",
+        value=(
+            "**5/5 :** Exceptionnel\n"
+            "**4/5 :** Très bon\n"
+            "**3/5 :** Bon\n"
+            "**2/5 :** Moyen\n"
+            "**1/5 :** Faible"
+        ),
+        inline=True
+    )
+    
+    # Coefficients max
+    embed.add_field(
+        name="⚡ Coefficients Max",
+        value=(
+            "**Qualité :** ×1.5\n"
+            "**Applicabilité :** ×1.25\n"
+            "**Impact :** ×1.25\n"
+            "**Total max :** ×4.0"
+        ),
+        inline=True
+    )
+    
+    embed.set_footer(
+        text=f"Évalué par {interaction.user.display_name} • Moyenne: {moyenne:.1f}/5"
+    )
+    
+    # Envoyer le résultat
+    await interaction.response.send_message(embed=embed)
+    
+    # Log dans le salon d'économie si configuré
+    try:
+        log_embed = discord.Embed(
+            title="📊 Action Technologique Évaluée",
+            description=(
+                f"**Évaluateur :** {interaction.user.mention}\n"
+                f"**Points attribués :** {points_finaux:.2f}\n"
+                f"**Notation :** {notation} ({moyenne:.1f}/5)"
+            ),
+            color=couleur,
+            timestamp=datetime.datetime.now()
+        )
+        
+        log_embed.add_field(
+            name="Critères",
+            value=f"Q:{qualite}/5 • A:{applicabilite}/5 • I:{impact}/5",
+            inline=False
+        )
+        
+        await send_log(interaction.guild, embed=log_embed)
+    except Exception as e:
+        print(f"[ERROR] Erreur lors de l'envoi du log action_tech: {e}")
+
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
 # Vue pour le bouton de confirmation de développement technologique
