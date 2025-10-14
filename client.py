@@ -6570,24 +6570,24 @@ def get_fallback_response(user_content: str, config: dict) -> str:
             "📈 **Stratégie économique :** Les piliers de la prospérité :\n• **Infrastructure** : Routes, ports, communications\n• **Éducation** : Formation de la population\n• **Recherche** : Développement technologique\n• **Partenariats** : Coopération internationale"
         ]
     
-    elif any(word in user_lower for word in ["salut", "bonjour", "hello", "présent"]):
-        responses = [
-            f"👋 Salut ! Je suis **Ruina AI**, votre assistant IA spécialisé en géopolitique pour le serveur Geoppo !\n\n🎯 Je peux vous aider avec :\n• Stratégies militaires\n• Analyses géopolitiques\n• Conseils diplomatiques\n• Gestion des ressources\n\nPosez-moi vos questions !",
-            f"🤖 Bonjour ! **Ruina AI** à votre service !\n\nEn tant qu'expert en géopolitique, je peux analyser :\n• 🗺️ Situations géographiques\n• ⚔️ Tactiques militaires\n• 🤝 Relations diplomatiques\n• 📊 Données économiques\n\nQue puis-je analyser pour vous ?"
-        ]
-    
-    else:
+        elif any(word in user_lower for word in ["salut", "bonjour", "hello", "présent"]):
+            responses = [
+                f"👋 Salut ! Je suis **Ruina AI**, votre assistant IA spécialisé en géopolitique pour le serveur Pax Ruinae !\n\n🎯 Je peux vous aider avec :\n• Stratégies militaires\n• Analyses géopolitiques\n• Conseils diplomatiques\n• Gestion des ressources\n\nPosez-moi vos questions !",
+                f"🤖 Bonjour ! **Ruina AI** à votre service !\n\nEn tant qu'expert en géopolitique, je peux analyser :\n• 🗺️ Situations géographiques\n• ⚔️ Tactiques militaires\n• 🤝 Relations diplomatiques\n• 📊 Données économiques\n\nQue puis-je analyser pour vous ?"
+            ]
+        
+        else:
         # Réponses générales du config
         responses = config.get("fallback_responses", [
             "🤖 Ruina AI analyse votre question... En tant qu'expert en géopolitique, je recommande une approche méthodique pour résoudre ce type de problème.",
-            "🎯 Excellente question ! Pour le contexte du serveur Geoppo, il faut considérer les aspects diplomatiques, militaires et économiques de cette situation.",
+            "🎯 Excellente question ! Pour le contexte du serveur Pax Ruinae, il faut considérer les aspects diplomatiques, militaires et économiques de cette situation.",
             "⚔️ D'un point de vue stratégique, cette situation nécessite une analyse approfondie des forces en présence et des alliances possibles."
         ])
     
     response = random.choice(responses)
     
     # Ajouter une note sur l'IA gratuite
-    response += f"\n\n*💡 Ruina AI fonctionne en mode gratuit optimisé pour Geoppo*"
+    response += f"\n\n*💡 Ruina AI fonctionne en mode gratuit optimisé pour Pax Ruinae*"
     
     return response
 
