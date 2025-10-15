@@ -7665,6 +7665,123 @@ async def force_sync_postgres(interaction: discord.Interaction):
 
 # === FIN COMMANDE TEMPORAIRE ===
 
+@bot.tree.command(name="set-lvl", description="Met tous les membres au niveau 10 avec égalité")
+@app_commands.checks.has_permissions(administrator=True)
+async def set_level_ten(interaction: discord.Interaction):
+    """Met tous les membres du serveur au niveau 10 et leur attribue le rôle correspondant."""
+    await interaction.response.defer()
+    
+    # ID du rôle niveau 10
+    LEVEL_10_ROLE_ID = 1417893183903502468
+    TARGET_LEVEL = 10
+    TARGET_XP = xp_for_level(TARGET_LEVEL)
+    
+    guild = interaction.guild
+    role_level_10 = guild.get_role(LEVEL_10_ROLE_ID)
+    
+    if not role_level_10:
+        embed = discord.Embed(
+            title="❌ Erreur",
+            description=f"Le rôle avec l'ID {LEVEL_10_ROLE_ID} est introuvable.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Charger les niveaux actuels
+    current_levels = load_levels()
+    guild_id = str(guild.id)
+    
+    if guild_id not in current_levels:
+        current_levels[guild_id] = {}
+    
+    success_count = 0
+    role_success_count = 0
+    errors = []
+    
+    # Embed de progression
+    embed = discord.Embed(
+        title="⏳ Mise à niveau en cours...",
+        description="Traitement des membres...",
+        color=0xffff00
+    )
+    await interaction.followup.send(embed=embed)
+    
+    # Traiter tous les membres du serveur
+    for member in guild.members:
+        if member.bot:  # Ignorer les bots
+            continue
+            
+        try:
+            user_id = str(member.id)
+            
+            # Mettre à niveau 10 avec l'XP correspondante
+            current_levels[guild_id][user_id] = {
+                "level": TARGET_LEVEL,
+                "xp": TARGET_XP,
+                "total_xp": sum(xp_for_level(i) for i in range(1, TARGET_LEVEL + 1))
+            }
+            
+            success_count += 1
+            
+            # Attribuer le rôle niveau 10
+            if role_level_10 not in member.roles:
+                try:
+                    await member.add_roles(role_level_10, reason="Mise à niveau automatique niveau 10")
+                    role_success_count += 1
+                except discord.Forbidden:
+                    errors.append(f"Pas de permission pour {member.display_name}")
+                except discord.HTTPException as e:
+                    errors.append(f"Erreur rôle pour {member.display_name}: {str(e)}")
+            else:
+                role_success_count += 1  # Déjà le rôle
+                
+        except Exception as e:
+            errors.append(f"Erreur pour {member.display_name}: {str(e)}")
+    
+    # Sauvegarder les niveaux
+    save_levels(current_levels)
+    
+    # Log dans le salon de niveau si configuré
+    if guild_id in lvl_log_channel_data:
+        log_embed = discord.Embed(
+            title="🎚️ Mise à Niveau Globale",
+            description=f"**Administrateur :** {interaction.user.mention}\n"
+                       f"**Membres mis à niveau :** {success_count}\n"
+                       f"**Niveau attribué :** {TARGET_LEVEL}\n"
+                       f"**Rôles attribués :** {role_success_count}",
+            color=EMBED_COLOR
+        )
+        
+        log_channel_id = lvl_log_channel_data.get(guild_id)
+        if log_channel_id:
+            log_channel = guild.get_channel(int(log_channel_id))
+            if log_channel:
+                try:
+                    await log_channel.send(embed=log_embed)
+                except:
+                    pass
+    
+    # Résultat final
+    result_embed = discord.Embed(
+        title="✅ MISE À NIVEAU TERMINÉE",
+        description=f"**Résultats :**\n\n"
+                   f"👥 **Membres traités :** {success_count}\n"
+                   f"🎚️ **Niveau attribué :** {TARGET_LEVEL}\n"
+                   f"🏷️ **Rôles attribués :** {role_success_count}\n"
+                   f"📊 **XP attribuée :** {format_number(TARGET_XP)} par membre\n\n"
+                   f"🎯 **Tous les membres sont maintenant à égalité au niveau {TARGET_LEVEL} !**",
+        color=0x00ff00
+    )
+    
+    if errors:
+        error_text = "\n".join(errors[:10])  # Limiter à 10 erreurs
+        if len(errors) > 10:
+            error_text += f"\n... et {len(errors) - 10} autres erreurs"
+        result_embed.add_field(name="⚠️ Erreurs", value=error_text, inline=False)
+    
+    await interaction.edit_original_response(embed=result_embed)
+
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
     restore_all_json_from_postgres()
