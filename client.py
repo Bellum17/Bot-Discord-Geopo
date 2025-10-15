@@ -2146,7 +2146,7 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
     
     # Récupérer le PIB depuis pib.json
     pib_data = load_pib()
-    pib = pib_data.get(role_id, {}).get("pib", None)
+    pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
     print(f"[DEBUG] PIB pour role_id {role_id}: {pib}")
     print(f"[DEBUG] PIB data complet: {pib_data}")
     # Calcul de la dette totale (somme des emprunts avec taux)

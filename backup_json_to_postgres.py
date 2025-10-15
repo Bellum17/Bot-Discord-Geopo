@@ -3,7 +3,9 @@ import psycopg2
 import json
 import time
 from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")  # Mets l'URL Railway dans tes variables d'environnement
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
