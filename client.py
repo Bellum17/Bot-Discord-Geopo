@@ -223,6 +223,14 @@ def save_warnings(warnings_data):
 # Configuration PIB
 PIB_DEFAULT = 0
 
+# Configuration des centres technologiques
+CENTRES_TECH_FILE = os.path.join(DATA_DIR, "centres_tech.json")
+CENTRE_COUT_BASE = 10000000  # 10 millions
+CENTRE_AMELIORATION_1 = 10000000  # 10 millions
+CENTRE_AMELIORATION_2 = 20000000  # 20 millions
+CENTRE_EMPLACEMENTS_BASE = 1
+SPECIALISATIONS = ["Terrestre", "Aérien", "Marine", "Armes de Destruction Massive", "Spatial"]
+
 # Variables globales pour le suivi de l'état du bot
 BOT_START_TIME = time.time()
 BOT_DISCONNECT_HANDLED = False
@@ -591,6 +599,62 @@ def save_pays_log_channel(data):
             json.dump(data, f)
     except Exception as e:
         print(f"Erreur lors de la sauvegarde du canal de log des pays: {e}")
+
+def load_centres_tech():
+    """Charge les données des centres technologiques."""
+    if not os.path.exists(CENTRES_TECH_FILE):
+        return {}
+    try:
+        with open(CENTRES_TECH_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du chargement des centres tech: {e}")
+        return {}
+
+def save_centres_tech(data):
+    """Sauvegarde les données des centres technologiques."""
+    try:
+        with open(CENTRES_TECH_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        save_all_json_to_postgres()
+    except Exception as e:
+        print(f"[ERROR] Erreur lors de la sauvegarde des centres tech: {e}")
+
+def get_centre_emplacements(niveau):
+    """Retourne le nombre d'emplacements selon le niveau du centre."""
+    if niveau == 1:
+        return CENTRE_EMPLACEMENTS_BASE
+    elif niveau == 2:
+        return CENTRE_EMPLACEMENTS_BASE + 1
+    elif niveau == 3:
+        return CENTRE_EMPLACEMENTS_BASE + 2
+    return CENTRE_EMPLACEMENTS_BASE
+
+def get_centre_cout_amelioration(niveau_actuel):
+    """Retourne le coût d'amélioration selon le niveau actuel."""
+    if niveau_actuel == 1:
+        return CENTRE_AMELIORATION_1
+    elif niveau_actuel == 2:
+        return CENTRE_AMELIORATION_2
+    return 0  # Niveau max atteint
+
+def get_domaine_from_tech(tech_name):
+    """Détermine le domaine d'une technologie à partir de son nom."""
+    tech_lower = tech_name.lower()
+    
+    # Mots-clés pour chaque domaine
+    if any(keyword in tech_lower for keyword in ["char", "tank", "artillerie", "infanterie", "terrestre"]):
+        return "Terrestre"
+    elif any(keyword in tech_lower for keyword in ["avion", "chasseur", "bombardier", "hélicoptère", "aérien"]):
+        return "Aérien"
+    elif any(keyword in tech_lower for keyword in ["naval", "destroyer", "frégate", "sous-marin", "marine"]):
+        return "Marine"
+    elif any(keyword in tech_lower for keyword in ["nucléaire", "bombe", "missile", "destruction", "amd"]):
+        return "Armes de Destruction Massive"
+    elif any(keyword in tech_lower for keyword in ["satellite", "fusée", "spatial", "orbite"]):
+        return "Spatial"
+    else:
+        return "Terrestre"  # Par défaut
 
 ## Fonction de sauvegarde du canal de statut supprimée (obsolète)
 
@@ -6733,21 +6797,134 @@ class TechnoConfirmView(discord.ui.View):
             await interaction.followup.send(embed=embed)
             return
         
+        # Déterminer le domaine de la technologie
+        domaine_tech = get_domaine_from_tech(self.nom_techno)
+        
+        # Charger les centres technologiques
+        centres_data = load_centres_tech()
+        guild_id = str(interaction.guild.id)
+        
+        centres_compatibles = []
+        if guild_id in centres_data and role_id in centres_data[guild_id]:
+            for centre in centres_data[guild_id][role_id]:
+                if centre["specialisation"] == domaine_tech:
+                    centres_compatibles.append(centre)
+        
+        if not centres_compatibles:
+            embed = discord.Embed(
+                title="❌ Aucun centre compatible",
+                description=f"**Domaine requis :** {domaine_tech}\n"
+                           f"Vous devez avoir un centre technologique spécialisé en **{domaine_tech}** pour développer cette technologie.\n"
+                           f"Utilisez `/centre_tech` pour créer un centre avec cette spécialisation.",
+                color=0xff0000
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        
+        # Vérifier les emplacements disponibles
+        centre_choisi = None
+        for centre in centres_compatibles:
+            # Compter les développements en cours dans ce centre
+            developpements_data = load_developpements()
+            nb_dev_en_cours = 0
+            if guild_id in developpements_data and role_id in developpements_data[guild_id]:
+                for dev in developpements_data[guild_id][role_id]:
+                    if dev.get("centre_attache") == centre["localisation"]:
+                        nb_dev_en_cours += 1
+            
+            if nb_dev_en_cours < centre["emplacements_max"]:
+                centre_choisi = centre
+                break
+        
+        if not centre_choisi:
+            embed = discord.Embed(
+                title="❌ Centres saturés",
+                description=f"Tous vos centres **{domaine_tech}** sont pleins.\n"
+                           f"Améliorez un centre existant avec `/amelioration` ou créez un nouveau centre.",
+                color=0xff0000
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        
         # Déduire le coût du budget
         balances[role_id] = budget_actuel - self.cout_dev
         save_balances(balances)
         save_all_json_to_postgres()
         
+        # Calculer la durée avec bonus du centre (niveau 3 = -1 mois)
+        duree_finale = self.mois
+        if centre_choisi["niveau"] == 3:
+            duree_finale = max(1, self.mois - 1)  # Au minimum 1 mois
+        
+        # Calculer le timestamp de fin
+        fin_timestamp = time.time() + (duree_finale * 30 * 24 * 3600)  # Approximation 30 jours/mois
+        
         # Sauvegarder le développement dans le JSON
         developpements = load_developpements()
-        guild_id = str(interaction.guild.id)
         
         if guild_id not in developpements:
             developpements[guild_id] = {}
         if role_id not in developpements[guild_id]:
-            developpements[guild_id][role_id] = {}
-        if self.categorie not in developpements[guild_id][role_id]:
-            developpements[guild_id][role_id][self.categorie] = []
+            developpements[guild_id][role_id] = []
+        
+        # Créer l'entrée de développement
+        developpement_data = {
+            "nom": self.nom_developpement,
+            "technologie": self.nom_techno,
+            "categorie": self.categorie,
+            "nom_categorie": self.nom_categorie,
+            "cout_dev": self.cout_dev,
+            "cout_unite": self.cout_unite,
+            "unit_multiplier": self.unit_multiplier,
+            "mois": duree_finale,
+            "image": self.image,
+            "date_creation": datetime.datetime.now().isoformat(),
+            "createur": interaction.user.id,
+            "centre_attache": centre_choisi["localisation"],
+            "domaine": domaine_tech,
+            "fin_timestamp": fin_timestamp
+        }
+        
+        developpements[guild_id][role_id].append(developpement_data)
+        save_developpements(developpements)
+        
+        # Créer l'embed de confirmation
+        bonus_text = f" (-1 mois grâce au centre niveau 3)" if centre_choisi["niveau"] == 3 and duree_finale != self.mois else ""
+        embed = discord.Embed(
+            title="✅ Développement confirmé !",
+            description=f"**Nom :** {self.nom_developpement}\n"
+                       f"**Technologie :** {self.nom_techno}\n"
+                       f"**Pays :** {self.role.mention}\n"
+                       f"**Centre :** {centre_choisi['localisation']} ({domaine_tech})\n"
+                       f"**Durée :** {duree_finale} mois{bonus_text}\n"
+                       f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                       f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        
+        await interaction.followup.send(embed=embed)
+        
+        # Log dans le salon des logs
+        log_embed = discord.Embed(
+            title="🔬 Développement technologique",
+            description=f"**Pays :** {self.role.mention}\n"
+                       f"**Nom :** {self.nom_developpement}\n"
+                       f"**Technologie :** {self.nom_techno}\n"
+                       f"**Centre :** {centre_choisi['localisation']}\n"
+                       f"**Durée :** {duree_finale} mois\n"
+                       f"**Coût :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                       f"**Développé par :** {interaction.user.mention}",
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        
+        # Envoyer le log
+        await send_log(interaction.guild, embed=log_embed)
+        
+        # Désactiver le bouton après confirmation
+        button.disabled = True
+        await interaction.edit_original_response(view=self)
         
         # Créer l'entrée de développement
         developpement_data = {
@@ -7549,6 +7726,272 @@ async def developpements(interaction: discord.Interaction):
     )
     
     await interaction.followup.send(embed=embed, view=view)
+
+# === COMMANDES CENTRES TECHNOLOGIQUES ===
+
+@bot.tree.command(name="centre_tech", description="Créer un centre technologique")
+@app_commands.describe(
+    localisation="Nom de la localisation du centre",
+    specialisation="Spécialisation du centre technologique"
+)
+@app_commands.choices(specialisation=[
+    discord.app_commands.Choice(name="Terrestre", value="Terrestre"),
+    discord.app_commands.Choice(name="Aérien", value="Aérien"),
+    discord.app_commands.Choice(name="Marine", value="Marine"),
+    discord.app_commands.Choice(name="Armes de Destruction Massive", value="Armes de Destruction Massive"),
+    discord.app_commands.Choice(name="Spatial", value="Spatial")
+])
+async def centre_tech(interaction: discord.Interaction, localisation: str, specialisation: str):
+    """Crée un nouveau centre technologique."""
+    await interaction.response.defer()
+    
+    # Vérifier que l'utilisateur a un rôle pays
+    user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+    if not user_roles:
+        # Essayer de trouver dans pays_images
+        pays_images_data = load_pays_images()
+        user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+    
+    if not user_roles:
+        await interaction.followup.send("> Vous devez avoir un rôle pays pour créer un centre technologique.", ephemeral=True)
+        return
+    
+    pays_role = user_roles[0]
+    pays_id = str(pays_role.id)
+    
+    # Vérifier le budget
+    if pays_id not in balances:
+        balances[pays_id] = 0
+    
+    budget_actuel = balances[pays_id]
+    if budget_actuel < CENTRE_COUT_BASE:
+        await interaction.followup.send(
+            f"> Fonds insuffisants ! Coût : {format_number(CENTRE_COUT_BASE)} {MONNAIE_EMOJI}, "
+            f"Budget actuel : {format_number(budget_actuel)} {MONNAIE_EMOJI}",
+            ephemeral=True
+        )
+        return
+    
+    # Charger les centres existants
+    centres_data = load_centres_tech()
+    guild_id = str(interaction.guild.id)
+    
+    if guild_id not in centres_data:
+        centres_data[guild_id] = {}
+    if pays_id not in centres_data[guild_id]:
+        centres_data[guild_id][pays_id] = []
+    
+    # Vérifier si un centre avec cette localisation existe déjà
+    for centre in centres_data[guild_id][pays_id]:
+        if centre["localisation"].lower() == localisation.lower():
+            await interaction.followup.send(f"> Un centre technologique existe déjà à **{localisation}**.", ephemeral=True)
+            return
+    
+    # Créer le centre
+    nouveau_centre = {
+        "localisation": localisation,
+        "specialisation": specialisation,
+        "niveau": 1,
+        "emplacements_max": get_centre_emplacements(1),
+        "developpements": [],  # Technologies en développement dans ce centre
+        "date_creation": int(time.time())
+    }
+    
+    centres_data[guild_id][pays_id].append(nouveau_centre)
+    
+    # Déduire le coût
+    balances[pays_id] -= CENTRE_COUT_BASE
+    save_balances(balances)
+    save_centres_tech(centres_data)
+    
+    # Embed de confirmation
+    embed = discord.Embed(
+        title="🏭 Centre Technologique Créé",
+        description=(
+            f"⠀\n"
+            f"> 📍 **Localisation :** {localisation}\n"
+            f"> 🔬 **Spécialisation :** {specialisation}\n"
+            f"> 📊 **Niveau :** 1\n"
+            f"> 🔧 **Emplacements :** {nouveau_centre['emplacements_max']}\n"
+            f"> 💰 **Coût :** {format_number(CENTRE_COUT_BASE)} {MONNAIE_EMOJI}\n"
+            f"> 💳 **Budget restant :** {format_number(balances[pays_id])} {MONNAIE_EMOJI}\n⠀"
+        ),
+        color=0x00ff00
+    )
+    
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="amelioration", description="Améliorer un centre technologique")
+@app_commands.describe(centre="Nom du centre à améliorer")
+async def amelioration(interaction: discord.Interaction, centre: str):
+    """Améliore un centre technologique."""
+    await interaction.response.defer()
+    
+    # Vérifier que l'utilisateur a un rôle pays
+    user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+    if not user_roles:
+        pays_images_data = load_pays_images()
+        user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+    
+    if not user_roles:
+        await interaction.followup.send("> Vous devez avoir un rôle pays pour améliorer un centre.", ephemeral=True)
+        return
+    
+    pays_role = user_roles[0]
+    pays_id = str(pays_role.id)
+    
+    # Charger les centres
+    centres_data = load_centres_tech()
+    guild_id = str(interaction.guild.id)
+    
+    if guild_id not in centres_data or pays_id not in centres_data[guild_id]:
+        await interaction.followup.send("> Vous n'avez aucun centre technologique.", ephemeral=True)
+        return
+    
+    # Trouver le centre
+    centre_trouve = None
+    for c in centres_data[guild_id][pays_id]:
+        if c["localisation"].lower() == centre.lower():
+            centre_trouve = c
+            break
+    
+    if not centre_trouve:
+        await interaction.followup.send(f"> Centre technologique **{centre}** introuvable.", ephemeral=True)
+        return
+    
+    # Vérifier le niveau maximum
+    if centre_trouve["niveau"] >= 3:
+        await interaction.followup.send(f"> Le centre **{centre}** est déjà au niveau maximum (3).", ephemeral=True)
+        return
+    
+    # Vérifier le budget
+    cout_amelioration = get_centre_cout_amelioration(centre_trouve["niveau"])
+    budget_actuel = balances.get(pays_id, 0)
+    
+    if budget_actuel < cout_amelioration:
+        await interaction.followup.send(
+            f"> Fonds insuffisants ! Coût d'amélioration : {format_number(cout_amelioration)} {MONNAIE_EMOJI}, "
+            f"Budget actuel : {format_number(budget_actuel)} {MONNAIE_EMOJI}",
+            ephemeral=True
+        )
+        return
+    
+    # Effectuer l'amélioration
+    ancien_niveau = centre_trouve["niveau"]
+    centre_trouve["niveau"] += 1
+    centre_trouve["emplacements_max"] = get_centre_emplacements(centre_trouve["niveau"])
+    
+    # Déduire le coût
+    balances[pays_id] -= cout_amelioration
+    save_balances(balances)
+    save_centres_tech(centres_data)
+    
+    # Déterminer les effets de l'amélioration
+    effets = []
+    if centre_trouve["niveau"] == 2:
+        effets.append("+1 emplacement de recherche")
+    elif centre_trouve["niveau"] == 3:
+        effets.append("+1 emplacement de recherche")
+        effets.append("Réduction de 1 mois pour les développements")
+    
+    # Embed de confirmation
+    embed = discord.Embed(
+        title="⬆️ Centre Technologique Amélioré",
+        description=(
+            f"⠀\n"
+            f"> 📍 **Centre :** {centre_trouve['localisation']}\n"
+            f"> 📊 **Niveau :** {ancien_niveau} → {centre_trouve['niveau']}\n"
+            f"> 🔧 **Emplacements :** {get_centre_emplacements(ancien_niveau)} → {centre_trouve['emplacements_max']}\n"
+            f"> ✨ **Nouveaux effets :**\n" + 
+            "\n".join(f"> • {effet}" for effet in effets) + "\n"
+            f"> 💰 **Coût :** {format_number(cout_amelioration)} {MONNAIE_EMOJI}\n"
+            f"> 💳 **Budget restant :** {format_number(balances[pays_id])} {MONNAIE_EMOJI}\n⠀"
+        ),
+        color=0x0099ff
+    )
+    
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="gestion_centres", description="Gérer vos centres technologiques")
+async def gestion_centres(interaction: discord.Interaction):
+    """Affiche la gestion des centres technologiques."""
+    await interaction.response.defer()
+    
+    # Vérifier que l'utilisateur a un rôle pays
+    user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+    if not user_roles:
+        pays_images_data = load_pays_images()
+        user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+    
+    if not user_roles:
+        await interaction.followup.send("> Vous devez avoir un rôle pays pour gérer les centres.", ephemeral=True)
+        return
+    
+    pays_role = user_roles[0]
+    pays_id = str(pays_role.id)
+    
+    # Charger les centres et développements
+    centres_data = load_centres_tech()
+    developpements_data = load_developpements()
+    guild_id = str(interaction.guild.id)
+    
+    if guild_id not in centres_data or pays_id not in centres_data[guild_id]:
+        embed = discord.Embed(
+            title="🏭 Gestion des Centres Technologiques",
+            description="⠀\n> Vous n'avez aucun centre technologique.\n> Utilisez `/centre_tech` pour en créer un.\n⠀",
+            color=EMBED_COLOR
+        )
+        await interaction.followup.send(embed=embed)
+        return
+    
+    centres = centres_data[guild_id][pays_id]
+    
+    # Construire l'affichage
+    description = "⠀\n"
+    
+    for i, centre in enumerate(centres, 1):
+        # Compter les développements en cours dans ce centre
+        developpements_en_cours = []
+        if guild_id in developpements_data and pays_id in developpements_data[guild_id]:
+            for dev in developpements_data[guild_id][pays_id]:
+                if dev.get("centre_attache") == centre["localisation"]:
+                    developpements_en_cours.append(dev)
+        
+        emplacements_utilises = len(developpements_en_cours)
+        emplacements_max = centre["emplacements_max"]
+        
+        description += f"> **{i}. {centre['localisation']}**\n"
+        description += f"> 🔬 Spécialisation : {centre['specialisation']}\n"
+        description += f"> 📊 Niveau : {centre['niveau']}/3\n"
+        description += f"> 🔧 Emplacements : {emplacements_utilises}/{emplacements_max}\n"
+        
+        if developpements_en_cours:
+            description += f"> 🚧 **Développements en cours :**\n"
+            for dev in developpements_en_cours:
+                fin_timestamp = dev.get('fin_timestamp', 0)
+                if fin_timestamp > time.time():
+                    temps_restant = fin_timestamp - time.time()
+                    jours = int(temps_restant // 86400)
+                    heures = int((temps_restant % 86400) // 3600)
+                    description += f"> • {dev['nom']} (fin dans {jours}j {heures}h)\n"
+                else:
+                    description += f"> • {dev['nom']} (✅ Terminé)\n"
+        else:
+            description += f"> 💤 Aucun développement en cours\n"
+        
+        if centre["niveau"] < 3:
+            cout = get_centre_cout_amelioration(centre["niveau"])
+            description += f"> 💰 Amélioration : {format_number(cout)} {MONNAIE_EMOJI}\n"
+        
+        description += "⠀\n"
+    
+    embed = discord.Embed(
+        title="🏭 Gestion des Centres Technologiques",
+        description=description,
+        color=EMBED_COLOR
+    )
+    
+    await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="force_sync_postgres", description="Force la synchronisation des données avec PostgreSQL")
 @app_commands.checks.has_permissions(administrator=True)
