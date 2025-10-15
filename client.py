@@ -2131,13 +2131,30 @@ async def reset_economie(interaction: discord.Interaction):
 @bot.tree.command(name="balance", description="Affiche l'argent de votre pays ou d'un autre rôle (optionnel)")
 @app_commands.describe(role="Le rôle (pays) dont vous voulez voir l'argent (optionnel)")
 async def balance(interaction: discord.Interaction, role: discord.Role = None):
-    # Si aucun rôle n'est précisé, on cherche le premier rôle du membre qui a de l'argent
+    # Si aucun rôle n'est précisé, on cherche le premier rôle du membre qui est dans le système balances
     if role is None:
-        user_roles = [r for r in interaction.user.roles if str(r.id) in balances and balances[str(r.id)] > 0]
+        # D'abord, essayer de trouver un rôle déjà dans le système balances
+        user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+        
+        # Si aucun rôle n'est trouvé, chercher dans pays_images (rôles pays créés)
+        if not user_roles:
+            pays_images_data = load_pays_images()
+            user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+            
+            # Si un rôle pays est trouvé mais pas dans balances, l'initialiser
+            if user_roles:
+                role = user_roles[0]
+                role_id = str(role.id)
+                if role_id not in balances:
+                    balances[role_id] = 0
+                    save_balances(balances)
+                    print(f"[DEBUG] Rôle pays {role.name} ({role_id}) initialisé avec 0 dans balances")
+        
         if not user_roles:
             await interaction.response.send_message(
-                "> Vous n'avez aucun rôle pays avec de l'argent. Précisez un rôle pour voir sa balance.", ephemeral=True)
+                "> Vous n'avez aucun rôle pays. Précisez un rôle pour voir sa balance.", ephemeral=True)
             return
+        
         role = user_roles[0]
     # Vérifie que l'utilisateur a bien ce rôle ou est admin
     if role not in interaction.user.roles and not interaction.user.guild_permissions.administrator:
@@ -2145,11 +2162,25 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
             "> Vous n'avez pas ce rôle, vous ne pouvez pas voir la balance de ce pays.", ephemeral=True)
         return
     role_id = str(role.id)
+    
+    # Initialiser le rôle dans balances s'il n'existe pas
+    if role_id not in balances:
+        balances[role_id] = 0
+        save_balances(balances)
+        print(f"[DEBUG] Rôle {role.name} ({role_id}) initialisé avec 0 dans balances")
+    
     montant = balances.get(role_id, 0)
     print(f"[DEBUG] Balance pour role_id {role_id}: {montant}")
     
     # Récupérer le PIB depuis pib.json
     pib_data = load_pib()
+    
+    # Initialiser le PIB s'il n'existe pas
+    if role_id not in pib_data:
+        pib_data[role_id] = 0
+        save_pib(pib_data)
+        print(f"[DEBUG] PIB pour rôle {role.name} ({role_id}) initialisé avec 0")
+    
     pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
     print(f"[DEBUG] PIB pour role_id {role_id}: {pib}")
     print(f"[DEBUG] PIB data complet: {pib_data}")
