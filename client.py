@@ -3339,6 +3339,47 @@ async def set_channel_lvl(interaction: discord.Interaction, channel: discord.Tex
     await interaction.response.send_message(
         f"Salon de log niveau défini sur {channel.mention}.", ephemeral=True)
 
+@bot.tree.command(name="set_all_level_10", description="Met tous les utilisateurs au niveau 10")
+@app_commands.checks.has_permissions(administrator=True)
+async def set_all_level_10(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    
+    global levels
+    updated_count = 0
+    
+    # Calculer l'XP total nécessaire pour être au niveau 10
+    total_xp_level_10 = 0
+    for i in range(1, 10):
+        total_xp_level_10 += xp_for_level(i)
+    
+    # Mettre à jour tous les utilisateurs
+    for user_id, data in levels.items():
+        # Mettre au niveau 10 avec 0 XP vers le niveau 11
+        levels[user_id]["level"] = 10
+        levels[user_id]["total_xp"] = total_xp_level_10
+        levels[user_id]["xp_for_current_level"] = 0
+        levels[user_id]["xp"] = 0  # Pour compatibilité
+        updated_count += 1
+    
+    # Sauvegarder
+    save_levels(levels)
+    
+    # Sauvegarder dans PostgreSQL
+    try:
+        save_all_json_to_postgres()
+        await interaction.followup.send(
+            f"✅ {updated_count} utilisateurs mis au niveau 10 avec succès !\n"
+            f"💾 Données sauvegardées localement et dans PostgreSQL.",
+            ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"✅ {updated_count} utilisateurs mis au niveau 10 avec succès !\n"
+            f"⚠️ Erreur lors de la sauvegarde PostgreSQL: {e}",
+            ephemeral=True
+        )
+        print(f"[ERROR] Sauvegarde PostgreSQL après set_all_level_10 : {e}")
+
 @bot.tree.command(name="lvl", description="Affiche votre niveau et progression XP")
 async def lvl(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
@@ -4362,6 +4403,7 @@ async def help_command(interaction: discord.Interaction):
             ("/setlogmute", "Définit le salon de logs pour les sanctions."),
             ("/set_lvl", "Active ou désactive le système de niveaux."),
             ("/set_channel_lvl", "Choisit le salon de logs des passages de niveau."),
+            ("/set_all_level_10", "Met tous les utilisateurs au niveau 10."),
             ("/categorie", "Applique les permissions de catégorie aux salons."),
             ("/creer_webhook", "Crée un webhook dans le salon courant."),
         ]
