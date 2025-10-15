@@ -2182,6 +2182,15 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         print(f"[DEBUG] PIB pour rôle {role.name} ({role_id}) initialisé avec 0")
     
     pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
+    
+    # Vérification de type pour éviter les erreurs
+    if isinstance(pib, dict):
+        print(f"[DEBUG] PIB est un dictionnaire, conversion en 0: {pib}")
+        pib = 0
+    elif not isinstance(pib, (int, float)):
+        print(f"[DEBUG] PIB n'est pas un nombre, conversion en 0: {pib}")
+        pib = 0
+    
     print(f"[DEBUG] PIB pour role_id {role_id}: {pib}")
     print(f"[DEBUG] PIB data complet: {pib_data}")
     # Calcul de la dette totale (somme des emprunts avec taux)
@@ -2240,9 +2249,14 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
     print(f"[DEBUG] PIB pour {role_id}: {pib}")
     print(f"[DEBUG] Nombre d'emprunts trouvés: {len(emprunts_trouves)}")
     
+    # Vérification de type pour dette_totale
+    if not isinstance(dette_totale, (int, float)):
+        print(f"[DEBUG] Dette totale n'est pas un nombre, conversion en 0: {dette_totale}")
+        dette_totale = 0
+    
     # Pourcentage dette/PIB
     pourcentage_pib = 0
-    if pib and pib > 0 and dette_totale > 0:
+    if isinstance(pib, (int, float)) and pib > 0 and isinstance(dette_totale, (int, float)) and dette_totale > 0:
         pourcentage_pib = round((dette_totale / pib) * 100, 2)
         print(f"[DEBUG] Calcul pourcentage: {dette_totale} / {pib} * 100 = {pourcentage_pib}%")
     else:
