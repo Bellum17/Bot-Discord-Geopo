@@ -159,59 +159,10 @@ def xp_for_level(level):
     else:
         return 2 * xp_for_level(level - 1)
 
-def calculate_level_from_total_xp(total_xp):
-    """Calcule le niveau correct basé sur l'XP total"""
-    if total_xp < 0:
-        return 1, 0
-    
-    level = 1
-    remaining_xp = total_xp
-    
-    # Calculer le niveau en soustrayant l'XP requis pour chaque niveau
-    while remaining_xp >= 0:
-        xp_needed = xp_for_level(level)
-        if xp_needed is None or remaining_xp < xp_needed:
-            break
-        remaining_xp -= xp_needed
-        level += 1
-    
-    return level, remaining_xp
-
 def migrate_levels_data():
-    """Migre les anciennes données de niveau vers le nouveau système"""
-    global levels
-    migrated_count = 0
-    
-    for user_id, data in levels.items():
-        if "total_xp" not in data:
-            # Ancien système : calculer l'XP total approximatif
-            current_level = data.get("level", 1)
-            xp_remaining = data.get("xp", 0)
-            
-            # Calculer l'XP total en ajoutant l'XP de tous les niveaux précédents
-            total_xp = xp_remaining
-            for i in range(1, current_level):
-                total_xp += xp_for_level(i)
-            
-            # Recalculer le niveau correct
-            correct_level, remaining_xp = calculate_level_from_total_xp(total_xp)
-            
-            # Mettre à jour les données
-            levels[user_id]["total_xp"] = total_xp
-            levels[user_id]["level"] = correct_level
-            levels[user_id]["xp_for_current_level"] = remaining_xp
-            levels[user_id]["xp"] = remaining_xp  # Garder pour compatibilité
-            
-            migrated_count += 1
-            print(f"Migré {user_id}: {current_level} -> {correct_level} (XP total: {total_xp})")
-    
-    if migrated_count > 0:
-        save_levels(levels)
-        print(f"Migration terminée: {migrated_count} utilisateurs migrés")
-        return migrated_count
-    else:
-        print("✅ Données déjà migrées - aucun changement nécessaire")
-        return 0
+    """Migration désactivée - retour au système XP simple"""
+    print("✅ Données déjà à jour")
+    return 0
 
 def get_progress_bar(xp, level):
     total = xp_for_level(level)
@@ -336,7 +287,6 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-
 async def apply_permanent_presence(client: commands.Bot) -> None:
     """Applique le statut permanent configuré pour le bot."""
     try:
@@ -346,7 +296,6 @@ async def apply_permanent_presence(client: commands.Bot) -> None:
         # Discord refuse parfois les statuts personnalisés pour les bots ; on journalise pour diagnostic.
         print(f"[DEBUG] Impossible de définir l'activité personnalisée : {exc}")
         await client.change_presence(status=discord.Status.online)
-
 
 # === COMMANDE POUR ENREGISTRER LES IDS DES MEMBRES ===
 
@@ -373,7 +322,6 @@ async def on_guild_join(guild: discord.Guild):
         print(f"[INFO] Commandes synchronisées pour la guild {guild.name} ({guild.id})")
     except Exception as exc:
         print(f"[WARN] Échec de synchronisation sur la guild {guild.id} : {exc}")
-
 
 # Variables globales pour les données
 balances = {}
@@ -466,8 +414,6 @@ def save_pays_images(data):
             json.dump(data, f)
     except Exception as e:
         print(f"Erreur lors de la sauvegarde des images de pays: {e}")
-
-
 
 def load_balances():
     """Charge les données des balances depuis le fichier."""
@@ -941,7 +887,7 @@ async def on_message(message):
         return
     user_id = str(message.author.id)
     if user_id not in levels:
-        levels[user_id] = {"xp": 0, "level": 1, "total_xp": 0, "xp_for_current_level": 0}
+        levels[user_id] = {"xp": 0, "level": 1}
     
     # Vérifier si le bonus XP est actif et encore valide
     bonus_active = False
@@ -994,15 +940,21 @@ async def on_message(message):
     
     levels[user_id]["xp"] += xp_gain
     
-    # Recalculer le niveau correct basé sur l'XP total
-    total_xp = levels[user_id]["xp"]
-    new_level, remaining_xp = calculate_level_from_total_xp(total_xp)
-    old_level = levels[user_id]["level"]
+    # Vérifier si l'utilisateur a assez d'XP pour passer au niveau suivant
+    current_level = levels[user_id]["level"]
+    current_xp = levels[user_id]["xp"]
+    xp_needed = xp_for_level(current_level)
     
-    # Mettre à jour le niveau et l'XP restant pour le niveau actuel
-    levels[user_id]["level"] = new_level
-    levels[user_id]["xp_for_current_level"] = remaining_xp
-    levels[user_id]["total_xp"] = total_xp  # Garder trace de l'XP total
+    # Gérer les montées de niveau
+    while current_xp >= xp_needed and xp_needed is not None:
+        current_xp -= xp_needed
+        current_level += 1
+        xp_needed = xp_for_level(current_level)
+    
+    # Mettre à jour les données
+    old_level = levels[user_id]["level"]
+    levels[user_id]["level"] = current_level
+    levels[user_id]["xp"] = current_xp
     
     save_levels(levels)
     try:
@@ -1011,9 +963,9 @@ async def on_message(message):
         print(f"[ERROR] Sauvegarde PostgreSQL après message : {e}")
     
     # Vérifier si niveau a augmenté
-    if new_level > old_level:
+    if current_level > old_level:
         # Gestion des rôles de palier pour chaque niveau gagné
-        for level_gained in range(old_level + 1, new_level + 1):
+        for level_gained in range(old_level + 1, current_level + 1):
             palier_roles = {
                 10: 1417893183903502468,
                 20: 1417893555376230570,
@@ -1086,7 +1038,6 @@ async def setlogeconomy(interaction: discord.Interaction, channel: discord.TextC
     )
     embed.set_image(url=IMAGE_URL)
     await interaction.response.send_message(embed=embed, ephemeral=True)
-
 
 # Fonction utilitaire pour convertir les majuscules en caractères spéciaux
 def is_valid_image_url(url):
@@ -2002,7 +1953,6 @@ async def setlogpays(interaction: discord.Interaction, channel: discord.TextChan
     embed.set_image(url=IMAGE_URL)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-
 # Commande ranking simplifiée : affiche seulement l'argent total en circulation
 
 # Commande classement : affiche le classement des membres par argent
@@ -2062,7 +2012,6 @@ async def classement_eco(interaction: discord.Interaction):
 
     view = ClassementView(pages)
     await interaction.response.send_message(embed=make_embed(0), view=view)
-
 
 # Commande /payer : la cible est un rôle (pays) obligatoire, si rien n'est précisé l'argent est détruit (bot), et on ne save pas dans ce cas
 @bot.tree.command(name="payer", description="Payer un autre pays ou détruire de l'argent de son pays")
@@ -2179,7 +2128,6 @@ async def reset_economie(interaction: discord.Interaction):
         view=confirm_view,
         ephemeral=True
     )
-
 
 # Commande /balance : voir l'argent de son pays ou d'un autre (optionnel)
 @bot.tree.command(name="balance", description="Affiche l'argent de votre pays ou d'un autre rôle (optionnel)")
@@ -3334,149 +3282,25 @@ async def set_lvl(interaction: discord.Interaction):
 @bot.tree.command(name="set_channel_lvl", description="Définit le salon de log pour les passages de niveau")
 @app_commands.checks.has_permissions(administrator=True)
 async def set_channel_lvl(interaction: discord.Interaction, channel: discord.TextChannel):
-    await interaction.response.defer(ephemeral=True)
-    
-    global levels
     lvl_log_channel_data[str(interaction.guild.id)] = channel.id
     save_lvl_log_channel(lvl_log_channel_data)
-    
-    # Vérifier et mettre à jour les niveaux basés sur le total_xp
-    updated_count = 0
-    for user_id, data in levels.items():
-        if "total_xp" in data:
-            # Recalculer le niveau correct basé sur total_xp
-            correct_level, remaining_xp = calculate_level_from_total_xp(data["total_xp"])
-            if data["level"] != correct_level:
-                # Mettre à jour les données
-                data["level"] = correct_level
-                
-                # Calculer l'XP pour le niveau actuel
-                xp_used_for_levels = 0
-                for i in range(1, correct_level):
-                    xp_used_for_levels += xp_for_level(i)
-                data["xp_for_current_level"] = data["total_xp"] - xp_used_for_levels
-                data["xp"] = data["xp_for_current_level"]
-                
-                updated_count += 1
-    
-    # Sauvegarder les modifications
-    if updated_count > 0:
-        save_levels(levels)
-        try:
-            save_all_json_to_postgres()
-        except Exception as e:
-            print(f"[ERROR] Sauvegarde PostgreSQL dans set_channel_lvl : {e}")
-    
-    response_message = f"✅ Salon de log niveau défini sur {channel.mention}."
-    if updated_count > 0:
-        response_message += f"\n🔄 **{updated_count}** niveaux mis à jour selon le total_xp."
-    
-    await interaction.followup.send(response_message, ephemeral=True)
-
-@bot.tree.command(name="set_all_level_10", description="Met tous les membres du serveur au niveau 10")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_all_level_10(interaction: discord.Interaction):
-    # Vérifier que la commande est utilisée dans le bon serveur
-    target_guild_id = 1393301496283795640
-    if interaction.guild.id != target_guild_id:
-        await interaction.response.send_message(
-            f"❌ Cette commande ne peut être utilisée que dans le serveur spécifique (ID: {target_guild_id}).",
-            ephemeral=True
-        )
-        return
-    
-    await interaction.response.defer(ephemeral=True)
-    
-    global levels
-    updated_count = 0
-    new_users_count = 0
-    
-    # Calculer l'XP total nécessaire pour être au niveau 10
-    total_xp_level_10 = 0
-    for i in range(1, 10):
-        total_xp_level_10 += xp_for_level(i)
-    
-    # Récupérer tous les membres du serveur (pas seulement ceux dans levels.json)
-    guild = interaction.guild
-    
-    # Traiter tous les membres du serveur
-    for member in guild.members:
-        if member.bot:  # Ignorer les bots
-            continue
-            
-        user_id = str(member.id)
-        
-        if user_id not in levels:
-            # Nouveau membre, créer une entrée
-            levels[user_id] = {
-                "level": 10,
-                "total_xp": total_xp_level_10,
-                "xp_for_current_level": 0,
-                "xp": 0
-            }
-            new_users_count += 1
-        else:
-            # Membre existant, mettre à jour au niveau 10
-            levels[user_id]["level"] = 10
-            levels[user_id]["total_xp"] = total_xp_level_10
-            levels[user_id]["xp_for_current_level"] = 0
-            levels[user_id]["xp"] = 0
-        
-        updated_count += 1
-    
-    # Sauvegarder
-    save_levels(levels)
-    
-    # Sauvegarder dans PostgreSQL
-    try:
-        save_all_json_to_postgres()
-        await interaction.followup.send(
-            f"✅ **Mise à jour terminée !**\n"
-            f"👥 **{updated_count}** membres mis au niveau 10\n"
-            f"🆕 **{new_users_count}** nouveaux membres ajoutés\n"
-            f"📊 **XP total niveau 10 :** {total_xp_level_10}\n"
-            f"💾 Données sauvegardées localement et dans PostgreSQL.",
-            ephemeral=True
-        )
-    except Exception as e:
-        await interaction.followup.send(
-            f"✅ **Mise à jour terminée !**\n"
-            f"👥 **{updated_count}** membres mis au niveau 10\n"
-            f"🆕 **{new_users_count}** nouveaux membres ajoutés\n"
-            f"⚠️ **Erreur PostgreSQL :** {e}",
-            ephemeral=True
-        )
-        print(f"[ERROR] Sauvegarde PostgreSQL après set_all_level_10 : {e}")
+    await interaction.response.send_message(
+        f"✅ Salon de log niveau défini sur {channel.mention}.", ephemeral=True)
 
 @bot.tree.command(name="lvl", description="Affiche votre niveau et progression XP")
 async def lvl(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     if user_id not in levels:
-        levels[user_id] = {"xp": 0, "level": 1, "total_xp": 0, "xp_for_current_level": 0}
-        save_levels(levels)
-    
-    # Récupérer les données actuelles
-    if "total_xp" not in levels[user_id]:
-        # Migration : calculer total_xp depuis l'ancien système
-        total_xp = levels[user_id]["xp"]
-        current_level = levels[user_id]["level"]
-        # Calculer l'XP total approximatif basé sur le niveau et l'XP restant
-        for i in range(1, current_level):
-            total_xp += xp_for_level(i)
-        levels[user_id]["total_xp"] = total_xp
-        # Recalculer le niveau correct
-        new_level, remaining_xp = calculate_level_from_total_xp(total_xp)
-        levels[user_id]["level"] = new_level
-        levels[user_id]["xp_for_current_level"] = remaining_xp
+        levels[user_id] = {"xp": 0, "level": 1}
         save_levels(levels)
     
     level = levels[user_id]["level"]
-    xp_current = levels[user_id].get("xp_for_current_level", levels[user_id]["xp"])
-    total_xp = levels[user_id].get("total_xp", levels[user_id]["xp"])
+    xp_current = levels[user_id]["xp"]
     
     bar = get_progress_bar(xp_current, level)
     xp_needed = xp_for_level(level)
     percent = int((xp_current / xp_needed) * 100) if xp_needed > 0 else 0
+    
     # Détection du grade de palier
     palier_roles = {
         10: 1417893183903502468,
@@ -3587,7 +3411,6 @@ async def classement_lvl(interaction: discord.Interaction):
 
     view = ClassementView(pages)
     await interaction.response.send_message(embed=make_embed(0), view=view)
-
 
 @bot.tree.command(name="creer_emprunt", description="Crée un emprunt et attribue la somme au demandeur")
 @app_commands.describe(
@@ -3704,7 +3527,6 @@ async def creer_emprunt(
         color=0x00FF00
     )
     await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
-
 
 # Commande /liste_emprunt : affiche la liste des emprunts du joueur avec pagination
 @bot.tree.command(name="liste_emprunt", description="Affiche la liste de vos emprunts")
@@ -3833,7 +3655,6 @@ async def remboursement(
                 ephemeral=True
             )
 
-
 @bot.tree.command(name="reset_debt", description="Supprime toutes les dettes et emprunts du serveur")
 @app_commands.checks.has_permissions(administrator=True)
 async def reset_debt(interaction: discord.Interaction):
@@ -3882,7 +3703,6 @@ async def reset_debt(interaction: discord.Interaction):
         color=0x00FF00
     )
     await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
-
 
     # === Mise à jour des salons vocaux de stats ===
 
@@ -4067,7 +3887,6 @@ async def creer_stats_voice_channels(interaction: discord.Interaction, categorie
         color=0xefe7c5
     )
     await interaction.followup.send(embed=embed, ephemeral=True)
-
 
 # === Commande /guide (présentation serveur) ===
 @bot.tree.command(name="guide", description="Guide de présentation du serveur")
@@ -4366,9 +4185,6 @@ async def generate_help_banner(
     output.seek(0)
     return output
 
-
-
-
 HAS_ADVANCED_HELP_VIEW = all(
     hasattr(discord.ui, attr)
     for attr in (
@@ -4381,7 +4197,6 @@ HAS_ADVANCED_HELP_VIEW = all(
         "TextDisplay",
     )
 )
-
 
 if HAS_ADVANCED_HELP_VIEW:
     class Components(discord.ui.LayoutView):
@@ -4412,7 +4227,6 @@ if HAS_ADVANCED_HELP_VIEW:
                 pass
 else:
     Components = None  # type: ignore[assignment]
-
 
 @bot.tree.command(name="help", description="Affiche la liste complète des commandes du bot")
 async def help_command(interaction: discord.Interaction):
@@ -4471,7 +4285,6 @@ async def help_command(interaction: discord.Interaction):
             ("/setlogmute", "Définit le salon de logs pour les sanctions."),
             ("/set_lvl", "Active ou désactive le système de niveaux."),
             ("/set_channel_lvl", "Choisit le salon de logs des passages de niveau."),
-            ("/set_all_level_10", "Met tous les membres du serveur spécifique au niveau 10."),
             ("/categorie", "Applique les permissions de catégorie aux salons."),
             ("/creer_webhook", "Crée un webhook dans le salon courant."),
         ]
@@ -7573,253 +7386,6 @@ async def developpements(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, view=view)
 
-# === COMMANDE TEMPORAIRE DE DISTRIBUTION ===
-
-# Configuration pour la distribution temporaire
-TARGET_GUILD_ID_TEMP = 1393301496283795640
-BUDGET_PER_COUNTRY = 1750000000  # 1.75 milliard
-PIB_PER_COUNTRY = 5000000000    # 5 milliards
-
-# IDs des rôles de pays pour la distribution
-COUNTRY_ROLES_TEMP = [
-    1427061149463220286, 1426941979819774116, 1426649919028072478, 1426413493120274432,
-    1426531033964347432, 1426403729627676705, 1426403099605733488, 1426151441504010250,
-    1426000227784982592, 1425896189655781468, 1425631303172227208, 1425607559171276943,
-    1425449117865480212, 1425443195239796736, 1425423630115930112, 1425270579795329126,
-    1425234255792963726, 1425231605273854174, 1425224170203119737, 1425203208300793967,
-    1425199137015464067, 1425195424158974135, 1424944033930940479, 1424889272347136020,
-    1424869321682980996, 1424785448055869582, 1425200680431390882, 1427036600688185566,
-    1426728376240050178, 1426637595324190863, 1425935121311338720, 1425914498656633074,
-    1425735656323285052, 1425211456806322377, 1427664724706726008, 1426098167849549926,
-    1425731712402456616, 1425615035992113245, 1425613165080612946, 1425611303572996251,
-    1425604209310564502, 1425607272238944286, 1425411508128452619, 1424880734124118047,
-    1424872503859478598, 1424787616511033464, 1427034793505456230, 1426949508763357208,
-    1426948101880418424, 1426929775955411085, 1426935522890088468, 1426804500336738325,
-    1426603289235034257, 1426538320447668387, 1425966634564063330, 1425554726849740962,
-    1425548125568766075, 1425504403804127323, 1425451959606968491, 1425447355125075973,
-    1425215443710509156, 1425207385647222826, 1424947646195564706, 1424792277993132103,
-    1427704832982257919, 1426267264390402088
-]
-
-# Fichier pour suivre l'utilisation de la distribution temporaire
-TEMP_USAGE_FILE = os.path.join(DATA_DIR, "temp_distribution_used.json")
-
-def load_temp_usage():
-    """Charge les données d'utilisation de la distribution temporaire."""
-    if not os.path.exists(TEMP_USAGE_FILE):
-        return {}
-    try:
-        with open(TEMP_USAGE_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_temp_usage(data):
-    """Sauvegarde les données d'utilisation de la distribution temporaire."""
-    try:
-        with open(TEMP_USAGE_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde de l'utilisation temporaire: {e}")
-
-# Vue de confirmation pour la distribution
-class DistributionConfirmView(discord.ui.View):
-    def __init__(self, user_id):
-        super().__init__(timeout=30)
-        self.user_id = user_id
-        self.confirmed = False
-    
-    @discord.ui.button(label="✅ Confirmer", style=discord.ButtonStyle.green)
-    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
-            return
-        
-        self.confirmed = True
-        self.stop()
-        await interaction.response.defer()
-    
-    @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.red)
-    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut annuler.", ephemeral=True)
-            return
-        
-        self.stop()
-        await interaction.response.defer()
-
-@bot.tree.command(name="temp_distribute", description="Distribution temporaire d'économie aux pays (usage unique)")
-@app_commands.checks.has_permissions(administrator=True)
-async def temp_distribute(interaction: discord.Interaction):
-    """Distribue temporairement budget et PIB aux pays (usage unique par serveur)."""
-    
-    # Vérifications de sécurité
-    if interaction.guild.id != TARGET_GUILD_ID_TEMP:
-        await interaction.response.send_message("❌ Cette commande n'est disponible que sur le serveur autorisé.", ephemeral=True)
-        return
-    
-    # Vérifier si déjà utilisé
-    usage = load_temp_usage()
-    guild_key = str(interaction.guild.id)
-    
-    if guild_key in usage:
-        embed = discord.Embed(
-            title="❌ Distribution déjà effectuée",
-            description=f"Cette commande a déjà été utilisée sur ce serveur le **{usage[guild_key]}**.",
-            color=0xff0000
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Embed de confirmation
-    embed = discord.Embed(
-        title="🚨 DISTRIBUTION ÉCONOMIQUE TEMPORAIRE",
-        description=f"**Confirmer la distribution ?**\n\n"
-                   f"💰 **Budget par pays :** {format_number(BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
-                   f"📈 **PIB par pays :** {format_number(PIB_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
-                   f"🌍 **Nombre de pays :** {len(COUNTRY_ROLES_TEMP)}\n\n"
-                   f"⚠️ **Cette action est irréversible et ne peut être utilisée qu'une fois !**",
-        color=0xff9900
-    )
-    
-    view = DistributionConfirmView(interaction.user.id)
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    
-    # Attendre la confirmation
-    await view.wait()
-    
-    if not view.confirmed:
-        embed = discord.Embed(
-            title="❌ Distribution annulée",
-            description="La distribution économique a été annulée.",
-            color=0xff0000
-        )
-        await interaction.edit_original_response(embed=embed, view=None)
-        return
-    
-    # Traitement de la distribution
-    embed = discord.Embed(
-        title="⏳ Distribution en cours...",
-        description="Traitement des pays...",
-        color=0xffff00
-    )
-    await interaction.edit_original_response(embed=embed, view=None)
-    
-    success_count = 0
-    errors = []
-    
-    for role_id in COUNTRY_ROLES_TEMP:
-        try:
-            role = interaction.guild.get_role(role_id)
-            if not role:
-                errors.append(f"Rôle {role_id} introuvable")
-                continue
-            
-            # Utiliser l'ID du rôle comme clé, pas le nom
-            role_key = str(role_id)
-            
-            # Mise à jour budget
-            if role_key not in balances:
-                balances[role_key] = 0
-            balances[role_key] += BUDGET_PER_COUNTRY
-            
-            # Mise à jour PIB
-            if role_key not in pib_data:
-                pib_data[role_key] = 0
-            pib_data[role_key] += PIB_PER_COUNTRY
-            
-            success_count += 1
-            
-        except Exception as e:
-            errors.append(f"Erreur pour {role_id}: {str(e)}")
-    
-    # Sauvegarder les données
-    save_balances(balances)
-    save_pib(pib_data)
-    
-    # Forcer la sauvegarde PostgreSQL
-    try:
-        import subprocess
-        result = subprocess.run([
-            "python3", "backup_json_to_postgres.py"
-        ], cwd=BASE_DIR, capture_output=True, text=True, timeout=30)
-        
-        if result.returncode == 0:
-            print("✅ Sauvegarde PostgreSQL réussie après distribution")
-        else:
-            print(f"⚠️ Erreur sauvegarde PostgreSQL: {result.stderr}")
-    except Exception as e:
-        print(f"⚠️ Erreur lors de la sauvegarde PostgreSQL: {e}")
-    
-    # Marquer comme utilisé
-    from datetime import datetime
-    usage[guild_key] = datetime.now().strftime("%d/%m/%Y à %H:%M:%S")
-    save_temp_usage(usage)
-    
-    # Log de la distribution
-    if interaction.guild.id in log_channel_data:
-        log_embed = discord.Embed(
-            title="📊 Distribution Économique Temporaire",
-            description=f"**Administrateur :** {interaction.user.mention}\n"
-                       f"**Pays traités :** {success_count}/{len(COUNTRY_ROLES_TEMP)}\n"
-                       f"**Budget total distribué :** {format_number(success_count * BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
-                       f"**PIB total distribué :** {format_number(success_count * PIB_PER_COUNTRY)} {MONNAIE_EMOJI}",
-            color=EMBED_COLOR,
-            timestamp=datetime.now()
-        )
-        await send_log(interaction.guild, embed=log_embed)
-    
-    # Résultat final
-    result_embed = discord.Embed(
-        title="✅ DISTRIBUTION TERMINÉE",
-        description=f"**Résultats :**\n\n"
-                   f"✅ **Pays traités :** {success_count}/{len(COUNTRY_ROLES_TEMP)}\n"
-                   f"💰 **Budget total distribué :** {format_number(success_count * BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
-                   f"📈 **PIB total distribué :** {format_number(success_count * PIB_PER_COUNTRY)} {MONNAIE_EMOJI}\n\n"
-                   f"� **Sauvegarde locale :** ✅ Fichiers JSON mis à jour\n"
-                   f"🗄️ **Sauvegarde PostgreSQL :** En cours...\n\n"
-                   f"�🔒 **Cette commande ne peut plus être utilisée sur ce serveur.**",
-        color=0x00ff00
-    )
-    
-    if errors:
-        error_text = "\n".join(errors[:10])  # Limiter à 10 erreurs
-        if len(errors) > 10:
-            error_text += f"\n... et {len(errors) - 10} autres erreurs"
-        result_embed.add_field(name="⚠️ Erreurs", value=error_text, inline=False)
-    
-    await interaction.edit_original_response(embed=result_embed)
-
-@bot.tree.command(name="temp_status", description="Vérifie le statut de la distribution temporaire")
-@app_commands.checks.has_permissions(administrator=True)
-async def temp_status(interaction: discord.Interaction):
-    """Vérifie le statut de distribution temporaire."""
-    if interaction.guild.id != TARGET_GUILD_ID_TEMP:
-        await interaction.response.send_message("❌ Cette commande n'est disponible que sur le serveur autorisé.", ephemeral=True)
-        return
-    
-    usage = load_temp_usage()
-    guild_key = str(interaction.guild.id)
-    
-    if guild_key in usage:
-        embed = discord.Embed(
-            title="📊 Statut de Distribution Temporaire",
-            description=f"✅ **Distribution effectuée le :** {usage[guild_key]}\n"
-                       f"🔒 **Commande bloquée** sur ce serveur",
-            color=0x00ff00
-        )
-    else:
-        embed = discord.Embed(
-            title="📊 Statut de Distribution Temporaire",
-            description=f"⏳ **Distribution disponible**\n"
-                       f"💰 Budget prêt : {format_number(BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI} par pays\n"
-                       f"📈 PIB prêt : {format_number(PIB_PER_COUNTRY)} {MONNAIE_EMOJI} par pays\n"
-                       f"🌍 Pays concernés : {len(COUNTRY_ROLES_TEMP)}",
-            color=0xffff00
-        )
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
 @bot.tree.command(name="force_sync_postgres", description="Force la synchronisation des données avec PostgreSQL")
 @app_commands.checks.has_permissions(administrator=True)
 async def force_sync_postgres(interaction: discord.Interaction):
@@ -7858,7 +7424,7 @@ async def force_sync_postgres(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, ephemeral=True)
 
-# === FIN COMMANDE TEMPORAIRE ===
+
 
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
