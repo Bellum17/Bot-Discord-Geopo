@@ -7378,6 +7378,238 @@ async def developpements(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, view=view)
 
+# === COMMANDE TEMPORAIRE DE DISTRIBUTION ===
+
+# Configuration pour la distribution temporaire
+TARGET_GUILD_ID_TEMP = 1393301496283795640
+BUDGET_PER_COUNTRY = 1750000000  # 1.75 milliard
+PIB_PER_COUNTRY = 5000000000    # 5 milliards
+
+# IDs des rôles de pays pour la distribution
+COUNTRY_ROLES_TEMP = [
+    1427061149463220286, 1426941979819774116, 1426649919028072478, 1426413493120274432,
+    1426531033964347432, 1426403729627676705, 1426403099605733488, 1426151441504010250,
+    1426000227784982592, 1425896189655781468, 1425631303172227208, 1425607559171276943,
+    1425449117865480212, 1425443195239796736, 1425423630115930112, 1425270579795329126,
+    1425234255792963726, 1425231605273854174, 1425224170203119737, 1425203208300793967,
+    1425199137015464067, 1425195424158974135, 1424944033930940479, 1424889272347136020,
+    1424869321682980996, 1424785448055869582, 1425200680431390882, 1427036600688185566,
+    1426728376240050178, 1426637595324190863, 1425935121311338720, 1425914498656633074,
+    1425735656323285052, 1425211456806322377, 1427664724706726008, 1426098167849549926,
+    1425731712402456616, 1425615035992113245, 1425613165080612946, 1425611303572996251,
+    1425604209310564502, 1425607272238944286, 1425411508128452619, 1424880734124118047,
+    1424872503859478598, 1424787616511033464, 1427034793505456230, 1426949508763357208,
+    1426948101880418424, 1426929775955411085, 1426935522890088468, 1426804500336738325,
+    1426603289235034257, 1426538320447668387, 1425966634564063330, 1425554726849740962,
+    1425548125568766075, 1425504403804127323, 1425451959606968491, 1425447355125075973,
+    1425215443710509156, 1425207385647222826, 1424947646195564706, 1424792277993132103,
+    1427704832982257919, 1426267264390402088
+]
+
+# Fichier pour suivre l'utilisation de la distribution temporaire
+TEMP_USAGE_FILE = os.path.join(DATA_DIR, "temp_distribution_used.json")
+
+def load_temp_usage():
+    """Charge les données d'utilisation de la distribution temporaire."""
+    if not os.path.exists(TEMP_USAGE_FILE):
+        return {}
+    try:
+        with open(TEMP_USAGE_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_temp_usage(data):
+    """Sauvegarde les données d'utilisation de la distribution temporaire."""
+    try:
+        with open(TEMP_USAGE_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde de l'utilisation temporaire: {e}")
+
+# Vue de confirmation pour la distribution
+class DistributionConfirmView(discord.ui.View):
+    def __init__(self, user_id):
+        super().__init__(timeout=30)
+        self.user_id = user_id
+        self.confirmed = False
+    
+    @discord.ui.button(label="✅ Confirmer", style=discord.ButtonStyle.green)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
+            return
+        
+        self.confirmed = True
+        self.stop()
+        await interaction.response.defer()
+    
+    @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.red)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut annuler.", ephemeral=True)
+            return
+        
+        self.stop()
+        await interaction.response.defer()
+
+@bot.tree.command(name="temp_distribute", description="Distribution temporaire d'économie aux pays (usage unique)")
+@app_commands.checks.has_permissions(administrator=True)
+async def temp_distribute(interaction: discord.Interaction):
+    """Distribue temporairement budget et PIB aux pays (usage unique par serveur)."""
+    
+    # Vérifications de sécurité
+    if interaction.guild.id != TARGET_GUILD_ID_TEMP:
+        await interaction.response.send_message("❌ Cette commande n'est disponible que sur le serveur autorisé.", ephemeral=True)
+        return
+    
+    # Vérifier si déjà utilisé
+    usage = load_temp_usage()
+    guild_key = str(interaction.guild.id)
+    
+    if guild_key in usage:
+        embed = discord.Embed(
+            title="❌ Distribution déjà effectuée",
+            description=f"Cette commande a déjà été utilisée sur ce serveur le **{usage[guild_key]}**.",
+            color=0xff0000
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Embed de confirmation
+    embed = discord.Embed(
+        title="🚨 DISTRIBUTION ÉCONOMIQUE TEMPORAIRE",
+        description=f"**Confirmer la distribution ?**\n\n"
+                   f"💰 **Budget par pays :** {format_number(BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
+                   f"📈 **PIB par pays :** {format_number(PIB_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
+                   f"🌍 **Nombre de pays :** {len(COUNTRY_ROLES_TEMP)}\n\n"
+                   f"⚠️ **Cette action est irréversible et ne peut être utilisée qu'une fois !**",
+        color=0xff9900
+    )
+    
+    view = DistributionConfirmView(interaction.user.id)
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    # Attendre la confirmation
+    await view.wait()
+    
+    if not view.confirmed:
+        embed = discord.Embed(
+            title="❌ Distribution annulée",
+            description="La distribution économique a été annulée.",
+            color=0xff0000
+        )
+        await interaction.edit_original_response(embed=embed, view=None)
+        return
+    
+    # Traitement de la distribution
+    embed = discord.Embed(
+        title="⏳ Distribution en cours...",
+        description="Traitement des pays...",
+        color=0xffff00
+    )
+    await interaction.edit_original_response(embed=embed, view=None)
+    
+    success_count = 0
+    errors = []
+    
+    for role_id in COUNTRY_ROLES_TEMP:
+        try:
+            role = interaction.guild.get_role(role_id)
+            if not role:
+                errors.append(f"Rôle {role_id} introuvable")
+                continue
+            
+            role_name = role.name
+            
+            # Mise à jour budget
+            if role_name not in balances:
+                balances[role_name] = 0
+            balances[role_name] += BUDGET_PER_COUNTRY
+            
+            # Mise à jour PIB
+            if role_name not in pib_data:
+                pib_data[role_name] = 0
+            pib_data[role_name] += PIB_PER_COUNTRY
+            
+            success_count += 1
+            
+        except Exception as e:
+            errors.append(f"Erreur pour {role_id}: {str(e)}")
+    
+    # Sauvegarder les données
+    save_balances(balances)
+    save_pib(pib_data)
+    
+    # Marquer comme utilisé
+    from datetime import datetime
+    usage[guild_key] = datetime.now().strftime("%d/%m/%Y à %H:%M:%S")
+    save_temp_usage(usage)
+    
+    # Log de la distribution
+    if interaction.guild.id in log_channel_data:
+        log_embed = discord.Embed(
+            title="📊 Distribution Économique Temporaire",
+            description=f"**Administrateur :** {interaction.user.mention}\n"
+                       f"**Pays traités :** {success_count}/{len(COUNTRY_ROLES_TEMP)}\n"
+                       f"**Budget total distribué :** {format_number(success_count * BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
+                       f"**PIB total distribué :** {format_number(success_count * PIB_PER_COUNTRY)} {MONNAIE_EMOJI}",
+            color=EMBED_COLOR,
+            timestamp=datetime.now()
+        )
+        await send_log(interaction.guild, embed=log_embed)
+    
+    # Résultat final
+    result_embed = discord.Embed(
+        title="✅ DISTRIBUTION TERMINÉE",
+        description=f"**Résultats :**\n\n"
+                   f"✅ **Pays traités :** {success_count}/{len(COUNTRY_ROLES_TEMP)}\n"
+                   f"💰 **Budget total distribué :** {format_number(success_count * BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
+                   f"📈 **PIB total distribué :** {format_number(success_count * PIB_PER_COUNTRY)} {MONNAIE_EMOJI}\n\n"
+                   f"🔒 **Cette commande ne peut plus être utilisée sur ce serveur.**",
+        color=0x00ff00
+    )
+    
+    if errors:
+        error_text = "\n".join(errors[:10])  # Limiter à 10 erreurs
+        if len(errors) > 10:
+            error_text += f"\n... et {len(errors) - 10} autres erreurs"
+        result_embed.add_field(name="⚠️ Erreurs", value=error_text, inline=False)
+    
+    await interaction.edit_original_response(embed=result_embed)
+
+@bot.tree.command(name="temp_status", description="Vérifie le statut de la distribution temporaire")
+@app_commands.checks.has_permissions(administrator=True)
+async def temp_status(interaction: discord.Interaction):
+    """Vérifie le statut de distribution temporaire."""
+    if interaction.guild.id != TARGET_GUILD_ID_TEMP:
+        await interaction.response.send_message("❌ Cette commande n'est disponible que sur le serveur autorisé.", ephemeral=True)
+        return
+    
+    usage = load_temp_usage()
+    guild_key = str(interaction.guild.id)
+    
+    if guild_key in usage:
+        embed = discord.Embed(
+            title="📊 Statut de Distribution Temporaire",
+            description=f"✅ **Distribution effectuée le :** {usage[guild_key]}\n"
+                       f"🔒 **Commande bloquée** sur ce serveur",
+            color=0x00ff00
+        )
+    else:
+        embed = discord.Embed(
+            title="📊 Statut de Distribution Temporaire",
+            description=f"⏳ **Distribution disponible**\n"
+                       f"💰 Budget prêt : {format_number(BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI} par pays\n"
+                       f"📈 PIB prêt : {format_number(PIB_PER_COUNTRY)} {MONNAIE_EMOJI} par pays\n"
+                       f"🌍 Pays concernés : {len(COUNTRY_ROLES_TEMP)}",
+            color=0xffff00
+        )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# === FIN COMMANDE TEMPORAIRE ===
+
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
     restore_all_json_from_postgres()
