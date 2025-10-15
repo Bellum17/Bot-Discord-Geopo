@@ -535,7 +535,23 @@ def load_pib():
         return {}  # Ne crée pas le fichier, retourne juste un dict vide
     try:
         with open(PIB_FILE, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        
+        # Nettoyer les données corrompues
+        cleaned_data = {}
+        for role_id, pib_value in data.items():
+            if isinstance(pib_value, (int, float)):
+                cleaned_data[role_id] = pib_value
+            else:
+                print(f"[DEBUG] PIB corrompu pour role {role_id}: {pib_value}, converti en 0")
+                cleaned_data[role_id] = 0
+        
+        # Si des données ont été nettoyées, sauvegarder
+        if len(cleaned_data) != len(data) or any(cleaned_data[k] != data[k] for k in cleaned_data):
+            print("[DEBUG] Données PIB corrompues détectées, nettoyage automatique...")
+            save_pib(cleaned_data)
+        
+        return cleaned_data
     except Exception as e:
         print(f"Erreur lors du chargement du PIB: {e}")
         return {}
@@ -2301,7 +2317,14 @@ async def add_money(interaction: discord.Interaction, role: discord.Role, montan
     
     if type_argent == "budget":
         # Ajouter au budget
-        balances[role_id] = balances.get(role_id, 0) + montant
+        current_balance = balances.get(role_id, 0)
+        
+        # Vérification de type pour le budget
+        if not isinstance(current_balance, (int, float)):
+            print(f"[DEBUG] Balance n'est pas un nombre, initialisation à 0: {current_balance}")
+            current_balance = 0
+        
+        balances[role_id] = current_balance + montant
         print("[DEBUG] Sauvegarde balances.json après ajout d'argent...")
         save_balances(balances)
         print("[DEBUG] Sauvegarde PostgreSQL après ajout d'argent...")
@@ -2315,7 +2338,17 @@ async def add_money(interaction: discord.Interaction, role: discord.Role, montan
         # Ajouter au PIB
         if role_id not in pib_data:
             pib_data[role_id] = PIB_DEFAULT
-        pib_data[role_id] += montant
+        
+        # Vérification de type pour éviter les erreurs
+        current_pib = pib_data[role_id]
+        if isinstance(current_pib, dict):
+            print(f"[DEBUG] PIB est un dictionnaire, initialisation à PIB_DEFAULT: {current_pib}")
+            current_pib = PIB_DEFAULT
+        elif not isinstance(current_pib, (int, float)):
+            print(f"[DEBUG] PIB n'est pas un nombre, initialisation à PIB_DEFAULT: {current_pib}")
+            current_pib = PIB_DEFAULT
+        
+        pib_data[role_id] = current_pib + montant
         print("[DEBUG] Sauvegarde pib.json après ajout de PIB...")
         save_pib(pib_data)
         print("[DEBUG] Sauvegarde PostgreSQL après ajout de PIB...")
