@@ -159,6 +159,60 @@ def xp_for_level(level):
     else:
         return 2 * xp_for_level(level - 1)
 
+def calculate_level_from_total_xp(total_xp):
+    """Calcule le niveau correct basé sur l'XP total"""
+    if total_xp < 0:
+        return 1, 0
+    
+    level = 1
+    remaining_xp = total_xp
+    
+    # Calculer le niveau en soustrayant l'XP requis pour chaque niveau
+    while remaining_xp >= 0:
+        xp_needed = xp_for_level(level)
+        if xp_needed is None or remaining_xp < xp_needed:
+            break
+        remaining_xp -= xp_needed
+        level += 1
+    
+    return level, remaining_xp
+
+def migrate_levels_data():
+    """Migre les anciennes données de niveau vers le nouveau système"""
+    global levels
+    migrated_count = 0
+    
+    for user_id, data in levels.items():
+        if "total_xp" not in data:
+            # Ancien système : calculer l'XP total approximatif
+            current_level = data.get("level", 1)
+            xp_remaining = data.get("xp", 0)
+            
+            # Calculer l'XP total en ajoutant l'XP de tous les niveaux précédents
+            total_xp = xp_remaining
+            for i in range(1, current_level):
+                total_xp += xp_for_level(i)
+            
+            # Recalculer le niveau correct
+            correct_level, remaining_xp = calculate_level_from_total_xp(total_xp)
+            
+            # Mettre à jour les données
+            levels[user_id]["total_xp"] = total_xp
+            levels[user_id]["level"] = correct_level
+            levels[user_id]["xp_for_current_level"] = remaining_xp
+            levels[user_id]["xp"] = remaining_xp  # Garder pour compatibilité
+            
+            migrated_count += 1
+            print(f"Migré {user_id}: {current_level} -> {correct_level} (XP total: {total_xp})")
+    
+    if migrated_count > 0:
+        save_levels(levels)
+        print(f"Migration terminée: {migrated_count} utilisateurs migrés")
+        return migrated_count
+    else:
+        print("✅ Données déjà migrées - aucun changement nécessaire")
+        return 0
+
 def get_progress_bar(xp, level):
     total = xp_for_level(level)
     percent = int((xp / total) * 100) if total > 0 else 0
@@ -887,7 +941,7 @@ async def on_message(message):
         return
     user_id = str(message.author.id)
     if user_id not in levels:
-        levels[user_id] = {"xp": 0, "level": 1}
+        levels[user_id] = {"xp": 0, "level": 1, "total_xp": 0, "xp_for_current_level": 0}
     
     # Vérifier si le bonus XP est actif et encore valide
     bonus_active = False
@@ -939,39 +993,43 @@ async def on_message(message):
         xp_gain += (char_count // 10) * 2  # +2 XP tous les 10 caractères (en plus du bonus existant)
     
     levels[user_id]["xp"] += xp_gain
-    xp = levels[user_id]["xp"]
-    level = levels[user_id]["level"]
-    next_level_xp = xp_for_level(level)
+    
+    # Recalculer le niveau correct basé sur l'XP total
+    total_xp = levels[user_id]["xp"]
+    new_level, remaining_xp = calculate_level_from_total_xp(total_xp)
+    old_level = levels[user_id]["level"]
+    
+    # Mettre à jour le niveau et l'XP restant pour le niveau actuel
+    levels[user_id]["level"] = new_level
+    levels[user_id]["xp_for_current_level"] = remaining_xp
+    levels[user_id]["total_xp"] = total_xp  # Garder trace de l'XP total
+    
     save_levels(levels)
     try:
         save_all_json_to_postgres()
     except Exception as e:
         print(f"[ERROR] Sauvegarde PostgreSQL après message : {e}")
-    if xp >= next_level_xp:
-        levels[user_id]["level"] += 1
-        levels[user_id]["xp"] = xp - next_level_xp
-        save_levels(levels)
-        try:
-            save_all_json_to_postgres()
-        except Exception as e:
-            print(f"[ERROR] Sauvegarde PostgreSQL après message : {e}")
-        # Gestion des rôles de palier
-        palier_roles = {
-            10: 1417893183903502468,
-            20: 1417893555376230570,
-            30: 1417893729066291391,
-            40: 1417893878136176680,
-            50: 1417894464122261555,
-            60: 1417894846844244139,
-            70: 1417895041862733986,
-            80: 1417895157553958922,
-            90: 1417895282443812884,
-            100: 1417895415273099404
-        }
-        palier = (levels[user_id]["level"] // 10) * 10
-        member = message.guild.get_member(message.author.id)
-        # Ajout du nouveau rôle de palier si atteint
-        if palier in palier_roles and member and levels[user_id]["level"] % 10 == 0:
+    
+    # Vérifier si niveau a augmenté
+    if new_level > old_level:
+        # Gestion des rôles de palier pour chaque niveau gagné
+        for level_gained in range(old_level + 1, new_level + 1):
+            palier_roles = {
+                10: 1417893183903502468,
+                20: 1417893555376230570,
+                30: 1417893729066291391,
+                40: 1417893878136176680,
+                50: 1417894464122261555,
+                60: 1417894846844244139,
+                70: 1417895041862733986,
+                80: 1417895157553958922,
+                90: 1417895282443812884,
+                100: 1417895415273099404
+            }
+            palier = (level_gained // 10) * 10
+            member = message.guild.get_member(message.author.id)
+            # Ajout du nouveau rôle de palier si atteint
+            if palier in palier_roles and member and level_gained % 10 == 0:
                 new_role = message.guild.get_role(palier_roles[palier])
                 if new_role:
                     await member.add_roles(new_role)
@@ -990,7 +1048,7 @@ async def on_message(message):
                             embed = discord.Embed(
                                 description=(
                                     "⠀\n"
-                                    f"> ## {message.author.mention} a obtenu le grade de {new_role.mention} au **niveau {levels[user_id]['level']} !** 🎉\n"
+                                    f"> ## {message.author.mention} a obtenu le grade de {new_role.mention} au **niveau {level_gained} !** 🎉\n"
                                     "⠀"
                                 ),
                                 color=0x162e50
@@ -3285,12 +3343,31 @@ async def set_channel_lvl(interaction: discord.Interaction, channel: discord.Tex
 async def lvl(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     if user_id not in levels:
-        levels[user_id] = {"xp": 0, "level": 1}
+        levels[user_id] = {"xp": 0, "level": 1, "total_xp": 0, "xp_for_current_level": 0}
         save_levels(levels)
-    xp = levels[user_id]["xp"]
+    
+    # Récupérer les données actuelles
+    if "total_xp" not in levels[user_id]:
+        # Migration : calculer total_xp depuis l'ancien système
+        total_xp = levels[user_id]["xp"]
+        current_level = levels[user_id]["level"]
+        # Calculer l'XP total approximatif basé sur le niveau et l'XP restant
+        for i in range(1, current_level):
+            total_xp += xp_for_level(i)
+        levels[user_id]["total_xp"] = total_xp
+        # Recalculer le niveau correct
+        new_level, remaining_xp = calculate_level_from_total_xp(total_xp)
+        levels[user_id]["level"] = new_level
+        levels[user_id]["xp_for_current_level"] = remaining_xp
+        save_levels(levels)
+    
     level = levels[user_id]["level"]
-    bar = get_progress_bar(xp, level)
-    percent = int((xp / xp_for_level(level)) * 100) if xp_for_level(level) > 0 else 0
+    xp_current = levels[user_id].get("xp_for_current_level", levels[user_id]["xp"])
+    total_xp = levels[user_id].get("total_xp", levels[user_id]["xp"])
+    
+    bar = get_progress_bar(xp_current, level)
+    xp_needed = xp_for_level(level)
+    percent = int((xp_current / xp_needed) * 100) if xp_needed > 0 else 0
     # Détection du grade de palier
     palier_roles = {
         10: 1417893183903502468,
@@ -3753,6 +3830,14 @@ async def update_stats_voice_channels_periodically():
 async def on_ready():
     print(f'Bot connecté en tant que {bot.user.name}')
     await apply_permanent_presence(bot)
+
+    # Migration des données de niveau
+    print("🔄 Vérification et migration des données de niveau...")
+    migrated = migrate_levels_data()
+    if migrated > 0:
+        print(f"✅ {migrated} utilisateurs migrés vers le nouveau système de niveau")
+    else:
+        print("✅ Données de niveau déjà à jour")
 
     try:
         cmds = await bot.tree.sync()
@@ -7664,123 +7749,6 @@ async def force_sync_postgres(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed, ephemeral=True)
 
 # === FIN COMMANDE TEMPORAIRE ===
-
-@bot.tree.command(name="set-lvl", description="Met tous les membres au niveau 10 avec égalité")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_level_ten(interaction: discord.Interaction):
-    """Met tous les membres du serveur au niveau 10 et leur attribue le rôle correspondant."""
-    await interaction.response.defer()
-    
-    # ID du rôle niveau 10
-    LEVEL_10_ROLE_ID = 1417893183903502468
-    TARGET_LEVEL = 10
-    TARGET_XP = xp_for_level(TARGET_LEVEL)
-    
-    guild = interaction.guild
-    role_level_10 = guild.get_role(LEVEL_10_ROLE_ID)
-    
-    if not role_level_10:
-        embed = discord.Embed(
-            title="❌ Erreur",
-            description=f"Le rôle avec l'ID {LEVEL_10_ROLE_ID} est introuvable.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    
-    # Charger les niveaux actuels
-    current_levels = load_levels()
-    guild_id = str(guild.id)
-    
-    if guild_id not in current_levels:
-        current_levels[guild_id] = {}
-    
-    success_count = 0
-    role_success_count = 0
-    errors = []
-    
-    # Embed de progression
-    embed = discord.Embed(
-        title="⏳ Mise à niveau en cours...",
-        description="Traitement des membres...",
-        color=0xffff00
-    )
-    await interaction.followup.send(embed=embed)
-    
-    # Traiter tous les membres du serveur
-    for member in guild.members:
-        if member.bot:  # Ignorer les bots
-            continue
-            
-        try:
-            user_id = str(member.id)
-            
-            # Mettre à niveau 10 avec l'XP correspondante
-            current_levels[guild_id][user_id] = {
-                "level": TARGET_LEVEL,
-                "xp": TARGET_XP,
-                "total_xp": sum(xp_for_level(i) for i in range(1, TARGET_LEVEL + 1))
-            }
-            
-            success_count += 1
-            
-            # Attribuer le rôle niveau 10
-            if role_level_10 not in member.roles:
-                try:
-                    await member.add_roles(role_level_10, reason="Mise à niveau automatique niveau 10")
-                    role_success_count += 1
-                except discord.Forbidden:
-                    errors.append(f"Pas de permission pour {member.display_name}")
-                except discord.HTTPException as e:
-                    errors.append(f"Erreur rôle pour {member.display_name}: {str(e)}")
-            else:
-                role_success_count += 1  # Déjà le rôle
-                
-        except Exception as e:
-            errors.append(f"Erreur pour {member.display_name}: {str(e)}")
-    
-    # Sauvegarder les niveaux
-    save_levels(current_levels)
-    
-    # Log dans le salon de niveau si configuré
-    if guild_id in lvl_log_channel_data:
-        log_embed = discord.Embed(
-            title="🎚️ Mise à Niveau Globale",
-            description=f"**Administrateur :** {interaction.user.mention}\n"
-                       f"**Membres mis à niveau :** {success_count}\n"
-                       f"**Niveau attribué :** {TARGET_LEVEL}\n"
-                       f"**Rôles attribués :** {role_success_count}",
-            color=EMBED_COLOR
-        )
-        
-        log_channel_id = lvl_log_channel_data.get(guild_id)
-        if log_channel_id:
-            log_channel = guild.get_channel(int(log_channel_id))
-            if log_channel:
-                try:
-                    await log_channel.send(embed=log_embed)
-                except:
-                    pass
-    
-    # Résultat final
-    result_embed = discord.Embed(
-        title="✅ MISE À NIVEAU TERMINÉE",
-        description=f"**Résultats :**\n\n"
-                   f"👥 **Membres traités :** {success_count}\n"
-                   f"🎚️ **Niveau attribué :** {TARGET_LEVEL}\n"
-                   f"🏷️ **Rôles attribués :** {role_success_count}\n"
-                   f"📊 **XP attribuée :** {format_number(TARGET_XP)} par membre\n\n"
-                   f"🎯 **Tous les membres sont maintenant à égalité au niveau {TARGET_LEVEL} !**",
-        color=0x00ff00
-    )
-    
-    if errors:
-        error_text = "\n".join(errors[:10])  # Limiter à 10 erreurs
-        if len(errors) > 10:
-            error_text += f"\n... et {len(errors) - 10} autres erreurs"
-        result_embed.add_field(name="⚠️ Erreurs", value=error_text, inline=False)
-    
-    await interaction.edit_original_response(embed=result_embed)
 
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
