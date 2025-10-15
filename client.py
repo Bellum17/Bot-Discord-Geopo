@@ -996,7 +996,6 @@ async def on_message(message):
                     if lvl_channel_id:
                         channel = message.guild.get_channel(int(lvl_channel_id))
                         if channel:
-                            await channel.send(f"> − {member.mention}")
                             embed = discord.Embed(
                                 description=(
                                     "⠀\n"
@@ -1012,7 +1011,6 @@ async def on_message(message):
         if lvl_channel_id:
             channel = message.guild.get_channel(int(lvl_channel_id))
             if channel:
-                await channel.send(f"> − {message.author.mention}")
                 embed = discord.Embed(
                     description=(
                         "⠀\n"
