@@ -6964,7 +6964,7 @@ class TechnoConfirmView(discord.ui.View):
             "createur": interaction.user.id
         }
         
-        developpements[guild_id][role_id][self.categorie].append(developpement_data)
+        developpements[guild_id][role_id].append(developpement_data)
         save_developpements(developpements)
         
         # Créer l'embed de confirmation
@@ -7513,7 +7513,15 @@ class DeveloppementsCategorieView(discord.ui.View):
         categories_disponibles = set()
         for role_id in [str(role.id) for role in pays_roles]:
             if role_id in developpements_data:
-                categories_disponibles.update(developpements_data[role_id].keys())
+                # Nouvelle structure : developpements_data[role_id] est une liste
+                if isinstance(developpements_data[role_id], list):
+                    # Extraire les catégories des développements dans la liste
+                    for dev in developpements_data[role_id]:
+                        if isinstance(dev, dict) and "categorie" in dev:
+                            categories_disponibles.add(dev["categorie"])
+                else:
+                    # Ancienne structure : developpements_data[role_id] est un dict
+                    categories_disponibles.update(developpements_data[role_id].keys())
         
         if not categories_disponibles:
             return
@@ -7565,11 +7573,21 @@ class DeveloppementsNavigationView(discord.ui.View):
         self.all_developpements = []
         for role in pays_roles:
             role_id = str(role.id)
-            if role_id in developpements_data and categorie in developpements_data[role_id]:
-                for dev in developpements_data[role_id][categorie]:
-                    dev_copy = dev.copy()
-                    dev_copy['role'] = role
-                    self.all_developpements.append(dev_copy)
+            if role_id in developpements_data:
+                # Nouvelle structure : developpements_data[role_id] est une liste
+                if isinstance(developpements_data[role_id], list):
+                    for dev in developpements_data[role_id]:
+                        if isinstance(dev, dict) and dev.get("categorie") == categorie:
+                            dev_copy = dev.copy()
+                            dev_copy['role'] = role
+                            self.all_developpements.append(dev_copy)
+                else:
+                    # Ancienne structure : developpements_data[role_id] est un dict
+                    if categorie in developpements_data[role_id]:
+                        for dev in developpements_data[role_id][categorie]:
+                            dev_copy = dev.copy()
+                            dev_copy['role'] = role
+                            self.all_developpements.append(dev_copy)
         
         # Ajouter les boutons de navigation
         if len(self.all_developpements) > 1:
