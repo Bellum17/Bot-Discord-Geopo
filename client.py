@@ -3334,10 +3334,44 @@ async def set_lvl(interaction: discord.Interaction):
 @bot.tree.command(name="set_channel_lvl", description="Définit le salon de log pour les passages de niveau")
 @app_commands.checks.has_permissions(administrator=True)
 async def set_channel_lvl(interaction: discord.Interaction, channel: discord.TextChannel):
+    await interaction.response.defer(ephemeral=True)
+    
+    global levels
     lvl_log_channel_data[str(interaction.guild.id)] = channel.id
     save_lvl_log_channel(lvl_log_channel_data)
-    await interaction.response.send_message(
-        f"Salon de log niveau défini sur {channel.mention}.", ephemeral=True)
+    
+    # Vérifier et mettre à jour les niveaux basés sur le total_xp
+    updated_count = 0
+    for user_id, data in levels.items():
+        if "total_xp" in data:
+            # Recalculer le niveau correct basé sur total_xp
+            correct_level = calculate_level_from_total_xp(data["total_xp"])
+            if data["level"] != correct_level:
+                # Mettre à jour les données
+                data["level"] = correct_level
+                
+                # Calculer l'XP pour le niveau actuel
+                xp_used_for_levels = 0
+                for i in range(1, correct_level):
+                    xp_used_for_levels += xp_for_level(i)
+                data["xp_for_current_level"] = data["total_xp"] - xp_used_for_levels
+                data["xp"] = data["xp_for_current_level"]
+                
+                updated_count += 1
+    
+    # Sauvegarder les modifications
+    if updated_count > 0:
+        save_levels(levels)
+        try:
+            save_all_json_to_postgres()
+        except Exception as e:
+            print(f"[ERROR] Sauvegarde PostgreSQL dans set_channel_lvl : {e}")
+    
+    response_message = f"✅ Salon de log niveau défini sur {channel.mention}."
+    if updated_count > 0:
+        response_message += f"\n🔄 **{updated_count}** niveaux mis à jour selon le total_xp."
+    
+    await interaction.followup.send(response_message, ephemeral=True)
 
 @bot.tree.command(name="set_all_level_10", description="Met tous les membres du serveur au niveau 10")
 @app_commands.checks.has_permissions(administrator=True)
@@ -3413,94 +3447,6 @@ async def set_all_level_10(interaction: discord.Interaction):
             ephemeral=True
         )
         print(f"[ERROR] Sauvegarde PostgreSQL après set_all_level_10 : {e}")
-
-@bot.tree.command(name="trigger_level_10_notifications", description="Déclenche les notifications de niveau 10 pour tous les membres concernés")
-@app_commands.checks.has_permissions(administrator=True)
-async def trigger_level_10_notifications(interaction: discord.Interaction):
-    # Vérifier que la commande est utilisée dans le bon serveur
-    target_guild_id = 1393301496283795640
-    if interaction.guild.id != target_guild_id:
-        await interaction.response.send_message(
-            f"❌ Cette commande ne peut être utilisée que dans le serveur spécifique (ID: {target_guild_id}).",
-            ephemeral=True
-        )
-        return
-    
-    await interaction.response.defer(ephemeral=True)
-    
-    global levels, lvl_log_channel_data
-    notifications_sent = 0
-    
-    # Vérifier le canal de log
-    guild_id = str(interaction.guild.id)
-    lvl_channel_id = lvl_log_channel_data.get(guild_id)
-    if not lvl_channel_id:
-        await interaction.followup.send(
-            "❌ Aucun canal de log de niveau configuré. Utilisez `/set_channel_lvl` d'abord.",
-            ephemeral=True
-        )
-        return
-    
-    channel = interaction.guild.get_channel(int(lvl_channel_id))
-    if not channel:
-        await interaction.followup.send(
-            "❌ Canal de log de niveau introuvable.",
-            ephemeral=True
-        )
-        return
-    
-    # Rôles de palier
-    palier_roles = {
-        10: 1417893183903502468,
-        20: 1417893555376230570,
-        30: 1417893729066291391,
-        40: 1417893878136176680,
-        50: 1417894464122261555,
-        60: 1417894846844244139,
-        70: 1417895041862733986,
-        80: 1417895157553958922,
-        90: 1417895282443812884,
-        100: 1417895415273099404
-    }
-    
-    # Traiter tous les membres au niveau 10
-    for user_id, data in levels.items():
-        if data.get("level") == 10:
-            member = interaction.guild.get_member(int(user_id))
-            if member and not member.bot:
-                # Vérifier s'il a déjà le rôle niveau 10
-                role_10 = interaction.guild.get_role(palier_roles[10])
-                if role_10 and role_10 not in member.roles:
-                    try:
-                        # Ajouter le rôle niveau 10
-                        await member.add_roles(role_10)
-                        
-                        # Envoyer la notification
-                        await channel.send(f"> − {member.mention}")
-                        embed = discord.Embed(
-                            description=(
-                                "⠀\n"
-                                f"> ## {member.mention} a obtenu le grade de {role_10.mention} au **niveau 10 !** 🎉\n"
-                                "⠀"
-                            ),
-                            color=0x162e50
-                        )
-                        embed.set_image(url="https://cdn.discordapp.com/attachments/1412872314525192233/1417983114390536363/PAX_RUINAE_5.gif?ex=68cc772f&is=68cb25af&hm=f095b505d44febce0e7a8cbf52fea9ac14c79aacaa17762ec66cb4d22ccc6b4d&")
-                        await channel.send(embed=embed)
-                        
-                        notifications_sent += 1
-                        
-                    except discord.Forbidden:
-                        print(f"Pas de permission pour ajouter le rôle à {member.display_name}")
-                    except Exception as e:
-                        print(f"Erreur lors de l'ajout du rôle à {member.display_name}: {e}")
-    
-    await interaction.followup.send(
-        f"✅ **Notifications de niveau 10 envoyées !**\n"
-        f"📢 **{notifications_sent}** notifications envoyées\n"
-        f"📍 Canal : {channel.mention}",
-        ephemeral=True
-    )
 
 @bot.tree.command(name="lvl", description="Affiche votre niveau et progression XP")
 async def lvl(interaction: discord.Interaction):
@@ -4526,7 +4472,6 @@ async def help_command(interaction: discord.Interaction):
             ("/set_lvl", "Active ou désactive le système de niveaux."),
             ("/set_channel_lvl", "Choisit le salon de logs des passages de niveau."),
             ("/set_all_level_10", "Met tous les membres du serveur spécifique au niveau 10."),
-            ("/trigger_level_10_notifications", "Déclenche les notifications de niveau 10."),
             ("/categorie", "Applique les permissions de catégorie aux salons."),
             ("/creer_webhook", "Crée un webhook dans le salon courant."),
         ]
