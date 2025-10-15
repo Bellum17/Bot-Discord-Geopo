@@ -4152,6 +4152,29 @@ def reset_calendrier():
     if os.path.exists(CALENDRIER_FILE):
         os.remove(CALENDRIER_FILE)
 
+def calculate_fin_with_calendar(duree_mois):
+    """
+    Calcule la date de fin d'un développement en tenant compte du calendrier RP
+    """
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        # Si pas de calendrier, utilise le système classique
+        return time.time() + (duree_mois * 30 * 24 * 3600)
+    
+    mois_actuel = calendrier_data.get("mois_index", 0)
+    annee_actuelle = calendrier_data.get("annee", 2025)
+    
+    # Calcule le mois de fin
+    mois_fin = (mois_actuel + duree_mois) % 12
+    annee_fin = annee_actuelle + ((mois_actuel + duree_mois) // 12)
+    
+    # Simule un timestamp basé sur l'année et le mois RP
+    # (Janvier = mois 0, Décembre = mois 11)
+    base_timestamp = time.time()
+    mois_passed = (annee_fin - annee_actuelle) * 12 + mois_fin - mois_actuel
+    
+    return base_timestamp + (mois_passed * 30 * 24 * 3600)
+
 from discord.ext.tasks import loop
 import pytz
 import datetime
@@ -6856,8 +6879,8 @@ class TechnoConfirmView(discord.ui.View):
         if centre_choisi["niveau"] == 3:
             duree_finale = max(1, self.mois - 1)  # Au minimum 1 mois
         
-        # Calculer le timestamp de fin
-        fin_timestamp = time.time() + (duree_finale * 30 * 24 * 3600)  # Approximation 30 jours/mois
+        # Calculer le timestamp de fin avec le système de calendrier
+        fin_timestamp = calculate_fin_with_calendar(duree_finale)
         
         # Sauvegarder le développement dans le JSON
         developpements = load_developpements()
@@ -7990,6 +8013,83 @@ async def gestion_centres(interaction: discord.Interaction):
         description=description,
         color=EMBED_COLOR
     )
+    
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays + économie")
+@app_commands.describe(
+    pays="Le pays à reset (mention)",
+    code="Code de sécurité requis"
+)
+async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code: str):
+    await interaction.response.defer()
+    
+    # Vérification du code de sécurité
+    if code != "240806":
+        embed = discord.Embed(
+            title="❌ Code de sécurité incorrect",
+            description="Le code de sécurité est incorrect.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Vérification des permissions
+    if not interaction.user.guild_permissions.administrator:
+        embed = discord.Embed(
+            title="❌ Permissions insuffisantes",
+            description="Seuls les administrateurs peuvent utiliser cette commande.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    guild_id = str(interaction.guild.id)
+    role_id = str(pays.id)
+    
+    # Reset des centres technologiques
+    centres_data = load_centres_tech()
+    centres_resetted = 0
+    if guild_id in centres_data and role_id in centres_data[guild_id]:
+        centres_resetted = len(centres_data[guild_id][role_id])
+        del centres_data[guild_id][role_id]
+        save_centres_tech(centres_data)
+    
+    # Reset des développements technologiques
+    developpements_data = load_developpements()
+    developpements_resetted = 0
+    if guild_id in developpements_data and role_id in developpements_data[guild_id]:
+        developpements_resetted = len(developpements_data[guild_id][role_id])
+        del developpements_data[guild_id][role_id]
+        save_developpements(developpements_data)
+    
+    # Reset de l'économie
+    balances = load_balances()
+    ancienne_balance = balances.get(role_id, 0)
+    balances[role_id] = 0
+    save_balances(balances)
+    
+    # Reset du PIB
+    pib_data = load_pib()
+    ancien_pib = pib_data.get(role_id, 0)
+    pib_data[role_id] = 0
+    save_pib(pib_data)
+    
+    # Sauvegarder dans PostgreSQL
+    save_all_json_to_postgres()
+    
+    embed = discord.Embed(
+        title="🚨 Reset Technologique et Économique Complet",
+        description=f"**Pays :** {pays.mention}\n\n"
+                   f"**🏭 Centres supprimés :** {centres_resetted}\n"
+                   f"**🔬 Développements annulés :** {developpements_resetted}\n"
+                   f"**💰 Balance précédente :** {format_number(ancienne_balance)} {MONNAIE_EMOJI}\n"
+                   f"**📊 PIB précédent :** {format_number(ancien_pib)} {MONNAIE_EMOJI}\n\n"
+                   f"**✅ Toutes les données ont été remises à zéro.**\n"
+                   f"**💾 Sauvegarde PostgreSQL effectuée.**",
+        color=0xff4444
+    )
+    embed.set_footer(text=f"Reset effectué par {interaction.user.display_name}")
     
     await interaction.followup.send(embed=embed)
 
