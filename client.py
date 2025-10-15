@@ -7520,17 +7520,18 @@ async def temp_distribute(interaction: discord.Interaction):
                 errors.append(f"Rôle {role_id} introuvable")
                 continue
             
-            role_name = role.name
+            # Utiliser l'ID du rôle comme clé, pas le nom
+            role_key = str(role_id)
             
             # Mise à jour budget
-            if role_name not in balances:
-                balances[role_name] = 0
-            balances[role_name] += BUDGET_PER_COUNTRY
+            if role_key not in balances:
+                balances[role_key] = 0
+            balances[role_key] += BUDGET_PER_COUNTRY
             
             # Mise à jour PIB
-            if role_name not in pib_data:
-                pib_data[role_name] = 0
-            pib_data[role_name] += PIB_PER_COUNTRY
+            if role_key not in pib_data:
+                pib_data[role_key] = 0
+            pib_data[role_key] += PIB_PER_COUNTRY
             
             success_count += 1
             
@@ -7540,6 +7541,20 @@ async def temp_distribute(interaction: discord.Interaction):
     # Sauvegarder les données
     save_balances(balances)
     save_pib(pib_data)
+    
+    # Forcer la sauvegarde PostgreSQL
+    try:
+        import subprocess
+        result = subprocess.run([
+            "python3", "backup_json_to_postgres.py"
+        ], cwd=BASE_DIR, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            print("✅ Sauvegarde PostgreSQL réussie après distribution")
+        else:
+            print(f"⚠️ Erreur sauvegarde PostgreSQL: {result.stderr}")
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la sauvegarde PostgreSQL: {e}")
     
     # Marquer comme utilisé
     from datetime import datetime
@@ -7566,7 +7581,9 @@ async def temp_distribute(interaction: discord.Interaction):
                    f"✅ **Pays traités :** {success_count}/{len(COUNTRY_ROLES_TEMP)}\n"
                    f"💰 **Budget total distribué :** {format_number(success_count * BUDGET_PER_COUNTRY)} {MONNAIE_EMOJI}\n"
                    f"📈 **PIB total distribué :** {format_number(success_count * PIB_PER_COUNTRY)} {MONNAIE_EMOJI}\n\n"
-                   f"🔒 **Cette commande ne peut plus être utilisée sur ce serveur.**",
+                   f"� **Sauvegarde locale :** ✅ Fichiers JSON mis à jour\n"
+                   f"🗄️ **Sauvegarde PostgreSQL :** En cours...\n\n"
+                   f"�🔒 **Cette commande ne peut plus être utilisée sur ce serveur.**",
         color=0x00ff00
     )
     
@@ -7607,6 +7624,44 @@ async def temp_status(interaction: discord.Interaction):
         )
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="force_sync_postgres", description="Force la synchronisation des données avec PostgreSQL")
+@app_commands.checks.has_permissions(administrator=True)
+async def force_sync_postgres(interaction: discord.Interaction):
+    """Force la synchronisation manuelle avec PostgreSQL."""
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        import subprocess
+        result = subprocess.run([
+            "python3", "backup_json_to_postgres.py"
+        ], cwd=BASE_DIR, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            # Compter les réussites dans le output
+            success_count = result.stdout.count("✅ Backup de") if "✅ Backup de" in result.stdout else 0
+            
+            embed = discord.Embed(
+                title="✅ Synchronisation PostgreSQL réussie",
+                description=f"**Fichiers synchronisés :** {success_count}\n"
+                           f"**Base de données :** Mise à jour\n"
+                           f"**Statut :** Toutes les données sont sauvegardées",
+                color=0x00ff00
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ Erreur de synchronisation",
+                description=f"**Erreur :** {result.stderr[:500]}...",
+                color=0xff0000
+            )
+    except Exception as e:
+        embed = discord.Embed(
+            title="❌ Erreur de synchronisation",
+            description=f"**Erreur :** {str(e)}",
+            color=0xff0000
+        )
+    
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 # === FIN COMMANDE TEMPORAIRE ===
 
