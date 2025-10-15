@@ -904,7 +904,7 @@ async def on_message(message):
     
     # Bonus XP par grade acquis
     palier_roles = {
-        10: 1417893183903502468,
+        10: 1427993128811626606,
         20: 1417893555376230570,
         30: 1417893729066291391,
         40: 1417893878136176680,
@@ -931,7 +931,7 @@ async def on_message(message):
     if has_special:
         xp_gain = 5 + (char_count // 15) * 2 + xp_chair
     else:
-        xp_gain = 1 + xp_chair + bonus_grade
+        xp_gain = 2 + xp_chair + bonus_grade
     
     # Ajouter le bonus temporaire si actif
     if bonus_active:
@@ -967,7 +967,7 @@ async def on_message(message):
         # Gestion des rôles de palier pour chaque niveau gagné
         for level_gained in range(old_level + 1, current_level + 1):
             palier_roles = {
-                10: 1417893183903502468,
+                10: 1427993128811626606,
                 20: 1417893555376230570,
                 30: 1417893729066291391,
                 40: 1417893878136176680,
@@ -3303,7 +3303,7 @@ async def lvl(interaction: discord.Interaction):
     
     # Détection du grade de palier
     palier_roles = {
-        10: 1417893183903502468,
+        10: 1427993128811626606,
         20: 1417893555376230570,
         30: 1417893729066291391,
         40: 1417893878136176680,
