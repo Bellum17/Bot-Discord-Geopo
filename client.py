@@ -3345,7 +3345,7 @@ async def set_channel_lvl(interaction: discord.Interaction, channel: discord.Tex
     for user_id, data in levels.items():
         if "total_xp" in data:
             # Recalculer le niveau correct basé sur total_xp
-            correct_level = calculate_level_from_total_xp(data["total_xp"])
+            correct_level, remaining_xp = calculate_level_from_total_xp(data["total_xp"])
             if data["level"] != correct_level:
                 # Mettre à jour les données
                 data["level"] = correct_level
