@@ -8034,6 +8034,159 @@ async def gestion_centres(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed)
 
+@bot.tree.command(name="test_calendrier", description="🧪 Avancer le calendrier RP pour tester les développements")
+@app_commands.describe(
+    mois="Nombre de mois à avancer (1-12)",
+    code="Code de sécurité pour les tests"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def test_calendrier(interaction: discord.Interaction, mois: int, code: str):
+    await interaction.response.defer()
+    
+    # Vérification du code de sécurité
+    if code != "240806":
+        embed = discord.Embed(
+            title="❌ Code de sécurité incorrect",
+            description="Le code de sécurité est incorrect.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Validation des paramètres
+    if mois < 1 or mois > 12:
+        embed = discord.Embed(
+            title="❌ Paramètre invalide",
+            description="Le nombre de mois doit être entre 1 et 12.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Charger le calendrier
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        embed = discord.Embed(
+            title="❌ Calendrier non trouvé",
+            description="Aucun calendrier actif. Utilisez `/calendrier` d'abord.",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    # Sauvegarder l'état actuel
+    ancien_mois = calendrier_data.get("mois_index", 0)
+    ancienne_annee = calendrier_data.get("annee", 2025)
+    ancien_nom_mois = CALENDRIER_MONTHS[ancien_mois] if ancien_mois < len(CALENDRIER_MONTHS) else "Inconnu"
+    
+    # Avancer le calendrier
+    nouveau_mois_index = ancien_mois + mois
+    nouvelle_annee = ancienne_annee
+    
+    # Gérer le passage d'année
+    while nouveau_mois_index >= 12:
+        nouveau_mois_index -= 12
+        nouvelle_annee += 1
+    
+    calendrier_data["mois_index"] = nouveau_mois_index
+    calendrier_data["annee"] = nouvelle_annee
+    
+    # Sauvegarder
+    save_calendrier(calendrier_data)
+    
+    # Nouveau nom du mois
+    nouveau_nom_mois = CALENDRIER_MONTHS[nouveau_mois_index] if nouveau_mois_index < len(CALENDRIER_MONTHS) else "Inconnu"
+    
+    # Afficher le résultat avec simulation de développement
+    embed = discord.Embed(
+        title="🧪 Test d'Avancement du Calendrier",
+        description=f"**Calendrier avancé de {mois} mois**\n\n"
+                   f"**📅 Avant :** {ancien_nom_mois} {ancienne_annee}\n"
+                   f"**📅 Après :** {nouveau_nom_mois} {nouvelle_annee}\n\n"
+                   f"**🔬 Test de développement :**\n"
+                   f"• Un développement de 3 mois commencé maintenant\n"
+                   f"• Finira en : {CALENDRIER_MONTHS[(nouveau_mois_index + 3) % 12]} {nouvelle_annee + ((nouveau_mois_index + 3) // 12)}\n\n"
+                   f"**⚠️ Ceci est un test avec le code de sécurité !**",
+        color=0x00ff00
+    )
+    embed.set_footer(text=f"Test effectué par {interaction.user.display_name}")
+    
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="debug_calendrier", description="🔍 Afficher l'état du calendrier et des développements")
+@app_commands.checks.has_permissions(administrator=True)
+async def debug_calendrier(interaction: discord.Interaction):
+    await interaction.response.defer()
+    
+    # Charger les données
+    calendrier_data = load_calendrier()
+    developpements_data = load_developpements()
+    
+    description = "**📅 État du Calendrier :**\n"
+    
+    if calendrier_data:
+        mois_index = calendrier_data.get("mois_index", 0)
+        annee = calendrier_data.get("annee", 2025)
+        nom_mois = CALENDRIER_MONTHS[mois_index] if mois_index < len(CALENDRIER_MONTHS) else "Inconnu"
+        
+        description += f"• **Mois actuel :** {nom_mois} {annee} (index: {mois_index})\n"
+        description += f"• **Timestamp système :** {int(time.time())}\n\n"
+    else:
+        description += "• **Aucun calendrier actif**\n\n"
+    
+    description += "**🔬 Développements en cours :**\n"
+    
+    guild_id = str(interaction.guild.id)
+    if guild_id in developpements_data:
+        total_devs = 0
+        for role_id, devs in developpements_data[guild_id].items():
+            if isinstance(devs, list):
+                for dev in devs:
+                    if isinstance(dev, dict):
+                        total_devs += 1
+                        nom = dev.get("nom", "Inconnu")
+                        fin_timestamp = dev.get("fin_timestamp", 0)
+                        
+                        if fin_timestamp > time.time():
+                            # Calculer en mois RP si possible
+                            if calendrier_data:
+                                mois_restants = (fin_timestamp - time.time()) / (30 * 24 * 3600)
+                                mois_fin_index = (mois_index + int(mois_restants)) % 12
+                                annee_fin = annee + ((mois_index + int(mois_restants)) // 12)
+                                mois_fin_nom = CALENDRIER_MONTHS[mois_fin_index] if mois_fin_index < len(CALENDRIER_MONTHS) else "Inconnu"
+                                description += f"• **{nom}** → Fin: {mois_fin_nom} {annee_fin}\n"
+                            else:
+                                jours = int((fin_timestamp - time.time()) / 86400)
+                                description += f"• **{nom}** → Fin dans {jours} jours\n"
+                        else:
+                            description += f"• **{nom}** → ✅ Terminé\n"
+        
+        if total_devs == 0:
+            description += "• Aucun développement en cours\n"
+    else:
+        description += "• Aucun développement trouvé\n"
+    
+    description += f"\n**🧪 Test de calcul :**\n"
+    description += f"• Développement de 3 mois maintenant:\n"
+    test_timestamp = calculate_fin_with_calendar(3)
+    if calendrier_data:
+        test_mois = (calendrier_data.get("mois_index", 0) + 3) % 12
+        test_annee = calendrier_data.get("annee", 2025) + ((calendrier_data.get("mois_index", 0) + 3) // 12)
+        test_nom = CALENDRIER_MONTHS[test_mois] if test_mois < len(CALENDRIER_MONTHS) else "Inconnu"
+        description += f"  → Finirait en {test_nom} {test_annee}\n"
+        description += f"  → Timestamp: {int(test_timestamp)}"
+    else:
+        jours = int((test_timestamp - time.time()) / 86400)
+        description += f"  → Finirait dans {jours} jours"
+    
+    embed = discord.Embed(
+        title="🔍 Debug - Calendrier et Développements",
+        description=description,
+        color=0x3498db
+    )
+    
+    await interaction.followup.send(embed=embed)
+
 @bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays + économie")
 @app_commands.describe(
     pays="Le pays à reset (mention)",
