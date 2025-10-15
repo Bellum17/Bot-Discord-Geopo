@@ -3328,6 +3328,94 @@ async def lvl(interaction: discord.Interaction):
     embed.set_image(url="https://zupimages.net/up/21/03/vl8j.png")
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="reset_levels", description="Remet tous les niveaux à zéro")
+@app_commands.checks.has_permissions(administrator=True)
+async def reset_levels(interaction: discord.Interaction):
+    """Remet tous les niveaux et XP des utilisateurs à zéro."""
+    
+    # Créer une vue de confirmation
+    class ResetConfirmView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=30)
+            self.confirmed = False
+        
+        @discord.ui.button(label="✅ Confirmer", style=discord.ButtonStyle.danger)
+        async def confirm_button(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+            if button_interaction.user.id != interaction.user.id:
+                await button_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut confirmer.", ephemeral=True)
+                return
+            
+            self.confirmed = True
+            self.stop()
+            await button_interaction.response.defer()
+        
+        @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.secondary)
+        async def cancel_button(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+            if button_interaction.user.id != interaction.user.id:
+                await button_interaction.response.send_message("❌ Seul l'utilisateur qui a lancé la commande peut annuler.", ephemeral=True)
+                return
+            
+            self.stop()
+            await button_interaction.response.defer()
+    
+    # Embed de confirmation
+    embed = discord.Embed(
+        title="⚠️ RESET DES NIVEAUX",
+        description="**Êtes-vous sûr de vouloir remettre tous les niveaux à zéro ?**\n\n"
+                   f"📊 **Utilisateurs concernés :** {len(levels)}\n"
+                   f"⚠️ **Cette action est irréversible !**\n\n"
+                   f"Tous les utilisateurs reviendront au niveau 1 avec 0 XP.",
+        color=0xff0000
+    )
+    
+    view = ResetConfirmView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    # Attendre la confirmation
+    await view.wait()
+    
+    if not view.confirmed:
+        embed = discord.Embed(
+            title="❌ Reset annulé",
+            description="Le reset des niveaux a été annulé.",
+            color=0xff0000
+        )
+        await interaction.edit_original_response(embed=embed, view=None)
+        return
+    
+    # Effectuer le reset
+    users_reset = 0
+    for user_id in levels:
+        levels[user_id] = {"xp": 0, "level": 1}
+        users_reset += 1
+    
+    # Sauvegarder
+    save_levels(levels)
+    
+    # Résultat
+    embed = discord.Embed(
+        title="✅ RESET TERMINÉ",
+        description=f"**Tous les niveaux ont été remis à zéro !**\n\n"
+                   f"👥 **Utilisateurs affectés :** {users_reset}\n"
+                   f"📊 **Nouveau niveau :** 1\n"
+                   f"⭐ **Nouvelle XP :** 0",
+        color=0x00ff00
+    )
+    
+    # Log de l'action
+    if interaction.guild.id in log_channel_data:
+        log_embed = discord.Embed(
+            title="🔄 Reset des Niveaux",
+            description=f"**Administrateur :** {interaction.user.mention}\n"
+                       f"**Utilisateurs affectés :** {users_reset}\n"
+                       f"**Action :** Tous les niveaux remis à 1",
+            color=0xff9900,
+            timestamp=interaction.created_at
+        )
+        await send_log(interaction.guild, embed=log_embed)
+    
+    await interaction.edit_original_response(embed=embed, view=None)
+
 @bot.tree.command(name="classement_lvl", description="Affiche le classement des membres par niveau")
 async def classement_lvl(interaction: discord.Interaction):
     # Récupérer les 15 meilleurs niveaux
