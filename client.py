@@ -8446,7 +8446,7 @@ async def debug_calendrier(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays + économie")
+@bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays")
 @app_commands.describe(
     pays="Le pays à reset (mention)",
     code="Code de sécurité requis"
@@ -8493,29 +8493,16 @@ async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code:
         del developpements_data[guild_id][role_id]
         save_developpements(developpements_data)
     
-    # Reset de l'économie
-    balances = load_balances()
-    ancienne_balance = balances.get(role_id, 0)
-    balances[role_id] = 0
-    save_balances(balances)
-    
-    # Reset du PIB
-    pib_data = load_pib()
-    ancien_pib = pib_data.get(role_id, 0)
-    pib_data[role_id] = 0
-    save_pib(pib_data)
-    
     # Sauvegarder dans PostgreSQL
     save_all_json_to_postgres()
     
     embed = discord.Embed(
-        title="🚨 Reset Technologique et Économique Complet",
+        title="🚨 Reset Technologique Complet",
         description=f"**Pays :** {pays.mention}\n\n"
                    f"**🏭 Centres supprimés :** {centres_resetted}\n"
-                   f"**🔬 Développements annulés :** {developpements_resetted}\n"
-                   f"**💰 Balance précédente :** {format_number(ancienne_balance)} {MONNAIE_EMOJI}\n"
-                   f"**📊 PIB précédent :** {format_number(ancien_pib)} {MONNAIE_EMOJI}\n\n"
-                   f"**✅ Toutes les données ont été remises à zéro.**\n"
+                   f"**🔬 Développements annulés :** {developpements_resetted}\n\n"
+                   f"**✅ Toutes les données technologiques ont été remises à zéro.**\n"
+                   f"**� L'économie du pays n'a pas été affectée.**\n"
                    f"**💾 Sauvegarde PostgreSQL effectuée.**",
         color=0xff4444
     )
