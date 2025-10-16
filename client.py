@@ -6920,6 +6920,14 @@ class TechnoConfirmView(discord.ui.View):
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Protection contre les double-clics
+        if button.disabled:
+            await interaction.response.send_message("❌ Cette confirmation a déjà été traitée.", ephemeral=True)
+            return
+            
+        # Désactiver le bouton immédiatement pour éviter les double-clics
+        button.disabled = True
+        
         # Vérifier que l'utilisateur a bien le rôle du pays concerné
         if self.role not in interaction.user.roles:
             await interaction.response.send_message(f"❌ Vous devez avoir le rôle {self.role.mention} pour confirmer ce développement.", ephemeral=True)
@@ -6991,6 +6999,26 @@ class TechnoConfirmView(discord.ui.View):
             )
             await interaction.followup.send(embed=embed)
             return
+        
+        # Vérifier qu'il n'y a pas déjà un développement identique en cours
+        developpements_existants = load_developpements()
+        guild_id = str(interaction.guild.id)
+        
+        if guild_id in developpements_existants and role_id in developpements_existants[guild_id]:
+            for dev_existant in developpements_existants[guild_id][role_id]:
+                if (dev_existant.get("nom") == self.nom_developpement and 
+                    dev_existant.get("technologie") == self.nom_techno and
+                    dev_existant.get("fin_timestamp", 0) > time.time()):  # Encore en cours
+                    embed = discord.Embed(
+                        title="❌ Développement déjà en cours",
+                        description=f"Un développement identique est déjà en cours :\n"
+                                   f"**Nom :** {self.nom_developpement}\n"
+                                   f"**Technologie :** {self.nom_techno}\n"
+                                   f"Attendez qu'il se termine avant d'en lancer un nouveau.",
+                        color=0xff0000
+                    )
+                    await interaction.followup.send(embed=embed)
+                    return
         
         # Déduire le coût du budget
         balances[role_id] = budget_actuel - self.cout_dev
@@ -7090,9 +7118,20 @@ class TechnoConfirmView(discord.ui.View):
         # Envoyer le log
         await send_log(interaction.guild, embed=log_embed)
         
-        # Désactiver le bouton après confirmation
-        button.disabled = True
-        await interaction.edit_original_response(view=self)
+        # Désactiver tous les boutons de la vue pour éviter les double-clics
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        
+        # Mettre à jour le message original avec les boutons désactivés
+        try:
+            # Essayer de mettre à jour le message original depuis la view
+            original_message = getattr(self, 'message', None)
+            if original_message:
+                await original_message.edit(view=self)
+        except:
+            # Si ça échoue, ce n'est pas grave
+            pass
         
         # Créer l'entrée de développement
         developpement_data = {
