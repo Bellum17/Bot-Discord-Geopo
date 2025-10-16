@@ -4155,30 +4155,31 @@ def reset_calendrier():
 def calculate_fin_with_calendar(duree_mois):
     """
     Calcule la date de fin d'un développement en tenant compte du calendrier RP
+    
+    Logique : 1 mois RP = 2 jours IRL
     """
     calendrier_data = load_calendrier()
     if not calendrier_data:
-        # Si pas de calendrier, utilise le système classique
-        return time.time() + (duree_mois * 30 * 24 * 3600)
+        # Si pas de calendrier, utilise l'ancien système (approximation)
+        return time.time() + (duree_mois * 2 * 24 * 3600)  # 2 jours par mois
     
     mois_actuel = calendrier_data.get("mois_index", 0)
     annee_actuelle = calendrier_data.get("annee", 2025)
     
-    # Calcule le mois de fin
+    # Calcule le mois de fin RP
     mois_fin = (mois_actuel + duree_mois) % 12
     annee_fin = annee_actuelle + ((mois_actuel + duree_mois) // 12)
     
-    # Simule un timestamp basé sur l'année et le mois RP
-    # (Janvier = mois 0, Décembre = mois 11)
-    base_timestamp = time.time()
-    mois_passed = (annee_fin - annee_actuelle) * 12 + mois_fin - mois_actuel
-    
-    return base_timestamp + (mois_passed * 30 * 24 * 3600)
+    # Utilise la fonction de conversion pour avoir le timestamp IRL exact
+    return calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
 
 def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     """
     Convertit une date RP (mois, année) en timestamp réel IRL
-    basé sur l'avancement du calendrier qui se met à jour à minuit
+    basé sur l'avancement du calendrier qui se met à jour à minuit heure Paris
+    
+    Logique : 1 mois RP = 2 jours IRL (jour 1/2 puis 2/2)
+    Le calendrier avance chaque nuit à minuit heure Paris
     """
     calendrier_data = load_calendrier()
     if not calendrier_data:
@@ -4187,6 +4188,7 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     
     mois_actuel_rp = calendrier_data.get("mois_index", 0)
     annee_actuelle_rp = calendrier_data.get("annee", 2025)
+    jour_actuel = calendrier_data.get("jour_index", 0)  # 0 = 1/2, 1 = 2/2
     
     # Calculer la différence en mois RP
     mois_total_actuel = annee_actuelle_rp * 12 + mois_actuel_rp
@@ -4194,25 +4196,44 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     
     mois_difference = mois_total_fin - mois_total_actuel
     
-    # Le calendrier se met à jour à minuit chaque jour
-    # Donc chaque mois RP = environ 30 jours réels
-    # Calculer le timestamp de fin réel
-    maintenant = time.time()
+    # Le calendrier se met à jour à minuit heure Paris
+    # 1 mois RP = 2 jours IRL (1/2 puis 2/2)
+    import pytz
+    paris_tz = pytz.timezone("Europe/Paris")
+    now_paris = datetime.datetime.now(paris_tz)
     
-    # Calculer le prochain minuit (00:00) en UTC
-    import datetime
-    now = datetime.datetime.fromtimestamp(maintenant)
-    next_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
-    next_midnight_timestamp = next_midnight.timestamp()
+    # Calculer le prochain minuit heure Paris
+    next_midnight_paris = now_paris.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
     
-    # Ajouter la différence de mois (en jours)
-    fin_timestamp = next_midnight_timestamp + (mois_difference * 30 * 24 * 3600)
+    # Calculer combien de jours IRL il faut pour atteindre le mois RP de fin
+    jours_irl_necessaires = 0
     
-    return int(fin_timestamp)
+    if mois_difference > 0:
+        # Si on est actuellement sur 1/2, il faut 1 jour pour finir ce mois
+        # Puis 2 jours par mois suivant
+        if jour_actuel == 0:  # Actuellement 1/2
+            jours_irl_necessaires = 1  # Pour finir ce mois (passer à 2/2)
+            jours_irl_necessaires += (mois_difference - 1) * 2  # Mois suivants
+        else:  # Actuellement 2/2
+            jours_irl_necessaires = mois_difference * 2  # Mois complets suivants
+    elif mois_difference == 0:
+        # Même mois RP
+        if jour_actuel == 0:  # Actuellement 1/2, développement finit à la fin du mois
+            jours_irl_necessaires = 1  # Pour atteindre 2/2
+        else:  # Actuellement 2/2, développement fini
+            jours_irl_necessaires = 0
+    
+    # Calculer le timestamp final
+    fin_timestamp = next_midnight_paris + datetime.timedelta(days=jours_irl_necessaires)
+    
+    # Convertir en timestamp UTC
+    return int(fin_timestamp.timestamp())
 
 def get_rp_date_from_timestamp(timestamp):
     """
     Extrait la date RP (mois, année) d'un timestamp de fin de développement
+    
+    Logique : 1 mois RP = 2 jours IRL
     """
     calendrier_data = load_calendrier()
     if not calendrier_data:
@@ -4220,14 +4241,19 @@ def get_rp_date_from_timestamp(timestamp):
         
     mois_actuel = calendrier_data.get("mois_index", 0)
     annee_actuelle = calendrier_data.get("annee", 2025)
+    jour_actuel = calendrier_data.get("jour_index", 0)
     
     # Calculer la différence en secondes depuis maintenant
     diff_seconds = timestamp - time.time()
-    diff_mois = diff_seconds / (30 * 24 * 3600)  # Approximation
+    diff_jours = diff_seconds / (24 * 3600)  # Différence en jours IRL
+    
+    # Convertir les jours IRL en mois RP (1 mois RP = 2 jours IRL)
+    # Si on est sur 1/2 d'un mois, il faut 1 jour pour finir ce mois
+    mois_restants = diff_jours / 2.0  # Approximation
     
     # Calculer le mois et l'année de fin
-    mois_fin = (mois_actuel + int(diff_mois)) % 12
-    annee_fin = annee_actuelle + ((mois_actuel + int(diff_mois)) // 12)
+    mois_fin = (mois_actuel + int(mois_restants)) % 12
+    annee_fin = annee_actuelle + ((mois_actuel + int(mois_restants)) // 12)
     
     return mois_fin, annee_fin
 
