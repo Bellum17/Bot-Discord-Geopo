@@ -4175,6 +4175,93 @@ def calculate_fin_with_calendar(duree_mois):
     
     return base_timestamp + (mois_passed * 30 * 24 * 3600)
 
+def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
+    """
+    Convertit une date RP (mois, année) en timestamp réel IRL
+    basé sur l'avancement du calendrier qui se met à jour à minuit
+    """
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        # Fallback si pas de calendrier
+        return int(time.time() + (30 * 24 * 3600))  # Dans 30 jours
+    
+    mois_actuel_rp = calendrier_data.get("mois_index", 0)
+    annee_actuelle_rp = calendrier_data.get("annee", 2025)
+    
+    # Calculer la différence en mois RP
+    mois_total_actuel = annee_actuelle_rp * 12 + mois_actuel_rp
+    mois_total_fin = annee_fin_rp * 12 + mois_fin_rp
+    
+    mois_difference = mois_total_fin - mois_total_actuel
+    
+    # Le calendrier se met à jour à minuit chaque jour
+    # Donc chaque mois RP = environ 30 jours réels
+    # Calculer le timestamp de fin réel
+    maintenant = time.time()
+    
+    # Calculer le prochain minuit (00:00) en UTC
+    import datetime
+    now = datetime.datetime.fromtimestamp(maintenant)
+    next_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
+    next_midnight_timestamp = next_midnight.timestamp()
+    
+    # Ajouter la différence de mois (en jours)
+    fin_timestamp = next_midnight_timestamp + (mois_difference * 30 * 24 * 3600)
+    
+    return int(fin_timestamp)
+
+def get_rp_date_from_timestamp(timestamp):
+    """
+    Extrait la date RP (mois, année) d'un timestamp de fin de développement
+    """
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        return None, None
+        
+    mois_actuel = calendrier_data.get("mois_index", 0)
+    annee_actuelle = calendrier_data.get("annee", 2025)
+    
+    # Calculer la différence en secondes depuis maintenant
+    diff_seconds = timestamp - time.time()
+    diff_mois = diff_seconds / (30 * 24 * 3600)  # Approximation
+    
+    # Calculer le mois et l'année de fin
+    mois_fin = (mois_actuel + int(diff_mois)) % 12
+    annee_fin = annee_actuelle + ((mois_actuel + int(diff_mois)) // 12)
+    
+    return mois_fin, annee_fin
+
+def format_discord_timestamp(timestamp):
+    """
+    Formate un timestamp pour l'affichage Discord avec date complète
+    """
+    return f"<t:{int(timestamp)}:f>"
+
+def format_development_end_info(dev):
+    """
+    Formate les informations de fin d'un développement avec timestamp Discord et date RP
+    """
+    fin_timestamp = dev.get('fin_timestamp', 0)
+    if fin_timestamp <= time.time():
+        return "✅ **Terminé**"
+    
+    # Timestamp Discord formaté
+    discord_timestamp = format_discord_timestamp(fin_timestamp)
+    
+    # Date RP si disponible
+    calendrier_data = load_calendrier()
+    if calendrier_data:
+        mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
+        if mois_fin is not None and annee_fin is not None:
+            nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+            return f"📅 Fin RP: **{nom_mois} {annee_fin}**\n🕐 Fin IRL: {discord_timestamp}"
+    
+    # Fallback sans calendrier
+    temps_restant = fin_timestamp - time.time()
+    jours = int(temps_restant // 86400)
+    heures = int((temps_restant % 86400) // 3600)
+    return f"⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
+
 from discord.ext.tasks import loop
 import pytz
 import datetime
@@ -6913,6 +7000,27 @@ class TechnoConfirmView(discord.ui.View):
         
         # Créer l'embed de confirmation
         bonus_text = f" (-1 mois grâce au centre niveau 3)" if centre_choisi["niveau"] == 3 and duree_finale != self.mois else ""
+        
+        # Calculer les dates de fin
+        calendrier_data = load_calendrier()
+        date_info = ""
+        if calendrier_data:
+            mois_actuel = calendrier_data.get("mois_index", 0)
+            annee_actuelle = calendrier_data.get("annee", 2025)
+            mois_fin = (mois_actuel + duree_finale) % 12
+            annee_fin = annee_actuelle + ((mois_actuel + duree_finale) // 12)
+            nom_mois_fin = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+            
+            # Calculer le timestamp réel IRL
+            real_timestamp = calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
+            discord_timestamp = format_discord_timestamp(real_timestamp)
+            
+            date_info = f"**Fin RP :** {nom_mois_fin} {annee_fin}\n**Fin IRL :** {discord_timestamp}\n"
+        else:
+            # Fallback sans calendrier
+            discord_timestamp = format_discord_timestamp(fin_timestamp)
+            date_info = f"**Date de fin :** {discord_timestamp}\n"
+        
         embed = discord.Embed(
             title="✅ Développement confirmé !",
             description=f"**Nom :** {self.nom_developpement}\n"
@@ -6920,6 +7028,7 @@ class TechnoConfirmView(discord.ui.View):
                        f"**Pays :** {self.role.mention}\n"
                        f"**Centre :** {centre_choisi['localisation']} ({domaine_tech})\n"
                        f"**Durée :** {duree_finale} mois{bonus_text}\n"
+                       f"{date_info}"
                        f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
                        f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
             color=EMBED_COLOR,
@@ -7670,6 +7779,52 @@ class DeveloppementsNavigationView(discord.ui.View):
             inline=True
         )
         
+        # Ajouter les informations de fin avec timestamp Discord
+        fin_timestamp = dev.get('fin_timestamp', 0)
+        if fin_timestamp > 0:
+            if fin_timestamp > time.time():
+                # Développement en cours
+                calendrier_data = load_calendrier()
+                if calendrier_data:
+                    mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
+                    if mois_fin is not None and annee_fin is not None:
+                        nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                        discord_timestamp = format_discord_timestamp(fin_timestamp)
+                        embed.add_field(
+                            name="📅 Date de fin",
+                            value=f"**RP :** {nom_mois} {annee_fin}\n**IRL :** {discord_timestamp}",
+                            inline=False
+                        )
+                    else:
+                        discord_timestamp = format_discord_timestamp(fin_timestamp)
+                        embed.add_field(
+                            name="📅 Date de fin",
+                            value=discord_timestamp,
+                            inline=False
+                        )
+                else:
+                    discord_timestamp = format_discord_timestamp(fin_timestamp)
+                    embed.add_field(
+                        name="📅 Date de fin",
+                        value=discord_timestamp,
+                        inline=False
+                    )
+            else:
+                # Développement terminé
+                embed.add_field(
+                    name="✅ Statut",
+                    value="Développement terminé",
+                    inline=False
+                )
+        
+        # Ajouter le centre attaché si disponible
+        if dev.get('centre_attache'):
+            embed.add_field(
+                name="🏭 Centre de recherche",
+                value=dev['centre_attache'],
+                inline=True
+            )
+        
         if dev.get('date_creation'):
             try:
                 date_creation = datetime.datetime.fromisoformat(dev['date_creation'])
@@ -8011,10 +8166,29 @@ async def gestion_centres(interaction: discord.Interaction):
             for dev in developpements_en_cours:
                 fin_timestamp = dev.get('fin_timestamp', 0)
                 if fin_timestamp > time.time():
-                    temps_restant = fin_timestamp - time.time()
-                    jours = int(temps_restant // 86400)
-                    heures = int((temps_restant % 86400) // 3600)
-                    description += f"> • {dev['nom']} (fin dans {jours}j {heures}h)\n"
+                    # Calculer la date RP de fin
+                    calendrier_data = load_calendrier()
+                    if calendrier_data:
+                        mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
+                        if mois_fin is not None and annee_fin is not None:
+                            nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                            discord_timestamp = format_discord_timestamp(fin_timestamp)
+                            description += f"> • **{dev['nom']}**\n"
+                            description += f">   📅 Fin RP: {nom_mois} {annee_fin}\n"
+                            description += f">   🕐 Fin IRL: {discord_timestamp}\n"
+                        else:
+                            temps_restant = fin_timestamp - time.time()
+                            jours = int(temps_restant // 86400)
+                            heures = int((temps_restant % 86400) // 3600)
+                            description += f"> • {dev['nom']} (fin dans {jours}j {heures}h)\n"
+                    else:
+                        temps_restant = fin_timestamp - time.time()
+                        jours = int(temps_restant // 86400)
+                        heures = int((temps_restant % 86400) // 3600)
+                        discord_timestamp = format_discord_timestamp(fin_timestamp)
+                        description += f"> • **{dev['nom']}**\n"
+                        description += f">   ⏰ Fin dans {jours}j {heures}h\n"
+                        description += f">   🕐 Date: {discord_timestamp}\n"
                 else:
                     description += f"> • {dev['nom']} (✅ Terminé)\n"
         else:
@@ -8150,14 +8324,19 @@ async def debug_calendrier(interaction: discord.Interaction):
                         if fin_timestamp > time.time():
                             # Calculer en mois RP si possible
                             if calendrier_data:
-                                mois_restants = (fin_timestamp - time.time()) / (30 * 24 * 3600)
-                                mois_fin_index = (mois_index + int(mois_restants)) % 12
-                                annee_fin = annee + ((mois_index + int(mois_restants)) // 12)
-                                mois_fin_nom = CALENDRIER_MONTHS[mois_fin_index] if mois_fin_index < len(CALENDRIER_MONTHS) else "Inconnu"
-                                description += f"• **{nom}** → Fin: {mois_fin_nom} {annee_fin}\n"
+                                mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
+                                if mois_fin is not None and annee_fin is not None:
+                                    mois_fin_nom = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Inconnu"
+                                    discord_timestamp = format_discord_timestamp(fin_timestamp)
+                                    description += f"• **{nom}**\n"
+                                    description += f"  📅 Fin RP: {mois_fin_nom} {annee_fin}\n"
+                                    description += f"  🕐 Fin IRL: {discord_timestamp}\n"
+                                else:
+                                    jours = int((fin_timestamp - time.time()) / 86400)
+                                    description += f"• **{nom}** → Fin dans {jours} jours\n"
                             else:
-                                jours = int((fin_timestamp - time.time()) / 86400)
-                                description += f"• **{nom}** → Fin dans {jours} jours\n"
+                                discord_timestamp = format_discord_timestamp(fin_timestamp)
+                                description += f"• **{nom}** → {discord_timestamp}\n"
                         else:
                             description += f"• **{nom}** → ✅ Terminé\n"
         
@@ -8173,11 +8352,16 @@ async def debug_calendrier(interaction: discord.Interaction):
         test_mois = (calendrier_data.get("mois_index", 0) + 3) % 12
         test_annee = calendrier_data.get("annee", 2025) + ((calendrier_data.get("mois_index", 0) + 3) // 12)
         test_nom = CALENDRIER_MONTHS[test_mois] if test_mois < len(CALENDRIER_MONTHS) else "Inconnu"
-        description += f"  → Finirait en {test_nom} {test_annee}\n"
-        description += f"  → Timestamp: {int(test_timestamp)}"
+        
+        # Calculer le timestamp réel IRL
+        real_timestamp = calculate_real_timestamp_from_calendar(test_mois, test_annee)
+        discord_timestamp = format_discord_timestamp(real_timestamp)
+        
+        description += f"  📅 Finirait en RP: {test_nom} {test_annee}\n"
+        description += f"  🕐 Finirait IRL: {discord_timestamp}"
     else:
-        jours = int((test_timestamp - time.time()) / 86400)
-        description += f"  → Finirait dans {jours} jours"
+        discord_timestamp = format_discord_timestamp(test_timestamp)
+        description += f"  🕐 Finirait: {discord_timestamp}"
     
     embed = discord.Embed(
         title="🔍 Debug - Calendrier et Développements",
