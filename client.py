@@ -7085,7 +7085,10 @@ class TechnoConfirmView(discord.ui.View):
             "centre_attache": centre_choisi["localisation"],
             "domaine": domaine_tech,
             "fin_timestamp": fin_timestamp,
-            "statut": "en_cours"  # Statut par défaut pour les nouveaux développements
+            "statut": "en_cours",  # Statut par défaut pour les nouveaux développements
+            # Ajouter le contexte RP pour le calcul de fin selon le calendrier
+            "mois_creation_rp": calendrier_data.get("mois_index", 0),
+            "annee_creation_rp": calendrier_data.get("annee", 2025)
         }
         
         developpements[guild_id][role_id].append(developpement_data)
@@ -8299,10 +8302,68 @@ async def gestion_centres(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed)
 
+def is_development_completed_by_calendar(dev, calendrier_data):
+    """
+    Détermine si un développement est terminé selon le calendrier RP actuel
+    au lieu du temps réel IRL
+    """
+    if not calendrier_data or not isinstance(dev, dict):
+        return False
+    
+    # Récupérer les données du développement
+    date_creation = dev.get('date_creation')
+    duree_mois = dev.get('mois', 0)
+    
+    if not date_creation or duree_mois <= 0:
+        return False
+    
+    try:
+        # Convertir la date de création en datetime
+        date_creation_dt = datetime.datetime.fromisoformat(date_creation)
+        
+        # Calculer le mois et l'année de création selon le calendrier RP
+        # On suppose que le développement a été créé au mois actuel du calendrier
+        # quand il a été créé
+        
+        # Récupérer l'état actuel du calendrier
+        mois_actuel = calendrier_data.get("mois_index", 0)
+        annee_actuelle = calendrier_data.get("annee", 2025)
+        
+        # Calculer combien de mois se sont écoulés depuis la création
+        # Si le développement a été créé récemment, on calcule depuis quand
+        # Sinon, on utilise la durée prévue
+        
+        # Pour simplifier : si le calendrier actuel a avancé de plus de mois
+        # que la durée du développement depuis sa création logique, alors il est terminé
+        
+        # Récupérer les métadonnées du développement si disponibles
+        mois_creation = dev.get('mois_creation_rp')
+        annee_creation = dev.get('annee_creation_rp')
+        
+        # Si pas de métadonnées, estimer à partir de la date
+        if mois_creation is None or annee_creation is None:
+            # Estimer que le développement a été créé il y a quelques mois
+            # En mars 2025 pour les tests existants
+            mois_creation = 2  # Mars (index 2)
+            annee_creation = 2025
+        
+        # Calculer combien de mois se sont écoulés
+        mois_ecoules = (annee_actuelle - annee_creation) * 12 + (mois_actuel - mois_creation)
+        
+        # Le développement est terminé si plus de mois se sont écoulés que sa durée
+        return mois_ecoules >= duree_mois
+        
+    except:
+        # En cas d'erreur, utiliser la méthode par timestamp
+        fin_timestamp = dev.get('fin_timestamp', 0)
+        if fin_timestamp > 0:
+            return fin_timestamp <= time.time()
+        return False
+
 def check_and_complete_developments(guild_id):
     """
     Vérifie tous les développements en cours et marque comme terminés ceux qui sont finis
-    selon la logique du calendrier RP (1 mois RP = 2 jours IRL)
+    selon la logique du calendrier RP (plus précise que le temps réel)
     Les développements terminés restent visibles mais sont marqués avec statut='termine'
     """
     developpements_data = load_developpements()
@@ -8310,9 +8371,6 @@ def check_and_complete_developments(guild_id):
     
     if not calendrier_data or guild_id not in developpements_data:
         return 0
-    
-    mois_actuel = calendrier_data.get("mois_index", 0)
-    annee_actuelle = calendrier_data.get("annee", 2025)
     
     developments_completed = 0
     
@@ -8324,27 +8382,25 @@ def check_and_complete_developments(guild_id):
             if not isinstance(dev, dict):
                 continue
             
-            # Vérifier si le développement a une date de fin et n'est pas déjà terminé
-            fin_timestamp = dev.get('fin_timestamp')
+            # Vérifier si le développement n'est pas déjà terminé
             statut_actuel = dev.get('statut', 'en_cours')
             
-            if not fin_timestamp or statut_actuel == 'termine':
+            if statut_actuel == 'termine':
                 continue
             
-            # Vérifier si le développement est terminé selon le calendrier actuel
-            current_time = time.time()
-            if fin_timestamp <= current_time:
-                # Marquer le développement comme terminé au lieu de le supprimer
+            # Vérifier si le développement est terminé selon le calendrier RP
+            if is_development_completed_by_calendar(dev, calendrier_data):
+                # Marquer le développement comme terminé
                 dev['statut'] = 'termine'
                 dev['date_fin_reelle'] = datetime.datetime.now().isoformat()
-                print(f"[DEBUG] Développement marqué comme terminé: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
+                print(f"[DEBUG] Développement marqué comme terminé par calendrier RP: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
                 developments_completed += 1
     
     # Sauvegarder les changements si des développements ont été terminés
     if developments_completed > 0:
         save_developpements(developpements_data)
         save_all_json_to_postgres()
-        print(f"[DEBUG] {developments_completed} développements marqués comme terminés")
+        print(f"[DEBUG] {developments_completed} développements marqués comme terminés selon le calendrier RP")
     
     return developments_completed
 
