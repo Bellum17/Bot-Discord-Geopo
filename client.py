@@ -4211,10 +4211,9 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     demain = now_cest.date() + datetime.timedelta(days=1)
     next_midnight_cest = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=cest_tz)
     
-    # CORRECTION TEMPORAIRE : Si l'affichage Discord montre 23h00 au lieu de 00h00,
-    # c'est probablement dû à un décalage de fuseau horaire local.
-    # Décommentez la ligne suivante si nécessaire :
-    # next_midnight_cest = next_midnight_cest + datetime.timedelta(hours=1)
+    # CORRECTION : Ajouter 1 heure pour compenser le décalage d'affichage Discord
+    # Discord affiche 23h00 au lieu de 00h00 à cause du fuseau horaire local
+    next_midnight_cest = next_midnight_cest + datetime.timedelta(hours=1)
     
     # Calculer combien de jours IRL il faut pour atteindre le mois RP de fin
     jours_irl_necessaires = 0
