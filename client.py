@@ -8229,7 +8229,7 @@ async def amelioration(interaction: discord.Interaction, centre: str):
 @bot.tree.command(name="gestion_centres", description="Gérer vos centres technologiques")
 async def gestion_centres(interaction: discord.Interaction):
     """Affiche la gestion des centres technologiques."""
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     
     # Vérifier que l'utilisateur a un rôle pays
     user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
@@ -8255,7 +8255,7 @@ async def gestion_centres(interaction: discord.Interaction):
             description="⠀\n> Vous n'avez aucun centre technologique.\n> Utilisez `/centre_tech` pour en créer un.\n⠀",
             color=EMBED_COLOR
         )
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
         return
     
     centres = centres_data[guild_id][pays_id]
@@ -8264,11 +8264,12 @@ async def gestion_centres(interaction: discord.Interaction):
     description = "⠀\n"
     
     for i, centre in enumerate(centres, 1):
-        # Compter les développements en cours dans ce centre
+        # Compter les développements en cours dans ce centre (seulement ceux en cours)
         developpements_en_cours = []
         if guild_id in developpements_data and pays_id in developpements_data[guild_id]:
             for dev in developpements_data[guild_id][pays_id]:
-                if dev.get("centre_attache") == centre["localisation"]:
+                if (dev.get("centre_attache") == centre["localisation"] and 
+                    dev.get("statut", "en_cours") == "en_cours"):
                     developpements_en_cours.append(dev)
         
         emplacements_utilises = len(developpements_en_cours)
@@ -8324,7 +8325,7 @@ async def gestion_centres(interaction: discord.Interaction):
         color=EMBED_COLOR
     )
     
-    await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 def is_development_completed_by_calendar(dev, calendrier_data):
     """
