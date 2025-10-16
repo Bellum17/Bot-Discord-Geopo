@@ -34,6 +34,7 @@ def save_xp_system_status(status):
 xp_system_status = load_xp_system_status()
 import time
 import datetime
+from zoneinfo import ZoneInfo
 import asyncio
 import typing
 import random
@@ -67,6 +68,28 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EMBED_COLOR = 0xefe7c5
 SANCTION_COLOR = 0x162e50  # Couleur pour les sanctions (mute, ban, warn)
 IMAGE_URL = "https://zupimages.net/up/21/03/vl8j.png"
+
+def get_paris_time():
+    """Retourne l'heure actuelle de Paris (CEST/CET) en format ISO."""
+    return datetime.datetime.now(ZoneInfo("Europe/Paris")).isoformat()
+
+def format_paris_time(iso_string):
+    """Formate une chaîne ISO en heure de Paris lisible."""
+    try:
+        # Si la chaîne a déjà un fuseau horaire
+        if '+' in iso_string or iso_string.endswith('Z'):
+            dt = datetime.datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            paris_dt = dt.astimezone(ZoneInfo("Europe/Paris"))
+        else:
+            # Si pas de fuseau horaire, considérer comme heure de Paris
+            dt = datetime.datetime.fromisoformat(iso_string)
+            paris_dt = dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
+        
+        return paris_dt.strftime("%d/%m/%Y à %H:%M")
+    except:
+        return iso_string
 MONNAIE_EMOJI = "<:Monnaie:1412039375063355473>"
 INVISIBLE_CHAR = "⠀"
 HELP_THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1411865291041931327/1422937730177826827/c4959984-ba58-486b-a7c3-a17b231b80a9.png?ex=68de7d87&is=68dd2c07&hm=78336c03ba0fbcfd847d2e7a4e14307b2ecc964b97be95648fbc2a1a9884da9c&"
@@ -4285,8 +4308,7 @@ def format_development_end_info(dev):
         date_fin_reelle = dev.get('date_fin_reelle')
         if date_fin_reelle:
             try:
-                date_obj = datetime.datetime.fromisoformat(date_fin_reelle)
-                date_formatee = date_obj.strftime("%d/%m/%Y à %H:%M")
+                date_formatee = format_paris_time(date_fin_reelle)
                 return f"✅ **TERMINÉ** (le {date_formatee})"
             except:
                 return "✅ **TERMINÉ**"
@@ -7849,8 +7871,7 @@ class DeveloppementsNavigationView(discord.ui.View):
             date_fin_reelle = dev.get('date_fin_reelle')
             if date_fin_reelle:
                 try:
-                    date_obj = datetime.datetime.fromisoformat(date_fin_reelle)
-                    date_formatee = date_obj.strftime("%d/%m/%Y à %H:%M")
+                    date_formatee = format_paris_time(date_fin_reelle)
                     embed.add_field(
                         name="✅ Statut",
                         value=f"**TERMINÉ** (le {date_formatee})",
@@ -8392,7 +8413,7 @@ def check_and_complete_developments(guild_id):
             if is_development_completed_by_calendar(dev, calendrier_data):
                 # Marquer le développement comme terminé
                 dev['statut'] = 'termine'
-                dev['date_fin_reelle'] = datetime.datetime.now().isoformat()
+                dev['date_fin_reelle'] = get_paris_time()
                 print(f"[DEBUG] Développement marqué comme terminé par calendrier RP: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
                 developments_completed += 1
     
