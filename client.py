@@ -4779,6 +4779,14 @@ async def calendrier_update_task():
         calendrier_data["mois_index"] += 1
     calendrier_data["last_update"] = now.isoformat()
     save_calendrier(calendrier_data)
+    
+    # Vérifier et terminer automatiquement les développements dans tous les serveurs
+    for guild in bot.guilds:
+        guild_id = str(guild.id)
+        developments_completed = check_and_complete_developments(guild_id)
+        if developments_completed > 0:
+            print(f"[DEBUG] Calendrier automatique: {developments_completed} développements terminés dans {guild.name}")
+    
     # Stop si Décembre 2/2 passé
     if calendrier_data["mois_index"] >= len(CALENDRIER_MONTHS):
         calendrier_update_task.stop()
@@ -7132,52 +7140,6 @@ class TechnoConfirmView(discord.ui.View):
         except:
             # Si ça échoue, ce n'est pas grave
             pass
-        
-        # Créer l'entrée de développement
-        developpement_data = {
-            "nom": self.nom_developpement,
-            "technologie": self.nom_techno,
-            "categorie": self.categorie,
-            "nom_categorie": self.nom_categorie,
-            "cout_dev": self.cout_dev,
-            "cout_unite": self.cout_unite,
-            "unit_multiplier": self.unit_multiplier,
-            "mois": self.mois,
-            "image": self.image,
-            "date_creation": datetime.datetime.now().isoformat(),
-            "createur": interaction.user.id
-        }
-        
-        developpements[guild_id][role_id].append(developpement_data)
-        save_developpements(developpements)
-        
-        # Créer l'embed de confirmation
-        embed = discord.Embed(
-            title="✅ Développement confirmé !",
-            description=f"**Nom :** {self.nom_developpement}\n"
-                       f"**Technologie :** {self.nom_techno}\n"
-                       f"**Pays :** {self.role.mention}\n"
-                       f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
-                       f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
-            color=EMBED_COLOR,
-            timestamp=datetime.datetime.now()
-        )
-        
-        await interaction.followup.send(embed=embed)
-        
-        # Log dans le salon des logs
-        log_embed = discord.Embed(
-            title="🔬 Développement technologique",
-            description=f"**Pays :** {self.role.mention}\n"
-                       f"**Nom :** {self.nom_developpement}\n"
-                       f"**Technologie :** {self.nom_techno}\n"
-                       f"**Coût :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
-                       f"**Développé par :** {interaction.user.mention}",
-            color=EMBED_COLOR,
-            timestamp=datetime.datetime.now()
-        )
-        
-        await send_log(interaction.guild, embed=log_embed)
 
 # === SYSTÈME DE ROLL GÉNÉRAL ===
 
@@ -8283,6 +8245,63 @@ async def gestion_centres(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed)
 
+def check_and_complete_developments(guild_id):
+    """
+    Vérifie tous les développements en cours et termine automatiquement ceux qui sont finis
+    selon la logique du calendrier RP (1 mois RP = 2 jours IRL)
+    """
+    developpements_data = load_developpements()
+    calendrier_data = load_calendrier()
+    
+    if not calendrier_data or guild_id not in developpements_data:
+        return 0
+    
+    mois_actuel = calendrier_data.get("mois_index", 0)
+    annee_actuelle = calendrier_data.get("annee", 2025)
+    
+    developments_completed = 0
+    
+    for role_id, devs in developpements_data[guild_id].items():
+        if not isinstance(devs, list):
+            continue
+            
+        # Créer une nouvelle liste pour les développements non terminés
+        developments_to_keep = []
+        
+        for dev in devs:
+            if not isinstance(dev, dict):
+                developments_to_keep.append(dev)
+                continue
+            
+            # Vérifier si le développement a une date de fin
+            fin_timestamp = dev.get('fin_timestamp')
+            if not fin_timestamp:
+                # Pas de timestamp, on garde le développement
+                developments_to_keep.append(dev)
+                continue
+            
+            # Vérifier si le développement est terminé selon le calendrier actuel
+            current_time = time.time()
+            if fin_timestamp <= current_time:
+                # Le développement est terminé selon le calendrier
+                print(f"[DEBUG] Développement terminé automatiquement: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
+                developments_completed += 1
+                # Ne pas ajouter à la liste (= suppression = terminé)
+            else:
+                # Le développement est encore en cours
+                developments_to_keep.append(dev)
+        
+        # Mettre à jour la liste des développements pour ce rôle
+        developpements_data[guild_id][role_id] = developments_to_keep
+    
+    # Sauvegarder les changements si des développements ont été terminés
+    if developments_completed > 0:
+        save_developpements(developpements_data)
+        save_all_json_to_postgres()
+        print(f"[DEBUG] {developments_completed} développements terminés automatiquement")
+    
+    return developments_completed
+
 @bot.tree.command(name="test_calendrier", description="🧪 Avancer le calendrier RP pour tester les développements")
 @app_commands.describe(
     mois="Nombre de mois à avancer (1-12)",
@@ -8343,15 +8362,26 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     # Sauvegarder
     save_calendrier(calendrier_data)
     
+    # Vérifier et terminer automatiquement les développements terminés
+    guild_id = str(interaction.guild.id)
+    developments_completed = check_and_complete_developments(guild_id)
+    
     # Nouveau nom du mois
     nouveau_nom_mois = CALENDRIER_MONTHS[nouveau_mois_index] if nouveau_mois_index < len(CALENDRIER_MONTHS) else "Inconnu"
+    
+    # Construire le message de statut des développements
+    dev_status = ""
+    if developments_completed > 0:
+        dev_status = f"\n**✅ {developments_completed} développement(s) terminé(s) automatiquement !**"
+    else:
+        dev_status = f"\n**🔬 Aucun développement terminé**"
     
     # Afficher le résultat avec simulation de développement
     embed = discord.Embed(
         title="🧪 Test d'Avancement du Calendrier",
         description=f"**Calendrier avancé de {mois} mois**\n\n"
                    f"**📅 Avant :** {ancien_nom_mois} {ancienne_annee}\n"
-                   f"**📅 Après :** {nouveau_nom_mois} {nouvelle_annee}\n\n"
+                   f"**📅 Après :** {nouveau_nom_mois} {nouvelle_annee}{dev_status}\n\n"
                    f"**🔬 Test de développement :**\n"
                    f"• Un développement de 3 mois commencé maintenant\n"
                    f"• Finira en : {CALENDRIER_MONTHS[(nouveau_mois_index + 3) % 12]} {nouvelle_annee + ((nouveau_mois_index + 3) // 12)}\n\n"
@@ -8360,6 +8390,32 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     )
     embed.set_footer(text=f"Test effectué par {interaction.user.display_name}")
     
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="check_developments", description="🔍 Vérifier et terminer automatiquement les développements finis")
+@app_commands.checks.has_permissions(administrator=True)
+async def check_developments(interaction: discord.Interaction):
+    await interaction.response.defer()
+    
+    guild_id = str(interaction.guild.id)
+    developments_completed = check_and_complete_developments(guild_id)
+    
+    if developments_completed > 0:
+        embed = discord.Embed(
+            title="✅ Développements Vérifiés",
+            description=f"**{developments_completed} développement(s) terminé(s) automatiquement !**\n\n"
+                       f"Les développements dont la durée était écoulée selon le calendrier RP ont été supprimés de la liste des développements en cours.",
+            color=0x00ff00
+        )
+    else:
+        embed = discord.Embed(
+            title="🔍 Développements Vérifiés",
+            description="**Aucun développement à terminer.**\n\n"
+                       f"Tous les développements en cours sont encore dans leur délai selon le calendrier RP.",
+            color=0x0099ff
+        )
+    
+    embed.set_footer(text=f"Vérification effectuée par {interaction.user.display_name}")
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="debug_calendrier", description="🔍 Afficher l'état du calendrier et des développements")
