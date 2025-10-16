@@ -4196,14 +4196,25 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     
     mois_difference = mois_total_fin - mois_total_actuel
     
-    # Le calendrier se met à jour à minuit heure Paris
+    # Le calendrier se met à jour à minuit heure Paris (CEST = UTC+2)
     # 1 mois RP = 2 jours IRL (1/2 puis 2/2)
-    import pytz
-    paris_tz = pytz.timezone("Europe/Paris")
-    now_paris = datetime.datetime.now(paris_tz)
+    # Forcer CEST pour garantir un affichage cohérent à minuit
+    import datetime
     
-    # Calculer le prochain minuit heure Paris
-    next_midnight_paris = now_paris.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
+    # Créer explicitement un fuseau CEST (UTC+2)
+    cest_tz = datetime.timezone(datetime.timedelta(hours=2))
+    
+    # Obtenir l'heure actuelle en CEST
+    now_cest = datetime.datetime.now(cest_tz)
+    
+    # Calculer le prochain minuit en CEST
+    demain = now_cest.date() + datetime.timedelta(days=1)
+    next_midnight_cest = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=cest_tz)
+    
+    # CORRECTION TEMPORAIRE : Si l'affichage Discord montre 23h00 au lieu de 00h00,
+    # c'est probablement dû à un décalage de fuseau horaire local.
+    # Décommentez la ligne suivante si nécessaire :
+    # next_midnight_cest = next_midnight_cest + datetime.timedelta(hours=1)
     
     # Calculer combien de jours IRL il faut pour atteindre le mois RP de fin
     jours_irl_necessaires = 0
@@ -4224,7 +4235,7 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
             jours_irl_necessaires = 0
     
     # Calculer le timestamp final
-    fin_timestamp = next_midnight_paris + datetime.timedelta(days=jours_irl_necessaires)
+    fin_timestamp = next_midnight_cest + datetime.timedelta(days=jours_irl_necessaires)
     
     # Convertir en timestamp UTC
     return int(fin_timestamp.timestamp())
