@@ -6981,6 +6981,9 @@ class TechnoConfirmView(discord.ui.View):
         
         await interaction.response.defer(ephemeral=True)
         
+        # Charger les données du calendrier
+        calendrier_data = load_calendrier()
+        
         # Vérifier le budget du rôle
         role_id = str(self.role.id)
         budget_actuel = balances.get(role_id, 0)
@@ -8432,37 +8435,22 @@ def check_and_complete_developments(guild_id):
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def test_calendrier(interaction: discord.Interaction, mois: int, code: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     
     # Vérification du code de sécurité
     if code != "240806":
-        embed = discord.Embed(
-            title="❌ Code de sécurité incorrect",
-            description="Le code de sécurité est incorrect.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send("❌ Code de sécurité incorrect.", ephemeral=True)
         return
     
     # Validation des paramètres
     if mois < 1 or mois > 12:
-        embed = discord.Embed(
-            title="❌ Paramètre invalide",
-            description="Le nombre de mois doit être entre 1 et 12.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send("❌ Le nombre de mois doit être entre 1 et 12.", ephemeral=True)
         return
     
     # Charger le calendrier
     calendrier_data = load_calendrier()
     if not calendrier_data:
-        embed = discord.Embed(
-            title="❌ Calendrier non trouvé",
-            description="Aucun calendrier actif. Utilisez `/calendrier` d'abord.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send("❌ Aucun calendrier actif. Utilisez `/calendrier` d'abord.", ephemeral=True)
         return
     
     # Sauvegarder l'état actuel
@@ -8495,136 +8483,22 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     # Construire le message de statut des développements
     dev_status = ""
     if developments_completed > 0:
-        dev_status = f"\n**✅ {developments_completed} développement(s) marqué(s) comme terminé(s) !**"
+        dev_status = f"\n✅ {developments_completed} développement(s) marqué(s) comme terminé(s) !"
     else:
-        dev_status = f"\n**🔬 Aucun développement terminé**"
+        dev_status = f"\n🔬 Aucun développement terminé"
     
     # Afficher le résultat avec simulation de développement
-    embed = discord.Embed(
-        title="🧪 Test d'Avancement du Calendrier",
-        description=f"**Calendrier avancé de {mois} mois**\n\n"
-                   f"**📅 Avant :** {ancien_nom_mois} {ancienne_annee}\n"
-                   f"**📅 Après :** {nouveau_nom_mois} {nouvelle_annee}{dev_status}\n\n"
-                   f"**🔬 Test de développement :**\n"
-                   f"• Un développement de 3 mois commencé maintenant\n"
-                   f"• Finira en : {CALENDRIER_MONTHS[(nouveau_mois_index + 3) % 12]} {nouvelle_annee + ((nouveau_mois_index + 3) // 12)}\n\n"
-                   f"**⚠️ Ceci est un test avec le code de sécurité !**",
-        color=0x00ff00
-    )
-    embed.set_footer(text=f"Test effectué par {interaction.user.display_name}")
+    message = f"🧪 **Test d'Avancement du Calendrier**\n\n" \
+             f"**Calendrier avancé de {mois} mois**\n" \
+             f"📅 Avant : {ancien_nom_mois} {ancienne_annee}\n" \
+             f"📅 Après : {nouveau_nom_mois} {nouvelle_annee}{dev_status}\n\n" \
+             f"🔬 **Test de développement :**\n" \
+             f"• Un développement de 3 mois commencé maintenant\n" \
+             f"• Finira en : {CALENDRIER_MONTHS[(nouveau_mois_index + 3) % 12]} {nouvelle_annee + ((nouveau_mois_index + 3) // 12)}\n\n" \
+             f"⚠️ Ceci est un test avec le code de sécurité !\n" \
+             f"Test effectué par {interaction.user.display_name}"
     
-    await interaction.followup.send(embed=embed)
-
-@bot.tree.command(name="check_developments", description="🔍 Vérifier et terminer automatiquement les développements finis")
-@app_commands.checks.has_permissions(administrator=True)
-async def check_developments(interaction: discord.Interaction):
-    await interaction.response.defer()
-    
-    guild_id = str(interaction.guild.id)
-    developments_completed = check_and_complete_developments(guild_id)
-    
-    if developments_completed > 0:
-        embed = discord.Embed(
-            title="✅ Développements Vérifiés",
-            description=f"**{developments_completed} développement(s) marqué(s) comme terminé(s) !**\n\n"
-                       f"Les développements dont la durée était écoulée selon le calendrier RP ont été marqués comme terminés.\n"
-                       f"Ils restent visibles dans `/developpements` avec le statut **TERMINÉ**.",
-            color=0x00ff00
-        )
-    else:
-        embed = discord.Embed(
-            title="🔍 Développements Vérifiés",
-            description="**Aucun développement à terminer.**\n\n"
-                       f"Tous les développements en cours sont encore dans leur délai selon le calendrier RP.",
-            color=0x0099ff
-        )
-    
-    embed.set_footer(text=f"Vérification effectuée par {interaction.user.display_name}")
-    await interaction.followup.send(embed=embed)
-
-@bot.tree.command(name="debug_calendrier", description="🔍 Afficher l'état du calendrier et des développements")
-@app_commands.checks.has_permissions(administrator=True)
-async def debug_calendrier(interaction: discord.Interaction):
-    await interaction.response.defer()
-    
-    # Charger les données
-    calendrier_data = load_calendrier()
-    developpements_data = load_developpements()
-    
-    description = "**📅 État du Calendrier :**\n"
-    
-    if calendrier_data:
-        mois_index = calendrier_data.get("mois_index", 0)
-        annee = calendrier_data.get("annee", 2025)
-        nom_mois = CALENDRIER_MONTHS[mois_index] if mois_index < len(CALENDRIER_MONTHS) else "Inconnu"
-        
-        description += f"• **Mois actuel :** {nom_mois} {annee} (index: {mois_index})\n"
-        description += f"• **Timestamp système :** {int(time.time())}\n\n"
-    else:
-        description += "• **Aucun calendrier actif**\n\n"
-    
-    description += "**🔬 Développements en cours :**\n"
-    
-    guild_id = str(interaction.guild.id)
-    if guild_id in developpements_data:
-        total_devs = 0
-        for role_id, devs in developpements_data[guild_id].items():
-            if isinstance(devs, list):
-                for dev in devs:
-                    if isinstance(dev, dict):
-                        total_devs += 1
-                        nom = dev.get("nom", "Inconnu")
-                        fin_timestamp = dev.get("fin_timestamp", 0)
-                        
-                        if fin_timestamp > time.time():
-                            # Calculer en mois RP si possible
-                            if calendrier_data:
-                                mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
-                                if mois_fin is not None and annee_fin is not None:
-                                    mois_fin_nom = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Inconnu"
-                                    discord_timestamp = format_discord_timestamp(fin_timestamp)
-                                    description += f"• **{nom}**\n"
-                                    description += f"  📅 Fin RP: {mois_fin_nom} {annee_fin}\n"
-                                    description += f"  🕐 Fin IRL: {discord_timestamp}\n"
-                                else:
-                                    jours = int((fin_timestamp - time.time()) / 86400)
-                                    description += f"• **{nom}** → Fin dans {jours} jours\n"
-                            else:
-                                discord_timestamp = format_discord_timestamp(fin_timestamp)
-                                description += f"• **{nom}** → {discord_timestamp}\n"
-                        else:
-                            description += f"• **{nom}** → ✅ Terminé\n"
-        
-        if total_devs == 0:
-            description += "• Aucun développement en cours\n"
-    else:
-        description += "• Aucun développement trouvé\n"
-    
-    description += f"\n**🧪 Test de calcul :**\n"
-    description += f"• Développement de 3 mois maintenant:\n"
-    test_timestamp = calculate_fin_with_calendar(3)
-    if calendrier_data:
-        test_mois = (calendrier_data.get("mois_index", 0) + 3) % 12
-        test_annee = calendrier_data.get("annee", 2025) + ((calendrier_data.get("mois_index", 0) + 3) // 12)
-        test_nom = CALENDRIER_MONTHS[test_mois] if test_mois < len(CALENDRIER_MONTHS) else "Inconnu"
-        
-        # Calculer le timestamp réel IRL
-        real_timestamp = calculate_real_timestamp_from_calendar(test_mois, test_annee)
-        discord_timestamp = format_discord_timestamp(real_timestamp)
-        
-        description += f"  📅 Finirait en RP: {test_nom} {test_annee}\n"
-        description += f"  🕐 Finirait IRL: {discord_timestamp}"
-    else:
-        discord_timestamp = format_discord_timestamp(test_timestamp)
-        description += f"  🕐 Finirait: {discord_timestamp}"
-    
-    embed = discord.Embed(
-        title="🔍 Debug - Calendrier et Développements",
-        description=description,
-        color=0x3498db
-    )
-    
-    await interaction.followup.send(embed=embed)
+    await interaction.followup.send(message, ephemeral=True)
 
 @bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays")
 @app_commands.describe(
@@ -8632,26 +8506,16 @@ async def debug_calendrier(interaction: discord.Interaction):
     code="Code de sécurité requis"
 )
 async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     
     # Vérification du code de sécurité
     if code != "240806":
-        embed = discord.Embed(
-            title="❌ Code de sécurité incorrect",
-            description="Le code de sécurité est incorrect.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send("❌ Code de sécurité incorrect.", ephemeral=True)
         return
     
     # Vérification des permissions
     if not interaction.user.guild_permissions.administrator:
-        embed = discord.Embed(
-            title="❌ Permissions insuffisantes",
-            description="Seuls les administrateurs peuvent utiliser cette commande.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send("❌ Seuls les administrateurs peuvent utiliser cette commande.", ephemeral=True)
         return
     
     guild_id = str(interaction.guild.id)
@@ -8686,9 +8550,16 @@ async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code:
                    f"**💾 Sauvegarde PostgreSQL effectuée.**",
         color=0xff4444
     )
-    embed.set_footer(text=f"Reset effectué par {interaction.user.display_name}")
+    message = f"🚨 **Reset Technologique Complet**\n\n" \
+             f"**Pays :** {pays.mention}\n" \
+             f"🏭 Centres supprimés : {centres_resetted}\n" \
+             f"🔬 Développements annulés : {developpements_resetted}\n\n" \
+             f"✅ Toutes les données technologiques ont été remises à zéro.\n" \
+             f"💰 L'économie du pays n'a pas été affectée.\n" \
+             f"💾 Sauvegarde PostgreSQL effectuée.\n\n" \
+             f"Reset effectué par {interaction.user.display_name}"
     
-    await interaction.followup.send(embed=embed)
+    await interaction.followup.send(message, ephemeral=True)
 
 @bot.tree.command(name="force_sync_postgres", description="Force la synchronisation des données avec PostgreSQL")
 @app_commands.checks.has_permissions(administrator=True)
