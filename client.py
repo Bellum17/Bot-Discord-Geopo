@@ -4276,10 +4276,26 @@ def format_discord_timestamp(timestamp):
 def format_development_end_info(dev):
     """
     Formate les informations de fin d'un développement avec timestamp Discord et date RP
+    Prend en compte le nouveau système de statut
     """
+    statut = dev.get('statut', 'en_cours')
+    
+    # Si le développement est marqué comme terminé
+    if statut == 'termine':
+        date_fin_reelle = dev.get('date_fin_reelle')
+        if date_fin_reelle:
+            try:
+                date_obj = datetime.datetime.fromisoformat(date_fin_reelle)
+                date_formatee = date_obj.strftime("%d/%m/%Y à %H:%M")
+                return f"✅ **TERMINÉ** (le {date_formatee})"
+            except:
+                return "✅ **TERMINÉ**"
+        return "✅ **TERMINÉ**"
+    
+    # Pour les développements en cours
     fin_timestamp = dev.get('fin_timestamp', 0)
     if fin_timestamp <= time.time():
-        return "✅ **Terminé**"
+        return "⚠️ **À TERMINER** (deadline dépassée)"
     
     # Timestamp Discord formaté
     discord_timestamp = format_discord_timestamp(fin_timestamp)
@@ -4290,13 +4306,13 @@ def format_development_end_info(dev):
         mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
         if mois_fin is not None and annee_fin is not None:
             nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
-            return f"📅 Fin RP: **{nom_mois} {annee_fin}**\n🕐 Fin IRL: {discord_timestamp}"
+            return f"⏳ **EN COURS**\n📅 Fin RP: **{nom_mois} {annee_fin}**\n🕐 Fin IRL: {discord_timestamp}"
     
     # Fallback sans calendrier
     temps_restant = fin_timestamp - time.time()
     jours = int(temps_restant // 86400)
     heures = int((temps_restant % 86400) // 3600)
-    return f"⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
+    return f"⏳ **EN COURS**\n⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
 
 from discord.ext.tasks import loop
 import pytz
@@ -6986,12 +7002,13 @@ class TechnoConfirmView(discord.ui.View):
         # Vérifier les emplacements disponibles
         centre_choisi = None
         for centre in centres_compatibles:
-            # Compter les développements en cours dans ce centre
+            # Compter les développements en cours dans ce centre (pas les terminés)
             developpements_data = load_developpements()
             nb_dev_en_cours = 0
             if guild_id in developpements_data and role_id in developpements_data[guild_id]:
                 for dev in developpements_data[guild_id][role_id]:
-                    if dev.get("centre_attache") == centre["localisation"]:
+                    if (dev.get("centre_attache") == centre["localisation"] and 
+                        dev.get("statut", "en_cours") == "en_cours"):
                         nb_dev_en_cours += 1
             
             if nb_dev_en_cours < centre["emplacements_max"]:
@@ -7014,8 +7031,11 @@ class TechnoConfirmView(discord.ui.View):
         
         if guild_id in developpements_existants and role_id in developpements_existants[guild_id]:
             for dev_existant in developpements_existants[guild_id][role_id]:
+                # Vérifier seulement les développements en cours (pas terminés)
+                statut_existant = dev_existant.get("statut", "en_cours")
                 if (dev_existant.get("nom") == self.nom_developpement and 
                     dev_existant.get("technologie") == self.nom_techno and
+                    statut_existant == "en_cours" and
                     dev_existant.get("fin_timestamp", 0) > time.time()):  # Encore en cours
                     embed = discord.Embed(
                         title="❌ Développement déjà en cours",
@@ -7064,7 +7084,8 @@ class TechnoConfirmView(discord.ui.View):
             "createur": interaction.user.id,
             "centre_attache": centre_choisi["localisation"],
             "domaine": domaine_tech,
-            "fin_timestamp": fin_timestamp
+            "fin_timestamp": fin_timestamp,
+            "statut": "en_cours"  # Statut par défaut pour les nouveaux développements
         }
         
         developpements[guild_id][role_id].append(developpement_data)
@@ -7816,9 +7837,35 @@ class DeveloppementsNavigationView(discord.ui.View):
             inline=True
         )
         
-        # Ajouter les informations de fin avec timestamp Discord
+        # Ajouter les informations de fin avec le nouveau système de statut
+        statut = dev.get('statut', 'en_cours')
         fin_timestamp = dev.get('fin_timestamp', 0)
-        if fin_timestamp > 0:
+        
+        if statut == 'termine':
+            # Développement marqué comme terminé
+            date_fin_reelle = dev.get('date_fin_reelle')
+            if date_fin_reelle:
+                try:
+                    date_obj = datetime.datetime.fromisoformat(date_fin_reelle)
+                    date_formatee = date_obj.strftime("%d/%m/%Y à %H:%M")
+                    embed.add_field(
+                        name="✅ Statut",
+                        value=f"**TERMINÉ** (le {date_formatee})",
+                        inline=False
+                    )
+                except:
+                    embed.add_field(
+                        name="✅ Statut",
+                        value="**TERMINÉ**",
+                        inline=False
+                    )
+            else:
+                embed.add_field(
+                    name="✅ Statut",
+                    value="**TERMINÉ**",
+                    inline=False
+                )
+        elif fin_timestamp > 0:
             if fin_timestamp > time.time():
                 # Développement en cours
                 calendrier_data = load_calendrier()
@@ -7828,31 +7875,38 @@ class DeveloppementsNavigationView(discord.ui.View):
                         nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
                         discord_timestamp = format_discord_timestamp(fin_timestamp)
                         embed.add_field(
-                            name="📅 Date de fin",
+                            name="⏳ En cours - Date de fin",
                             value=f"**RP :** {nom_mois} {annee_fin}\n**IRL :** {discord_timestamp}",
                             inline=False
                         )
                     else:
                         discord_timestamp = format_discord_timestamp(fin_timestamp)
                         embed.add_field(
-                            name="📅 Date de fin",
+                            name="⏳ En cours - Date de fin",
                             value=discord_timestamp,
                             inline=False
                         )
                 else:
                     discord_timestamp = format_discord_timestamp(fin_timestamp)
                     embed.add_field(
-                        name="📅 Date de fin",
+                        name="⏳ En cours - Date de fin",
                         value=discord_timestamp,
                         inline=False
                     )
             else:
-                # Développement terminé
+                # Développement dont le délai est dépassé mais pas encore marqué comme terminé
                 embed.add_field(
-                    name="✅ Statut",
-                    value="Développement terminé",
+                    name="⚠️ Statut",
+                    value="**À TERMINER** (délai dépassé)",
                     inline=False
                 )
+        else:
+            # Pas de timestamp
+            embed.add_field(
+                name="🔄 Statut",
+                value="**EN COURS** (pas de délai défini)",
+                inline=False
+            )
         
         # Ajouter le centre attaché si disponible
         if dev.get('centre_attache'):
@@ -8247,8 +8301,9 @@ async def gestion_centres(interaction: discord.Interaction):
 
 def check_and_complete_developments(guild_id):
     """
-    Vérifie tous les développements en cours et termine automatiquement ceux qui sont finis
+    Vérifie tous les développements en cours et marque comme terminés ceux qui sont finis
     selon la logique du calendrier RP (1 mois RP = 2 jours IRL)
+    Les développements terminés restent visibles mais sont marqués avec statut='termine'
     """
     developpements_data = load_developpements()
     calendrier_data = load_calendrier()
@@ -8265,40 +8320,31 @@ def check_and_complete_developments(guild_id):
         if not isinstance(devs, list):
             continue
             
-        # Créer une nouvelle liste pour les développements non terminés
-        developments_to_keep = []
-        
         for dev in devs:
             if not isinstance(dev, dict):
-                developments_to_keep.append(dev)
                 continue
             
-            # Vérifier si le développement a une date de fin
+            # Vérifier si le développement a une date de fin et n'est pas déjà terminé
             fin_timestamp = dev.get('fin_timestamp')
-            if not fin_timestamp:
-                # Pas de timestamp, on garde le développement
-                developments_to_keep.append(dev)
+            statut_actuel = dev.get('statut', 'en_cours')
+            
+            if not fin_timestamp or statut_actuel == 'termine':
                 continue
             
             # Vérifier si le développement est terminé selon le calendrier actuel
             current_time = time.time()
             if fin_timestamp <= current_time:
-                # Le développement est terminé selon le calendrier
-                print(f"[DEBUG] Développement terminé automatiquement: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
+                # Marquer le développement comme terminé au lieu de le supprimer
+                dev['statut'] = 'termine'
+                dev['date_fin_reelle'] = datetime.datetime.now().isoformat()
+                print(f"[DEBUG] Développement marqué comme terminé: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
                 developments_completed += 1
-                # Ne pas ajouter à la liste (= suppression = terminé)
-            else:
-                # Le développement est encore en cours
-                developments_to_keep.append(dev)
-        
-        # Mettre à jour la liste des développements pour ce rôle
-        developpements_data[guild_id][role_id] = developments_to_keep
     
     # Sauvegarder les changements si des développements ont été terminés
     if developments_completed > 0:
         save_developpements(developpements_data)
         save_all_json_to_postgres()
-        print(f"[DEBUG] {developments_completed} développements terminés automatiquement")
+        print(f"[DEBUG] {developments_completed} développements marqués comme terminés")
     
     return developments_completed
 
@@ -8372,7 +8418,7 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     # Construire le message de statut des développements
     dev_status = ""
     if developments_completed > 0:
-        dev_status = f"\n**✅ {developments_completed} développement(s) terminé(s) automatiquement !**"
+        dev_status = f"\n**✅ {developments_completed} développement(s) marqué(s) comme terminé(s) !**"
     else:
         dev_status = f"\n**🔬 Aucun développement terminé**"
     
@@ -8403,8 +8449,9 @@ async def check_developments(interaction: discord.Interaction):
     if developments_completed > 0:
         embed = discord.Embed(
             title="✅ Développements Vérifiés",
-            description=f"**{developments_completed} développement(s) terminé(s) automatiquement !**\n\n"
-                       f"Les développements dont la durée était écoulée selon le calendrier RP ont été supprimés de la liste des développements en cours.",
+            description=f"**{developments_completed} développement(s) marqué(s) comme terminé(s) !**\n\n"
+                       f"Les développements dont la durée était écoulée selon le calendrier RP ont été marqués comme terminés.\n"
+                       f"Ils restent visibles dans `/developpements` avec le statut **TERMINÉ**.",
             color=0x00ff00
         )
     else:
