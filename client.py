@@ -7032,7 +7032,8 @@ class TechnoConfirmView(discord.ui.View):
             nb_dev_en_cours = 0
             if guild_id in developpements_data and role_id in developpements_data[guild_id]:
                 for dev in developpements_data[guild_id][role_id]:
-                    if (dev.get("centre_attache") == centre["localisation"] and 
+                    centre_nom = centre.get("nom", centre.get("localisation", ""))
+                    if (dev.get("centre_attache") == centre_nom and 
                         dev.get("statut", "en_cours") == "en_cours"):
                         nb_dev_en_cours += 1
             
@@ -7107,7 +7108,7 @@ class TechnoConfirmView(discord.ui.View):
             "image": self.image,
             "date_creation": datetime.datetime.now().isoformat(),
             "createur": interaction.user.id,
-            "centre_attache": centre_choisi["localisation"],
+            "centre_attache": centre_choisi.get("nom", centre_choisi.get("localisation", "")),
             "domaine": domaine_tech,
             "fin_timestamp": fin_timestamp,
             "statut": "en_cours",  # Statut par défaut pour les nouveaux développements
@@ -8045,7 +8046,8 @@ async def developpements(interaction: discord.Interaction):
 
 @bot.tree.command(name="centre_tech", description="Créer un centre technologique")
 @app_commands.describe(
-    localisation="Nom de la localisation du centre",
+    nom="Nom du centre technologique",
+    localisation="Localisation géographique du centre",
     specialisation="Spécialisation du centre technologique"
 )
 @app_commands.choices(specialisation=[
@@ -8055,7 +8057,8 @@ async def developpements(interaction: discord.Interaction):
     discord.app_commands.Choice(name="Armes de Destruction Massive", value="Armes de Destruction Massive"),
     discord.app_commands.Choice(name="Spatial", value="Spatial")
 ])
-async def centre_tech(interaction: discord.Interaction, localisation: str, specialisation: str):
+@app_commands.checks.has_permissions(administrator=True)
+async def centre_tech(interaction: discord.Interaction, nom: str, localisation: str, specialisation: str):
     """Crée un nouveau centre technologique."""
     await interaction.response.defer()
     
@@ -8095,14 +8098,15 @@ async def centre_tech(interaction: discord.Interaction, localisation: str, speci
     if pays_id not in centres_data[guild_id]:
         centres_data[guild_id][pays_id] = []
     
-    # Vérifier si un centre avec cette localisation existe déjà
+    # Vérifier si un centre avec ce nom existe déjà
     for centre in centres_data[guild_id][pays_id]:
-        if centre["localisation"].lower() == localisation.lower():
-            await interaction.followup.send(f"> Un centre technologique existe déjà à **{localisation}**.", ephemeral=True)
+        if centre.get("nom", centre.get("localisation", "")).lower() == nom.lower():
+            await interaction.followup.send(f"> Un centre technologique nommé **{nom}** existe déjà.", ephemeral=True)
             return
     
     # Créer le centre
     nouveau_centre = {
+        "nom": nom,
         "localisation": localisation,
         "specialisation": specialisation,
         "niveau": 1,
@@ -8123,6 +8127,7 @@ async def centre_tech(interaction: discord.Interaction, localisation: str, speci
         title="🏭 Centre Technologique Créé",
         description=(
             f"⠀\n"
+            f"> 🏷️ **Nom :** {nom}\n"
             f"> 📍 **Localisation :** {localisation}\n"
             f"> 🔬 **Spécialisation :** {specialisation}\n"
             f"> 📊 **Niveau :** 1\n"
@@ -8135,8 +8140,40 @@ async def centre_tech(interaction: discord.Interaction, localisation: str, speci
     
     await interaction.followup.send(embed=embed)
 
+async def centre_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    """Auto-complétion pour les centres technologiques."""
+    # Vérifier que l'utilisateur a un rôle pays
+    user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+    if not user_roles:
+        pays_images_data = load_pays_images()
+        user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+    
+    if not user_roles:
+        return []
+    
+    pays_id = str(user_roles[0].id)
+    guild_id = str(interaction.guild.id)
+    
+    # Charger les centres
+    centres_data = load_centres_tech()
+    if guild_id not in centres_data or pays_id not in centres_data[guild_id]:
+        return []
+    
+    choices = []
+    for centre in centres_data[guild_id][pays_id]:
+        nom_centre = centre.get("nom", centre.get("localisation", "Centre"))
+        if current.lower() in nom_centre.lower():
+            choices.append(app_commands.Choice(name=nom_centre, value=nom_centre))
+    
+    return choices[:25]  # Limiter à 25 résultats
+
 @bot.tree.command(name="amelioration", description="Améliorer un centre technologique")
 @app_commands.describe(centre="Nom du centre à améliorer")
+@app_commands.autocomplete(centre=centre_autocomplete)
+@app_commands.checks.has_permissions(administrator=True)
 async def amelioration(interaction: discord.Interaction, centre: str):
     """Améliore un centre technologique."""
     await interaction.response.defer()
@@ -8165,7 +8202,9 @@ async def amelioration(interaction: discord.Interaction, centre: str):
     # Trouver le centre
     centre_trouve = None
     for c in centres_data[guild_id][pays_id]:
-        if c["localisation"].lower() == centre.lower():
+        # Chercher par nom en priorité, sinon par localisation pour compatibilité
+        nom_centre = c.get("nom", c.get("localisation", ""))
+        if nom_centre.lower() == centre.lower():
             centre_trouve = c
             break
     
@@ -8227,6 +8266,7 @@ async def amelioration(interaction: discord.Interaction, centre: str):
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="gestion_centres", description="Gérer vos centres technologiques")
+@app_commands.checks.has_permissions(administrator=True)
 async def gestion_centres(interaction: discord.Interaction):
     """Affiche la gestion des centres technologiques."""
     await interaction.response.defer(ephemeral=True)
@@ -8268,14 +8308,18 @@ async def gestion_centres(interaction: discord.Interaction):
         developpements_en_cours = []
         if guild_id in developpements_data and pays_id in developpements_data[guild_id]:
             for dev in developpements_data[guild_id][pays_id]:
-                if (dev.get("centre_attache") == centre["localisation"] and 
+                centre_nom = centre.get("nom", centre.get("localisation", ""))
+                if (dev.get("centre_attache") == centre_nom and 
                     dev.get("statut", "en_cours") == "en_cours"):
                     developpements_en_cours.append(dev)
         
         emplacements_utilises = len(developpements_en_cours)
         emplacements_max = centre["emplacements_max"]
         
-        description += f"> **{i}. {centre['localisation']}**\n"
+        nom_centre = centre.get("nom", centre.get("localisation", f"Centre {i}"))
+        description += f"> **{i}. {nom_centre}**\n"
+        if centre.get("nom") and centre.get("localisation"):
+            description += f"> 📍 Localisation : {centre['localisation']}\n"
         description += f"> 🔬 Spécialisation : {centre['specialisation']}\n"
         description += f"> 📊 Niveau : {centre['niveau']}/3\n"
         description += f"> 🔧 Emplacements : {emplacements_utilises}/{emplacements_max}\n"
