@@ -3389,10 +3389,9 @@ async def id(interaction: discord.Interaction):
 @bot.tree.command(name="invites", description="Envoie une invitation Discord en MP à tous les membres (admin seulement)")
 @app_commands.checks.has_permissions(administrator=True)
 async def invites(interaction: discord.Interaction):
-    await interaction.response.send_message("> ⚠️ Cette commande a été désactivée. Utilisez `/notif` à la place.", ephemeral=True)
-    return
+    await interaction.response.defer(ephemeral=True)
     guild = interaction.guild
-    invite_link = "https://discord.gg/paxr"
+    guild_name = guild.name
     invites_path = os.path.join(DATA_DIR, "invites.json")
     
     # Charger les IDs des membres déjà invités
@@ -3420,7 +3419,17 @@ async def invites(interaction: discord.Interaction):
             continue
             
         try:
-            await member.send(f"Invitation à rejoindre le serveur : {invite_link}")
+            # Message d'invitation personnalisé
+            invitation_message = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟐](https://discord.gg/paxr)
+⠀⠀⠀⠀▬▬▬▬▬▬▬▬▬
+
+> ▪︎ Bonjour / Bonsoir ! Récemment, nous construisions un serveur de A à Z avec des mécaniques et choses plus innovante que sur les anciens New Era, et celui-ci va désormais amorcer son lancement concret en Rôleplay.
+> 
+> ▪︎ Celui-ci étais en construction depuis un mois, mais il va désormais amorcer son lancement officiel le **vendredi 24 Octobre 2025** à **20h** ! N'hésitez pas à nous rejoindre si vous cherchez des RP Géopolitique dans ce thème, nous vous accueilleront avec grand plaisir.
+
+-# Envoyé depuis {guild_name}"""
+            
+            await member.send(invitation_message)
             invited_ids.add(str(member.id))
             sent_count += 1
         except Exception:
@@ -3549,7 +3558,7 @@ async def notif_debug(interaction: discord.Interaction):
     ROLE_NON_JOUEUR_ID = 1393344053608710315
     
     # Messages prédéfinis
-    message_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟂](https://discord.gg/paxr)
+    message_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟐](https://discord.gg/paxr)
 ⠀⠀⠀⠀▬▬▬▬▬▬▬▬▬
 
 > ▪︎ Bonjour / Bonsoir ! Nous vous informons qu'une annonce a été publiée dans ⁠<#1393350471661387846> et que le rôleplay ouvrira le **vendredi 24 octobre 2025 à 20h** !
@@ -3572,7 +3581,7 @@ async def notif_debug(interaction: discord.Interaction):
 
 -# Envoyé depuis {guild_name}"""
 
-    message_non_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟂](https://discord.gg/paxr)
+    message_non_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟐](https://discord.gg/paxr)
 ⠀⠀⠀⠀▬▬▬▬▬▬▬▬▬
 
 > ▪︎ Bonjour / Bonsoir ! Nous vous informons qu'une annonce a été publiée dans ⁠<#1393350471661387846> et que le rôleplay ouvrira le **vendredi 24 octobre 2025 à 20h** !
