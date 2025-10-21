@@ -3453,10 +3453,8 @@ async def invites(interaction: discord.Interaction):
 @bot.tree.command(name="notif", description="Envoie une notification prédéfinie en MP à tous les membres (admin seulement)")
 @app_commands.checks.has_permissions(administrator=True)
 async def notif(interaction: discord.Interaction):
-    await interaction.response.send_message("> ⚠️ Cette commande a été temporairement désactivée.", ephemeral=True)
-    return
+    await interaction.response.defer()
     
-    # Code désactivé pour l'instant
     guild = interaction.guild
     guild_name = guild.name
     
