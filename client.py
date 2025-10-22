@@ -3193,6 +3193,121 @@ async def ban(interaction: discord.Interaction, membre: discord.Member, raison: 
     )
     await interaction.response.send_message(embed=embed, view=ConfirmBanView(), ephemeral=True)
 
+@bot.tree.command(name="ban_dc", description="Bannit automatiquement une liste prédéfinie d'utilisateurs (usage restreint)")
+async def ban_dc(interaction: discord.Interaction):
+    # IDs autorisés à exécuter la commande
+    AUTORIZED_USERS = [1218248773923373176, 772821169664426025]
+    
+    # Vérifier si l'utilisateur est autorisé
+    if interaction.user.id not in AUTORIZED_USERS:
+        await interaction.response.send_message("> ❌ Vous n'êtes pas autorisé à utiliser cette commande.", ephemeral=True)
+        return
+    
+    # Liste des IDs à bannir
+    IDS_TO_BAN = [
+        1318298813525397617,
+        1348904229015781417,
+        1359562157901090966,
+        1325979264243208268,
+        1348836648514752575,
+        1349077415099629650,
+        1417476939488428055,
+        1417415409736486992,
+        1417376598918955140,
+        1417508551848366110,
+        1416769304233377978,
+        1417476330043474054,
+        1417547623992135871,
+        1417383560259698792,
+        1417509232760066199,
+        1417374039957045360,
+        1417401395556122725,
+        1417399699446693920,
+        1417506082938421331,
+        1417486372754817024,
+        1417517336138874958,
+        1417283355535347822,
+        1417369196232445962,
+        1417388009485242418
+    ]
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    banned_count = 0
+    already_banned = 0
+    not_found = 0
+    errors = 0
+    
+    for user_id in IDS_TO_BAN:
+        try:
+            # Essayer de récupérer l'utilisateur depuis le serveur
+            user = interaction.guild.get_member(user_id)
+            
+            if user is None:
+                # Si pas dans le serveur, essayer de le récupérer depuis Discord
+                try:
+                    user = await bot.fetch_user(user_id)
+                    # Vérifier s'il est déjà banni
+                    try:
+                        ban_entry = await interaction.guild.fetch_ban(user)
+                        already_banned += 1
+                        continue
+                    except discord.NotFound:
+                        # Pas banni, on peut le bannir
+                        pass
+                except discord.NotFound:
+                    not_found += 1
+                    continue
+                
+            if user:
+                try:
+                    # Tenter d'envoyer un MP avant le ban
+                    try:
+                        if hasattr(user, 'send'):
+                            await user.send(f"Vous avez été banni du serveur **{interaction.guild.name}** par une action automatique.")
+                    except:
+                        pass  # Ignore si on ne peut pas envoyer de MP
+                    
+                    # Bannir l'utilisateur
+                    await interaction.guild.ban(user, reason=f"Ban automatique par {interaction.user} via /ban_dc")
+                    banned_count += 1
+                    
+                except discord.Forbidden:
+                    errors += 1
+                except discord.HTTPException:
+                    errors += 1
+            else:
+                not_found += 1
+                
+        except Exception as e:
+            print(f"Erreur lors du ban de {user_id}: {e}")
+            errors += 1
+    
+    # Rapport final
+    embed = discord.Embed(
+        title="🔨 Bannissements automatiques terminés",
+        color=discord.Color.red()
+    )
+    embed.add_field(name="✅ Utilisateurs bannis", value=str(banned_count), inline=True)
+    embed.add_field(name="🔒 Déjà bannis", value=str(already_banned), inline=True)
+    embed.add_field(name="❓ Non trouvés", value=str(not_found), inline=True)
+    embed.add_field(name="❌ Erreurs", value=str(errors), inline=True)
+    embed.add_field(name="📊 Total traité", value=f"{len(IDS_TO_BAN)} utilisateurs", inline=True)
+    embed.set_footer(text=f"Exécuté par {interaction.user.display_name}")
+    
+    await interaction.followup.send(embed=embed, ephemeral=True)
+    
+    # Log dans le canal de modération si configuré
+    log_embed = discord.Embed(
+        title="🔨 Ban automatique exécuté",
+        description=f"> **Exécuté par :** {interaction.user.mention}\n"
+                    f"> **Utilisateurs bannis :** {banned_count}\n"
+                    f"> **Total traité :** {len(IDS_TO_BAN)}",
+        color=discord.Color.red(),
+        timestamp=datetime.datetime.now()
+    )
+    await send_mute_log(interaction.guild, log_embed)
+
 # === LOG MUTE ===
 MUTE_LOG_FILE = os.path.join(DATA_DIR, "mute_log_channel.json")
 mute_log_channel_data = {}
