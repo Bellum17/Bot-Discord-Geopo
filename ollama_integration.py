@@ -3,12 +3,23 @@ Module d'intégration Ollama pour le bot Discord
 Permet d'utiliser des modèles d'IA locaux via Ollama
 """
 
-import ollama
 import asyncio
 import json
 import os
 from typing import List, Dict, Optional
 import logging
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
+
+# Test d'import d'Ollama
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    ollama = None
 
 # Configuration
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -20,6 +31,15 @@ logger = logging.getLogger(__name__)
 
 class OllamaManager:
     def __init__(self, host: str = OLLAMA_HOST):
+        self.host = host
+        self.api_key = OLLAMA_API_KEY
+        self.default_model = DEFAULT_MODEL
+        
+        if not OLLAMA_AVAILABLE:
+            self.client = None
+            self.available_models = []
+            return
+            
         # Configuration du client avec clé API si disponible
         if OLLAMA_API_KEY:
             self.client = ollama.Client(host=host, headers={"Authorization": f"Bearer {OLLAMA_API_KEY}"})
@@ -29,6 +49,10 @@ class OllamaManager:
         
     async def initialize(self):
         """Initialise la connexion Ollama et charge les modèles disponibles"""
+        if not OLLAMA_AVAILABLE:
+            logger.warning("Ollama non disponible - module non installé")
+            return False
+            
         try:
             await self.refresh_models()
             logger.info(f"Ollama initialisé avec {len(self.available_models)} modèles")
@@ -39,6 +63,10 @@ class OllamaManager:
     
     async def refresh_models(self):
         """Actualise la liste des modèles disponibles"""
+        if not OLLAMA_AVAILABLE or not self.client:
+            self.available_models = []
+            return
+            
         try:
             # Utiliser asyncio.to_thread pour rendre l'appel synchrone asynchrone
             models_response = await asyncio.to_thread(self.client.list)
@@ -60,6 +88,9 @@ class OllamaManager:
         Returns:
             La réponse du modèle ou None en cas d'erreur
         """
+        if not OLLAMA_AVAILABLE or not self.client:
+            return "❌ Ollama non disponible sur ce système"
+            
         if model not in self.available_models:
             return f"❌ Modèle '{model}' non disponible. Modèles disponibles : {', '.join(self.available_models)}"
         
@@ -179,6 +210,8 @@ SYSTEM_PROMPTS = {
 
 async def initialize_ollama():
     """Initialise Ollama au démarrage du bot"""
+    if not OLLAMA_AVAILABLE:
+        return False
     return await ollama_manager.initialize()
 
 async def get_ai_response(message: str, context: str = "assistant", model: str = DEFAULT_MODEL) -> str:
@@ -193,5 +226,8 @@ async def get_ai_response(message: str, context: str = "assistant", model: str =
     Returns:
         Réponse de l'IA
     """
+    if not OLLAMA_AVAILABLE:
+        return "❌ Ollama non disponible sur ce système"
+        
     system_prompt = SYSTEM_PROMPTS.get(context, SYSTEM_PROMPTS["assistant"])
     return await ollama_manager.chat(message, model, system_prompt)

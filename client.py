@@ -21,11 +21,13 @@ from discord.ext import commands
 
 # Import du module Ollama
 try:
-    from ollama_integration import initialize_ollama, get_ai_response, ollama_manager
-    OLLAMA_AVAILABLE = True
+    from ollama_integration import initialize_ollama, get_ai_response, ollama_manager, OLLAMA_AVAILABLE
 except ImportError:
     print("⚠️ Module Ollama non disponible. Installez 'ollama' avec pip install ollama")
     OLLAMA_AVAILABLE = False
+    initialize_ollama = None
+    get_ai_response = None
+    ollama_manager = None
 from discord import app_commands
 import json
 xp_system_status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "xp_system_status.json")
