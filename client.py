@@ -2382,7 +2382,7 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         description=texte,
         color=0xebe3bd
     )
-    embed.set_image(url="https://zupimages.net/up/21/03/vl8j.png")
+    embed.set_image(url="https://cdn.discordapp.com/attachments/1393317478133661746/1430388154057232455/balance.png?ex=68f99847&is=68f846c7&hm=caf730cf84810b8340517e384f07ee782ae2e619c82fd831c321dff36eeea061&")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # Commande pour ajouter de l'argent à un rôle
