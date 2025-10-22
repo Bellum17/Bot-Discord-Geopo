@@ -18,6 +18,14 @@ import time
 
 import discord
 from discord.ext import commands
+
+# Import du module Ollama
+try:
+    from ollama_integration import initialize_ollama, get_ai_response, ollama_manager
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    print("⚠️ Module Ollama non disponible. Installez 'ollama' avec pip install ollama")
+    OLLAMA_AVAILABLE = False
 from discord import app_commands
 import json
 xp_system_status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "xp_system_status.json")
@@ -4219,6 +4227,17 @@ async def on_ready():
         print(f"✅ {migrated} utilisateurs migrés vers le nouveau système de niveau")
     else:
         print("✅ Données de niveau déjà à jour")
+
+    # Initialisation d'Ollama
+    if OLLAMA_AVAILABLE:
+        print("🤖 Initialisation d'Ollama...")
+        ollama_success = await initialize_ollama()
+        if ollama_success:
+            print("✅ Ollama initialisé avec succès")
+        else:
+            print("❌ Échec de l'initialisation d'Ollama")
+    else:
+        print("⚠️ Ollama non disponible")
 
     try:
         cmds = await bot.tree.sync()
@@ -8860,6 +8879,47 @@ if __name__ == "__main__":
     if not os.path.exists(LVL_FILE):
         with open(LVL_FILE, "w") as f:
             json.dump({}, f)
+# === COMMANDES OLLAMA ===
+
+@bot.tree.command(name="ai", description="Pose une question à l'IA locale (Ollama)")
+@app_commands.describe(
+    question="Ta question pour l'IA",
+    modele="Modèle à utiliser (optionnel)",
+    contexte="Contexte spécialisé (assistant, rp, moderation, creative, technical)"
+)
+async def ai_chat(interaction: discord.Interaction, question: str, modele: str = None, contexte: str = "assistant"):
+    if not OLLAMA_AVAILABLE:
+        await interaction.response.send_message("> ❌ Ollama n'est pas disponible sur ce bot.", ephemeral=True)
+        return
+    
+    await interaction.response.defer()
+    
+    try:
+        # Utiliser le modèle par défaut si non spécifié
+        model_to_use = modele or "deepseek-r1:8b"
+        
+        # Obtenir la réponse de l'IA
+        response = await get_ai_response(question, contexte, model_to_use)
+        
+        # Limiter la longueur de la réponse Discord (2000 caractères max)
+        if len(response) > 1900:
+            response = response[:1900] + "... *(réponse tronquée)*"
+        
+        embed = discord.Embed(
+            title="🤖 Réponse de l'IA",
+            description=response,
+            color=0x00ff88
+        )
+        embed.add_field(name="📝 Question", value=f"```{question}```", inline=False)
+        embed.add_field(name="🔧 Modèle", value=model_to_use, inline=True)
+        embed.add_field(name="📋 Contexte", value=contexte, inline=True)
+        embed.set_footer(text=f"Demandé par {interaction.user.display_name}")
+        
+        await interaction.followup.send(embed=embed)
+        
+    except Exception as e:
+        await interaction.followup.send(f"> ❌ Erreur lors de la génération : {str(e)}")
+
     check_duplicate_json_files()
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
