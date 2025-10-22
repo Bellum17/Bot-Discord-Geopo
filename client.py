@@ -8868,19 +8868,6 @@ async def force_sync_postgres(interaction: discord.Interaction):
 
 
 
-if __name__ == "__main__":
-    # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
-    restore_all_json_from_postgres()
-    # Recharge l'état XP après restauration
-    xp_system_status = load_xp_system_status()
-    load_all_data()
-    # Charger les niveaux XP au démarrage
-    levels = load_levels()
-    lvl_log_channel_data = load_lvl_log_channel()
-    # Créer le fichier levels.json si absent
-    if not os.path.exists(LVL_FILE):
-        with open(LVL_FILE, "w") as f:
-            json.dump({}, f)
 # === COMMANDES OLLAMA ===
 
 @bot.tree.command(name="ai", description="Pose une question à l'IA locale (Ollama)")
@@ -8922,6 +8909,20 @@ async def ai_chat(interaction: discord.Interaction, question: str, modele: str =
     except Exception as e:
         await interaction.followup.send(f"> ❌ Erreur lors de la génération : {str(e)}")
 
+if __name__ == "__main__":
+    # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
+    restore_all_json_from_postgres()
+    # Recharge l'état XP après restauration
+    xp_system_status = load_xp_system_status()
+    load_all_data()
+    # Charger les niveaux XP au démarrage
+    levels = load_levels()
+    lvl_log_channel_data = load_lvl_log_channel()
+    # Créer le fichier levels.json si absent
+    if not os.path.exists(LVL_FILE):
+        with open(LVL_FILE, "w") as f:
+            json.dump({}, f)
+    
     check_duplicate_json_files()
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

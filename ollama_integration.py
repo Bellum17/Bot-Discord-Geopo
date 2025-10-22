@@ -70,11 +70,19 @@ class OllamaManager:
         try:
             # Utiliser asyncio.to_thread pour rendre l'appel synchrone asynchrone
             models_response = await asyncio.to_thread(self.client.list)
-            self.available_models = [model['name'] for model in models_response['models']]
+            
+            # Vérifier la structure de la réponse
+            if isinstance(models_response, dict) and 'models' in models_response:
+                self.available_models = [model.get('name', 'unknown') for model in models_response['models'] if isinstance(model, dict)]
+            else:
+                logger.warning(f"Format de réponse inattendu : {type(models_response)}")
+                self.available_models = [DEFAULT_MODEL]  # Utiliser le modèle par défaut
+                
             logger.info(f"Modèles disponibles : {self.available_models}")
         except Exception as e:
             logger.error(f"Erreur lors de la récupération des modèles : {e}")
-            self.available_models = []
+            # En cas d'erreur, utiliser le modèle par défaut
+            self.available_models = [DEFAULT_MODEL]
     
     async def chat(self, message: str, model: str = DEFAULT_MODEL, system_prompt: str = None) -> Optional[str]:
         """
