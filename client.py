@@ -19,15 +19,7 @@ import time
 import discord
 from discord.ext import commands
 
-# Import du module Ollama
-try:
-    from ollama_integration import initialize_ollama, get_ai_response, ollama_manager, OLLAMA_AVAILABLE
-except ImportError:
-    print("⚠️ Module Ollama non disponible. Installez 'ollama' avec pip install ollama")
-    OLLAMA_AVAILABLE = False
-    initialize_ollama = None
-    get_ai_response = None
-    ollama_manager = None
+# Import du module Ollama supprimé
 from discord import app_commands
 import json
 xp_system_status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "xp_system_status.json")
@@ -3552,90 +3544,7 @@ async def notif(interaction: discord.Interaction):
         f"> • Échecs d'envoi : **{failed_count}** membres"
     )
 
-@bot.tree.command(name="notif_debug", description="Test de la commande notif - envoie uniquement à vous (admin seulement)")
-@app_commands.checks.has_permissions(administrator=True)
-async def notif_debug(interaction: discord.Interaction):
-    await interaction.response.defer()
-    
-    guild = interaction.guild
-    guild_name = guild.name
-    member = interaction.user
-    
-    # IDs des rôles spéciaux
-    ROLE_JOUEUR_ID = 1410289640170328244
-    ROLE_NON_JOUEUR_ID = 1393344053608710315
-    
-    # Messages prédéfinis
-    message_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟐](https://discord.gg/paxr)
-⠀⠀⠀⠀▬▬▬▬▬▬▬▬▬
-
-> ▪︎ Bonjour / Bonsoir ! Nous vous informons qu'une annonce a été publiée dans ⁠<#1393350471661387846> et que le rôleplay ouvrira le **vendredi 24 octobre 2025 à 20h** !
-> ﻿
-> ▪︎ Vous pouvez dès à présent consulter l'ensemble des salons utiles pour le RP ci-dessous, si ce n'est pas déjà fait.
-> 
-> <#1412220875381538888>
-> <#1412221123440939183>
-> 
-> <#1426582085493063841>
-> <#1393324090562973776>
-> <#1393324354619576362>
-> <#1393325798685016256>
-> <#1410450325248147560>
-> 
-> <#1424404204193189999>
-> <#1426205177005998263>
-> 
-> ▪︎ D'autres éléments arriveront dans les prochains jours. En attendant, préparez tranquillement votre RP *(Merci de faire votre contexte dans votre fiche si vous ne l'avez pas faite auparavant)* et soyez prêts pour le lancement !
-
--# Envoyé depuis {guild_name}"""
-
-    message_non_joueur = f"""⠀⠀ [𝐏𝐀𝐗 𝐑𝐔𝐈𝐍𝐀𝐄 ⱽ²▕▏𝟐𝟎𝟕𝟐](https://discord.gg/paxr)
-⠀⠀⠀⠀▬▬▬▬▬▬▬▬▬
-
-> ▪︎ Bonjour / Bonsoir ! Nous vous informons qu'une annonce a été publiée dans ⁠<#1393350471661387846> et que le rôleplay ouvrira le **vendredi 24 octobre 2025 à 20h** !
-> ﻿
-> ▪︎ Étant donné que vous êtes un non-joueur, nous vous invitons à rejoindre le Rôleplay en consultant les différents salons ci-dessous.
-> 
-> <#1393609944292655204>
-> <#1410453879950413904>
-> <#1424787942420775022>
-> 
-> <#1412220875381538888>
-> <#1412221123440939183>
-> 
-> <#1426582085493063841>
-> <#1393324090562973776>
-> <#1393324354619576362>
-> <#1393325798685016256>
-> <#1410450325248147560>
-> 
-> <#1424404204193189999>
-> <#1426205177005998263>
-> 
-> ▪︎ D'autres éléments arriveront dans les prochains jours. Si vous voulez participer au Rôleplay, faite une fiche et checkez la cartographie - il est toutefois plausible que y ai des régions pris entre temps, le staff sera présent pour vous l'indiquer !
-
--# Envoyé depuis {guild_name}"""
-
-    try:
-        # Vérifier les rôles de l'utilisateur qui fait la commande
-        member_role_ids = [role.id for role in member.roles]
-        
-        if ROLE_JOUEUR_ID in member_role_ids:
-            await member.send(f"🧪 **[TEST NOTIF - MESSAGE JOUEUR]**\n\n{message_joueur}")
-            message_type = "joueur"
-        elif ROLE_NON_JOUEUR_ID in member_role_ids:
-            await member.send(f"🧪 **[TEST NOTIF - MESSAGE NON-JOUEUR]**\n\n{message_non_joueur}")
-            message_type = "non-joueur"
-        else:
-            # Si l'admin n'a aucun des deux rôles, envoyer les deux messages pour test
-            await member.send(f"🧪 **[TEST NOTIF - MESSAGE JOUEUR]**\n\n{message_joueur}")
-            await member.send(f"🧪 **[TEST NOTIF - MESSAGE NON-JOUEUR]**\n\n{message_non_joueur}")
-            message_type = "joueur et non-joueur (vous n'avez aucun des rôles)"
-        
-        await interaction.followup.send(f"> ✅ Message de test envoyé en MP ! Type : **{message_type}**")
-        
-    except Exception as e:
-        await interaction.followup.send(f"> ❌ Erreur lors de l'envoi du message de test : {str(e)}")
+# Commande notif_debug supprimée
 
 # === COMMANDES XP/LEVEL ===
 @bot.tree.command(name="set_lvl", description="Active le système de niveau (XP)")
@@ -4230,16 +4139,7 @@ async def on_ready():
     else:
         print("✅ Données de niveau déjà à jour")
 
-    # Initialisation d'Ollama
-    if OLLAMA_AVAILABLE:
-        print("🤖 Initialisation d'Ollama...")
-        ollama_success = await initialize_ollama()
-        if ollama_success:
-            print("✅ Ollama initialisé avec succès")
-        else:
-            print("❌ Échec de l'initialisation d'Ollama")
-    else:
-        print("⚠️ Ollama non disponible")
+    # Initialisation d'Ollama supprimée
 
     try:
         cmds = await bot.tree.sync()
@@ -8868,46 +8768,7 @@ async def force_sync_postgres(interaction: discord.Interaction):
 
 
 
-# === COMMANDES OLLAMA ===
-
-@bot.tree.command(name="ai", description="Pose une question à l'IA locale (Ollama)")
-@app_commands.describe(
-    question="Ta question pour l'IA",
-    modele="Modèle à utiliser (optionnel)",
-    contexte="Contexte spécialisé (assistant, rp, moderation, creative, technical)"
-)
-async def ai_chat(interaction: discord.Interaction, question: str, modele: str = None, contexte: str = "assistant"):
-    if not OLLAMA_AVAILABLE:
-        await interaction.response.send_message("> ❌ Ollama n'est pas disponible sur ce bot.", ephemeral=True)
-        return
-    
-    await interaction.response.defer()
-    
-    try:
-        # Utiliser le modèle par défaut si non spécifié
-        model_to_use = modele or "deepseek-r1:8b"
-        
-        # Obtenir la réponse de l'IA
-        response = await get_ai_response(question, contexte, model_to_use)
-        
-        # Limiter la longueur de la réponse Discord (2000 caractères max)
-        if len(response) > 1900:
-            response = response[:1900] + "... *(réponse tronquée)*"
-        
-        embed = discord.Embed(
-            title="🤖 Réponse de l'IA",
-            description=response,
-            color=0x00ff88
-        )
-        embed.add_field(name="📝 Question", value=f"```{question}```", inline=False)
-        embed.add_field(name="🔧 Modèle", value=model_to_use, inline=True)
-        embed.add_field(name="📋 Contexte", value=contexte, inline=True)
-        embed.set_footer(text=f"Demandé par {interaction.user.display_name}")
-        
-        await interaction.followup.send(embed=embed)
-        
-    except Exception as e:
-        await interaction.followup.send(f"> ❌ Erreur lors de la génération : {str(e)}")
+# === COMMANDES OLLAMA SUPPRIMÉES ===
 
 if __name__ == "__main__":
     # Toujours restaurer les fichiers JSON depuis PostgreSQL avant tout chargement local
