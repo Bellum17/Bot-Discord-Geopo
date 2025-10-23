@@ -4617,6 +4617,7 @@ async def calendrier(interaction: discord.Interaction, annee: int):
         "jours_irl_actuel": 0  # Compteur pour alterner 2j/1j
     }
     save_calendrier(calendrier_data)
+    save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
     await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Mise à jour chaque jour à minuit (heure Paris).", ephemeral=True)
     calendrier_update_task.start()
 
@@ -5058,6 +5059,7 @@ async def calendrier_update_task():
         calendrier_data["skip_first_midnight"] = False
         calendrier_data["last_update"] = now.isoformat()
         save_calendrier(calendrier_data)
+        save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
         return
     
     # Logique d'alternance : 2 jours IRL puis 1 jour IRL
@@ -5115,6 +5117,7 @@ async def calendrier_update_task():
     
     calendrier_data["last_update"] = now.isoformat()
     save_calendrier(calendrier_data)
+    save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
     
     # Vérifier et terminer automatiquement les développements dans tous les serveurs
     for guild in bot.guilds:
@@ -8815,6 +8818,7 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     
     # Sauvegarder
     save_calendrier(calendrier_data)
+    save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
     
     # Vérifier et terminer automatiquement les développements terminés
     guild_id = str(interaction.guild.id)
