@@ -4416,12 +4416,12 @@ def calculate_fin_with_calendar(duree_mois):
     """
     Calcule la date de fin d'un développement en tenant compte du calendrier RP
     
-    Logique : 1 mois RP = 2 jours IRL
+    NOUVELLE LOGIQUE : Alternance 2 jours IRL (mois pairs) / 1 jour IRL (mois impairs)
     """
     calendrier_data = load_calendrier()
     if not calendrier_data:
         # Si pas de calendrier, utilise l'ancien système (approximation)
-        return time.time() + (duree_mois * 2 * 24 * 3600)  # 2 jours par mois
+        return time.time() + (duree_mois * 1.5 * 24 * 3600)  # 1.5 jour moyen par mois
     
     mois_actuel = calendrier_data.get("mois_index", 0)
     annee_actuelle = calendrier_data.get("annee", 2025)
@@ -4438,7 +4438,8 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     Convertit une date RP (mois, année) en timestamp réel IRL
     basé sur l'avancement du calendrier qui se met à jour à minuit heure Paris
     
-    Logique : 1 mois RP = 2 jours IRL (jour 1/2 puis 2/2)
+    NOUVELLE LOGIQUE : Alternance 2 jours IRL (mois pairs) / 1 jour IRL (mois impairs)
+    Chaque mois RP a 2 demi-mois (1/2 et 2/2)
     Le calendrier avance chaque nuit à minuit heure Paris
     """
     calendrier_data = load_calendrier()
@@ -4475,21 +4476,41 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     # Discord affiche 23h00 au lieu de 00h00 à cause du fuseau horaire local
     next_midnight_cest = next_midnight_cest + datetime.timedelta(hours=1)
     
-    # Calculer combien de jours IRL il faut pour atteindre le mois RP de fin
+    # NOUVELLE LOGIQUE : Calculer combien de jours IRL selon l'alternance 2j/1j
     jours_irl_necessaires = 0
     
     if mois_difference > 0:
-        # Si on est actuellement sur 1/2, il faut 1 jour pour finir ce mois
-        # Puis 2 jours par mois suivant
+        # Finir le mois actuel si on est sur 1/2
         if jour_actuel == 0:  # Actuellement 1/2
-            jours_irl_necessaires = 1  # Pour finir ce mois (passer à 2/2)
-            jours_irl_necessaires += (mois_difference - 1) * 2  # Mois suivants
-        else:  # Actuellement 2/2
-            jours_irl_necessaires = mois_difference * 2  # Mois complets suivants
+            # Déterminer les jours restants pour ce mois selon son type
+            mois_type = mois_actuel_rp % 2  # 0 = pair (2j), 1 = impair (1j)
+            if mois_type == 0:  # Mois pair = 2 jours IRL
+                jours_irl_necessaires += 1  # 1 jour pour finir (passer à 2/2)
+            else:  # Mois impair = 1 jour IRL (déjà fini après 1/2)
+                jours_irl_necessaires += 0  # Déjà terminé
+            
+            # Calculer les mois suivants
+            for i in range(1, mois_difference):
+                mois_futur = (mois_actuel_rp + i) % 12
+                if mois_futur % 2 == 0:  # Mois pair
+                    jours_irl_necessaires += 2
+                else:  # Mois impair
+                    jours_irl_necessaires += 1
+        else:  # Actuellement 2/2, commencer par les mois complets suivants
+            for i in range(mois_difference):
+                mois_futur = (mois_actuel_rp + i + 1) % 12
+                if mois_futur % 2 == 0:  # Mois pair
+                    jours_irl_necessaires += 2
+                else:  # Mois impair
+                    jours_irl_necessaires += 1
     elif mois_difference == 0:
         # Même mois RP
-        if jour_actuel == 0:  # Actuellement 1/2, développement finit à la fin du mois
-            jours_irl_necessaires = 1  # Pour atteindre 2/2
+        if jour_actuel == 0:  # Actuellement 1/2
+            mois_type = mois_actuel_rp % 2
+            if mois_type == 0:  # Mois pair = 2 jours, développement finit à 2/2
+                jours_irl_necessaires = 1
+            else:  # Mois impair = 1 jour, développement déjà fini
+                jours_irl_necessaires = 0
         else:  # Actuellement 2/2, développement fini
             jours_irl_necessaires = 0
     
@@ -4591,7 +4612,9 @@ async def calendrier(interaction: discord.Interaction, annee: int):
         "mois_index": 0,
         "jour_index": 0, # 0 = 1/2, 1 = 2/2
         "last_update": None,
-        "messages": []
+        "messages": [],
+        "skip_first_midnight": True,  # Ignorer le premier passage à minuit
+        "jours_irl_actuel": 0  # Compteur pour alterner 2j/1j
     }
     save_calendrier(calendrier_data)
     await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Mise à jour chaque jour à minuit (heure Paris).", ephemeral=True)
@@ -5012,9 +5035,15 @@ async def calendrier_update_task():
     if not calendrier_data:
         calendrier_update_task.stop()
         return
+    
     # Vérifier si on doit avancer (minuit heure Paris)
     paris_tz = pytz.timezone("Europe/Paris")
     now = datetime.datetime.now(paris_tz)
+    
+    # Vérifier si c'est minuit (ou proche de minuit)
+    if now.hour != 0:
+        return
+    
     last_update = calendrier_data.get("last_update")
     if last_update:
         last_update_dt = datetime.datetime.fromisoformat(last_update)
@@ -5023,14 +5052,36 @@ async def calendrier_update_task():
             last_update_dt = paris_tz.localize(last_update_dt)
         if last_update_dt.date() == now.date():
             return # déjà mis à jour aujourd'hui
+    
+    # Ignorer le premier passage à minuit
+    if calendrier_data.get("skip_first_midnight", False):
+        calendrier_data["skip_first_midnight"] = False
+        calendrier_data["last_update"] = now.isoformat()
+        save_calendrier(calendrier_data)
+        return
+    
+    # Logique d'alternance : 2 jours IRL puis 1 jour IRL
+    # Pour 18 jours total : 12 mois * 1.5 jour moyen = 18 jours
+    # Pattern : 2j, 1j, 2j, 1j, 2j, 1j... (soit 6 cycles = 18 jours)
+    jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
+    
+    # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
+    if calendrier_data["mois_index"] % 2 == 0:  # Mois pairs : 2 jours IRL
+        jours_requis = 2
+    else:  # Mois impairs : 1 jour IRL
+        jours_requis = 1
+    
     # Avancer le calendrier
     mois_index = calendrier_data["mois_index"]
     jour_index = calendrier_data["jour_index"]
+    
     if mois_index >= len(CALENDRIER_MONTHS):
         calendrier_update_task.stop()
         return
+    
     mois = CALENDRIER_MONTHS[mois_index]
     jour_str = "1/2" if jour_index == 0 else "2/2"
+    
     # Poster le message
     channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
     if channel:
@@ -5046,12 +5097,22 @@ async def calendrier_update_task():
         message = await channel.send(embed=embed)
         calendrier_data.setdefault("messages", [])
         calendrier_data["messages"].append(str(message.id))
-    # Avancer le jour
-    if jour_index == 0:
-        calendrier_data["jour_index"] = 1
-    else:
-        calendrier_data["jour_index"] = 0
-        calendrier_data["mois_index"] += 1
+    
+    # Incrémenter le compteur de jours IRL
+    jours_irl_actuel += 1
+    calendrier_data["jours_irl_actuel"] = jours_irl_actuel
+    
+    # Avancer le jour uniquement si on a atteint le nombre de jours requis
+    if jours_irl_actuel >= jours_requis:
+        if jour_index == 0:
+            calendrier_data["jour_index"] = 1
+        else:
+            calendrier_data["jour_index"] = 0
+            calendrier_data["mois_index"] += 1
+        
+        # Reset le compteur pour le prochain mois
+        calendrier_data["jours_irl_actuel"] = 0
+    
     calendrier_data["last_update"] = now.isoformat()
     save_calendrier(calendrier_data)
     
