@@ -7652,7 +7652,7 @@ class CountrySelectionView(discord.ui.View):
         if current_rolls >= 3:
             embed = discord.Embed(
                 title="❌ Limite de rolls atteinte",
-                description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
+                description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.",
                 color=0xff4444
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -7864,7 +7864,7 @@ class CountrySelectionView(discord.ui.View):
 class PromotionMarshalView(discord.ui.View):
     """Vue pour sélectionner un général à promouvoir en maréchal."""
     
-    def __init__(self, user_id, generaux_eligibles, pays):
+    def __init__(self, user_id, generaux_eligibles, pays=None):
         super().__init__(timeout=None)
         self.user_id = user_id
         self.generaux_eligibles = generaux_eligibles
@@ -7873,10 +7873,12 @@ class PromotionMarshalView(discord.ui.View):
         # Créer un sélecteur avec les généraux éligibles
         options = []
         for general in generaux_eligibles[:25]:  # Discord limite à 25 options
+            # Afficher le pays dans la description si on a plusieurs pays
+            pays_info = f" - {general.get('pays', 'Pays inconnu')}" if not pays else ""
             options.append(discord.SelectOption(
                 label=f"⭐" * general["stars"] + f" {general['nom']}",
                 value=f"{general['user_id']}:{general['nom']}",
-                description=f"Général {general['stars']}⭐ - Domaine terrestre"
+                description=f"Général {general['stars']}⭐ - Terrestre{pays_info}"
             ))
         
         select = discord.ui.Select(
@@ -8404,7 +8406,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     if current_rolls >= 3:
         embed = discord.Embed(
             title="❌ Limite de rolls atteinte",
-            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
+            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -8513,7 +8515,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     if current_rolls >= 3:
         embed = discord.Embed(
             title="❌ Limite de rolls atteinte",
-            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
+            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -9703,12 +9705,9 @@ TRAITS_AMELIORATION = {
 
 # === COMMANDES DE PROMOTION ET D'AMÉLIORATION ===
 
-@bot.tree.command(name="promouvoir", description="[ADMIN] Promouvoir un général 3⭐ terrestre en maréchal")
-@app_commands.describe(
-    pays="Nom du pays dont le général doit être promu"
-)
-async def promouvoir_marechal(interaction: discord.Interaction, pays: str):
-    """Permet aux admins de promouvoir un général 3⭐ terrestre en maréchal."""
+@bot.tree.command(name="promouvoir", description="[ADMIN] Promouvoir un général terrestre en maréchal")
+async def promouvoir_marechal(interaction: discord.Interaction):
+    """Permet aux admins de promouvoir un général terrestre éligible en maréchal."""
     
     # Vérifier les permissions admin
     if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
@@ -9720,32 +9719,73 @@ async def promouvoir_marechal(interaction: discord.Interaction, pays: str):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Charger tous les généraux pour trouver ceux du pays
-    generaux_data = load_generaux()
-    pays_lower = pays.lower()
+    # Obtenir les rôles de pays de l'utilisateur utilisant la même logique que roll_general
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
     
-    # Trouver tous les généraux terrestres 3⭐ du pays spécifié
+    user_country_roles = []
+    for role in interaction.user.roles:
+        if is_country_role(role):
+            user_country_roles.append(role)
+    
+    if not user_country_roles:
+        embed = discord.Embed(
+            title="❌ Aucun rôle de pays",
+            description="Vous n'avez aucun rôle de pays. Vous devez avoir un rôle de pays pour promouvoir ses généraux.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Charger tous les généraux pour trouver ceux éligibles
+    generaux_data = load_generaux()
+    
+    # Trouver tous les généraux terrestres éligibles pour tous les pays de l'utilisateur
     generaux_eligibles = []
     for user_id, user_data in generaux_data.items():
         if "generaux" in user_data:
             for nom_general, general_info in user_data["generaux"].items():
-                if (general_info.get("pays", "").lower() == pays_lower and 
-                    general_info.get("stars", 0) >= 3 and
-                    general_info.get("domaine", "") == "terrestre" and
-                    not general_info.get("est_marechal", False)):
-                    generaux_eligibles.append({
-                        "user_id": user_id,
-                        "nom": nom_general,
-                        "stars": general_info.get("stars", 0),
-                        "info": general_info
-                    })
+                # Vérifier si le général appartient à un des pays de l'utilisateur
+                general_pays = general_info.get("pays", "").lower()
+                for role in user_country_roles:
+                    if (role.name.lower() == general_pays and 
+                        general_info.get("domaine", "") == "terrestre" and
+                        not general_info.get("est_marechal", False)):
+                        
+                        # Vérifier les critères d'éligibilité
+                        stars = general_info.get("stars", 0)
+                        traits = general_info.get("traits", [])
+                        
+                        # Éligible si 3⭐ ou plus, OU si 2⭐ avec "Officier de carrière"
+                        if (stars >= 3 or (stars == 2 and "Officier de carrière" in traits)):
+                            generaux_eligibles.append({
+                                "user_id": user_id,
+                                "nom": nom_general,
+                                "stars": stars,
+                                "pays": role.name,
+                                "info": general_info
+                            })
+                        break
     
     if not generaux_eligibles:
+        # Lister les pays de l'utilisateur pour le message d'erreur
+        pays_list = [role.name for role in user_country_roles]
+        pays_str = ", ".join(pays_list)
+        
         embed = discord.Embed(
             title="❌ Aucun général éligible",
-            description=f"Aucun général terrestre 3⭐ (ou plus) n'a été trouvé pour le pays **{pays}**.\n\n"
+            description=f"Aucun général terrestre éligible n'a été trouvé pour vos pays : **{pays_str}**.\n\n"
                        f"**Critères requis :**\n"
-                       f"• Minimum 3⭐\n"
+                       f"• Minimum 3⭐ (ou 2⭐ avec trait 'Officier de carrière')\n"
                        f"• Domaine terrestre\n"
                        f"• Pas encore maréchal",
             color=0xff4444
@@ -9754,18 +9794,18 @@ async def promouvoir_marechal(interaction: discord.Interaction, pays: str):
         return
     
     # Créer la vue de sélection pour la promotion
-    view = PromotionMarshalView(interaction.user.id, generaux_eligibles, pays)
+    view = PromotionMarshalView(interaction.user.id, generaux_eligibles, None)
     
     embed = discord.Embed(
         title="🎖️ Promotion en Maréchal",
-        description=f"Sélectionnez le général du pays **{pays}** à promouvoir en maréchal :",
+        description="Sélectionnez le général à promouvoir en maréchal :",
         color=EMBED_COLOR
     )
     
-    # Ajouter la liste des généraux éligibles
+    # Ajouter la liste des généraux éligibles avec leur pays
     generaux_list = []
     for general in generaux_eligibles:
-        generaux_list.append(f"⭐" * general["stars"] + f" **{general['nom']}**")
+        generaux_list.append(f"⭐" * general["stars"] + f" **{general['nom']}** ({general['pays']})")
     
     embed.add_field(
         name="Généraux éligibles",
@@ -9785,9 +9825,9 @@ async def promouvoir_marechal(interaction: discord.Interaction, pays: str):
 
 @bot.tree.command(name="amelioration_general", description="[ADMIN] Améliorer un trait de commandement d'un général")
 @app_commands.describe(
-    pays="Nom du pays dont le général doit être amélioré"
+    pays="Rôle du pays dont le général doit être amélioré"
 )
-async def amelioration_general(interaction: discord.Interaction, pays: str):
+async def amelioration_general(interaction: discord.Interaction, pays: discord.Role):
     """Permet aux admins d'améliorer un trait de commandement d'un général."""
     
     # Vérifier les permissions admin
@@ -9800,16 +9840,38 @@ async def amelioration_general(interaction: discord.Interaction, pays: str):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
+    # Vérifier que le rôle est bien un rôle de pays
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
+    
+    if not is_country_role(pays):
+        embed = discord.Embed(
+            title="❌ Rôle invalide",
+            description=f"Le rôle **{pays.name}** n'est pas reconnu comme un rôle de pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
     # Charger tous les généraux pour trouver ceux du pays
     generaux_data = load_generaux()
-    pays_lower = pays.lower()
+    pays_name = pays.name.lower()
     
     # Trouver tous les généraux du pays spécifié
     generaux_pays = []
     for user_id, user_data in generaux_data.items():
         if "generaux" in user_data:
             for nom_general, general_info in user_data["generaux"].items():
-                if general_info.get("pays", "").lower() == pays_lower:
+                if general_info.get("pays", "").lower() == pays_name:
                     # Vérifier si le général a des traits améliorables
                     traits_ameliorables = []
                     traits_actuels = general_info.get("traits_commandement", [])
@@ -9835,7 +9897,7 @@ async def amelioration_general(interaction: discord.Interaction, pays: str):
     if not generaux_pays:
         embed = discord.Embed(
             title="❌ Aucun général améliorable",
-            description=f"Aucun général du pays **{pays}** n'a de traits améliorables.\n\n"
+            description=f"Aucun général du pays **{pays.name}** n'a de traits améliorables.\n\n"
                        f"**Pour qu'un trait soit améliorable :**\n"
                        f"• Le général doit avoir le trait prérequis\n"
                        f"• Il ne doit pas déjà avoir le trait amélioré\n"
@@ -9846,11 +9908,11 @@ async def amelioration_general(interaction: discord.Interaction, pays: str):
         return
     
     # Créer la vue de sélection pour l'amélioration
-    view = AmeliorationGeneralView(interaction.user.id, generaux_pays, pays)
+    view = AmeliorationGeneralView(interaction.user.id, generaux_pays, pays.name)
     
     embed = discord.Embed(
         title="⚡ Amélioration de Général",
-        description=f"Sélectionnez le général du pays **{pays}** à améliorer :",
+        description=f"Sélectionnez le général du pays **{pays.name}** à améliorer :",
         color=EMBED_COLOR
     )
     
