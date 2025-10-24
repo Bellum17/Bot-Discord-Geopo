@@ -4392,7 +4392,7 @@ async def guide(interaction: discord.Interaction):
 # === CALENDRIER RP ===
 CALENDRIER_FILE = os.path.join(DATA_DIR, "calendrier.json")
 CALENDRIER_CHANNEL_ID = 1419301872996712458
-CALENDRIER_IMAGE_URL = "https://zupimages.net/up/21/03/vl8j.png"
+CALENDRIER_IMAGE_URL = "https://cdn.discordapp.com/attachments/1393317478133661746/1431389849864245298/balance_1.png?ex=68fd3d2e&is=68fbebae&hm=015733b6848f31b9ba2b922cd570066fab64fcf2a0f7ba953363cd876f18b7a1&"
 CALENDRIER_COLOR = 0x162e50
 CALENDRIER_EMOJI = "<:PX_Calendrier:1417607613587259505>"
 CALENDRIER_MONTHS = [
