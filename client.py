@@ -7612,13 +7612,17 @@ class CountrySelectionView(discord.ui.View):
         self.ecole = ecole
         self.domaine = domaine
         
-        # Créer un sélecteur avec les pays de l'utilisateur
+        # Créer un sélecteur avec les pays de l'utilisateur (éliminer les doublons)
+        unique_countries = {}
+        for role in country_roles:
+            unique_countries[role.name] = role
+        
         options = []
-        for role in country_roles[:25]:  # Discord limite à 25 options
+        for country_name in list(unique_countries.keys())[:25]:  # Discord limite à 25 options
             options.append(discord.SelectOption(
-                label=role.name,
-                value=role.name,
-                description=f"Créer un général pour {role.name}"
+                label=country_name,
+                value=country_name,
+                description=f"Créer un général pour {country_name}"
             ))
         
         select = discord.ui.Select(
