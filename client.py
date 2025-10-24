@@ -2096,7 +2096,7 @@ async def classement_eco(interaction: discord.Interaction):
 
     class ClassementView(discord.ui.View):
         def __init__(self, pages):
-            super().__init__(timeout=None0)
+            super().__init__(timeout=None)
             self.pages = pages
             self.page_idx = 0
             self.message = None
@@ -3879,7 +3879,7 @@ async def classement_lvl(interaction: discord.Interaction):
 
     class ClassementView(discord.ui.View):
         def __init__(self, pages):
-            super().__init__(timeout=None0)
+            super().__init__(timeout=None)
             self.pages = pages
             self.page_idx = 0
             self.message = None
@@ -7860,6 +7860,353 @@ class CountrySelectionView(discord.ui.View):
         
         await interaction.response.send_message(embed=embed, view=view)
 
+# Classes pour la promotion en maréchal et l'amélioration des généraux
+class PromotionMarshalView(discord.ui.View):
+    """Vue pour sélectionner un général à promouvoir en maréchal."""
+    
+    def __init__(self, user_id, generaux_eligibles, pays):
+        super().__init__(timeout=None)
+        self.user_id = user_id
+        self.generaux_eligibles = generaux_eligibles
+        self.pays = pays
+        
+        # Créer un sélecteur avec les généraux éligibles
+        options = []
+        for general in generaux_eligibles[:25]:  # Discord limite à 25 options
+            options.append(discord.SelectOption(
+                label=f"⭐" * general["stars"] + f" {general['nom']}",
+                value=f"{general['user_id']}:{general['nom']}",
+                description=f"Général {general['stars']}⭐ - Domaine terrestre"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez le général à promouvoir...",
+            options=options
+        )
+        select.callback = self.general_selected
+        self.add_item(select)
+    
+    async def general_selected(self, interaction: discord.Interaction):
+        """Callback quand un général est sélectionné pour promotion."""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+        
+        # Récupérer le général sélectionné
+        user_id, nom_general = interaction.data["values"][0].split(":", 1)
+        
+        # Trouver le général dans la liste
+        general_selectionne = None
+        for general in self.generaux_eligibles:
+            if general["user_id"] == user_id and general["nom"] == nom_general:
+                general_selectionne = general
+                break
+        
+        if not general_selectionne:
+            await interaction.response.send_message("❌ Erreur lors de la sélection du général.", ephemeral=True)
+            return
+        
+        # Créer la vue de sélection des traits de maréchal
+        view = TraitMarshalSelectionView(self.user_id, general_selectionne, self.pays)
+        
+        embed = discord.Embed(
+            title="🎖️ Sélection du trait de maréchal",
+            description=f"Sélectionnez le trait de maréchal pour **{nom_general}** :",
+            color=EMBED_COLOR
+        )
+        
+        # Vérifier les traits actuels pour les prérequis et exclusions
+        traits_actuels = general_selectionne["info"].get("traits_positifs", []) + general_selectionne["info"].get("traits_commandement", [])
+        traits_disponibles = []
+        
+        for trait_nom, trait_info in TRAITS_MARECHAUX.items():
+            # Vérifier les prérequis
+            peut_avoir = True
+            if trait_info["prerequis"]:
+                peut_avoir = any(prereq.lower() in [t.lower() for t in traits_actuels] for prereq in trait_info["prerequis"])
+            
+            if peut_avoir:
+                traits_disponibles.append(f"**{trait_nom}**\n{trait_info['description']}")
+        
+        if traits_disponibles:
+            embed.add_field(
+                name="Traits de maréchal disponibles",
+                value="\n\n".join(traits_disponibles[:5]),  # Limiter pour éviter les embeds trop longs
+                inline=False
+            )
+        
+        embed.add_field(
+            name="ℹ️ Promotion",
+            value=f"• Général : **{nom_general}** ({general_selectionne['stars']}⭐)\n"
+                  f"• Pays : **{self.pays}**\n"
+                  f"• Domaine : Terrestre",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class TraitMarshalSelectionView(discord.ui.View):
+    """Vue pour sélectionner le trait de maréchal à attribuer."""
+    
+    def __init__(self, user_id, general_data, pays):
+        super().__init__(timeout=None)
+        self.user_id = user_id
+        self.general_data = general_data
+        self.pays = pays
+        
+        # Créer un sélecteur avec les traits de maréchal disponibles
+        traits_actuels = general_data["info"].get("traits_positifs", []) + general_data["info"].get("traits_commandement", [])
+        
+        options = []
+        for trait_nom, trait_info in TRAITS_MARECHAUX.items():
+            # Vérifier les prérequis
+            peut_avoir = True
+            if trait_info["prerequis"]:
+                peut_avoir = any(prereq.lower() in [t.lower() for t in traits_actuels] for prereq in trait_info["prerequis"])
+            
+            if peut_avoir:
+                description = trait_info["description"][:100]  # Limiter la description
+                if trait_info.get("rare"):
+                    description = f"🔥 {description}"
+                
+                options.append(discord.SelectOption(
+                    label=trait_nom,
+                    value=trait_nom,
+                    description=description
+                ))
+        
+        if options:
+            select = discord.ui.Select(
+                placeholder="Choisissez le trait de maréchal...",
+                options=options[:25]  # Discord limite à 25 options
+            )
+            select.callback = self.trait_selected
+            self.add_item(select)
+    
+    async def trait_selected(self, interaction: discord.Interaction):
+        """Callback quand un trait de maréchal est sélectionné."""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+        
+        trait_selectionne = interaction.data["values"][0]
+        
+        # Effectuer la promotion
+        generaux_data = load_generaux()
+        user_id = self.general_data["user_id"]
+        nom_general = self.general_data["nom"]
+        
+        if user_id in generaux_data and "generaux" in generaux_data[user_id]:
+            if nom_general in generaux_data[user_id]["generaux"]:
+                # Marquer comme maréchal
+                generaux_data[user_id]["generaux"][nom_general]["est_marechal"] = True
+                generaux_data[user_id]["generaux"][nom_general]["trait_marechal"] = trait_selectionne
+                
+                # Réduire les traits de général au minimum (garder seulement les traits de personnalité)
+                traits_personnalite = generaux_data[user_id]["generaux"][nom_general].get("traits_positifs", [])
+                generaux_data[user_id]["generaux"][nom_general]["traits_commandement_reduits"] = generaux_data[user_id]["generaux"][nom_general].get("traits_commandement", [])
+                generaux_data[user_id]["generaux"][nom_general]["traits_commandement"] = []
+                
+                # Sauvegarder
+                save_generaux(generaux_data)
+                
+                embed = discord.Embed(
+                    title="🎖️ Promotion réussie !",
+                    description=f"**{nom_general}** a été promu **Maréchal** !",
+                    color=0x00ff88
+                )
+                
+                embed.add_field(
+                    name="Nouveau statut",
+                    value=f"• **Rang :** Maréchal\n"
+                          f"• **Trait de maréchal :** {trait_selectionne}\n"
+                          f"• **Pays :** {self.pays}",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="Effet de la promotion",
+                    value="• Les traits de général sont réduits au minimum\n"
+                          "• Le trait de maréchal s'applique à toute l'armée/théâtre\n"
+                          "• Commandement étendu sur les opérations militaires",
+                    inline=False
+                )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Général non trouvé.", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Erreur lors de la promotion.", ephemeral=True)
+
+class AmeliorationGeneralView(discord.ui.View):
+    """Vue pour sélectionner un général à améliorer."""
+    
+    def __init__(self, user_id, generaux_ameliorables, pays):
+        super().__init__(timeout=None)
+        self.user_id = user_id
+        self.generaux_ameliorables = generaux_ameliorables
+        self.pays = pays
+        
+        # Créer un sélecteur avec les généraux améliorables
+        options = []
+        for general in generaux_ameliorables[:25]:  # Discord limite à 25 options
+            nb_ameliorations = len(general["traits_ameliorables"])
+            options.append(discord.SelectOption(
+                label=f"⭐" * general["stars"] + f" {general['nom']}",
+                value=f"{general['user_id']}:{general['nom']}",
+                description=f"{nb_ameliorations} améliorations possibles"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez le général à améliorer...",
+            options=options
+        )
+        select.callback = self.general_selected
+        self.add_item(select)
+    
+    async def general_selected(self, interaction: discord.Interaction):
+        """Callback quand un général est sélectionné pour amélioration."""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+        
+        # Récupérer le général sélectionné
+        user_id, nom_general = interaction.data["values"][0].split(":", 1)
+        
+        # Trouver le général dans la liste
+        general_selectionne = None
+        for general in self.generaux_ameliorables:
+            if general["user_id"] == user_id and general["nom"] == nom_general:
+                general_selectionne = general
+                break
+        
+        if not general_selectionne:
+            await interaction.response.send_message("❌ Erreur lors de la sélection du général.", ephemeral=True)
+            return
+        
+        # Créer la vue de sélection des traits à améliorer
+        view = TraitAmeliorationSelectionView(self.user_id, general_selectionne, self.pays)
+        
+        embed = discord.Embed(
+            title="⚡ Sélection de l'amélioration",
+            description=f"Sélectionnez le trait à améliorer pour **{nom_general}** :",
+            color=EMBED_COLOR
+        )
+        
+        # Afficher les améliorations disponibles
+        ameliorations_list = []
+        for trait in general_selectionne["traits_ameliorables"][:5]:  # Limiter l'affichage
+            trait_info = TRAITS_AMELIORATION[trait]
+            ameliorations_list.append(f"**{trait}**\n{trait_info['description']}")
+        
+        if ameliorations_list:
+            embed.add_field(
+                name="Améliorations disponibles",
+                value="\n\n".join(ameliorations_list),
+                inline=False
+            )
+        
+        embed.add_field(
+            name="ℹ️ Général",
+            value=f"• Nom : **{nom_general}** ({general_selectionne['stars']}⭐)\n"
+                  f"• Pays : **{self.pays}**\n"
+                  f"• Traits actuels : {len(general_selectionne['info'].get('traits_commandement', []))}",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class TraitAmeliorationSelectionView(discord.ui.View):
+    """Vue pour sélectionner le trait à améliorer."""
+    
+    def __init__(self, user_id, general_data, pays):
+        super().__init__(timeout=None)
+        self.user_id = user_id
+        self.general_data = general_data
+        self.pays = pays
+        
+        # Créer un sélecteur avec les traits améliorables
+        options = []
+        for trait in general_data["traits_ameliorables"]:
+            trait_info = TRAITS_AMELIORATION[trait]
+            description = trait_info["description"][:100]  # Limiter la description
+            if trait_info.get("rare"):
+                description = f"🔥 {description}"
+            
+            options.append(discord.SelectOption(
+                label=trait,
+                value=trait,
+                description=description
+            ))
+        
+        if options:
+            select = discord.ui.Select(
+                placeholder="Choisissez l'amélioration...",
+                options=options[:25]  # Discord limite à 25 options
+            )
+            select.callback = self.trait_selected
+            self.add_item(select)
+    
+    async def trait_selected(self, interaction: discord.Interaction):
+        """Callback quand un trait d'amélioration est sélectionné."""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+        
+        trait_selectionne = interaction.data["values"][0]
+        trait_info = TRAITS_AMELIORATION[trait_selectionne]
+        
+        # Effectuer l'amélioration
+        generaux_data = load_generaux()
+        user_id = self.general_data["user_id"]
+        nom_general = self.general_data["nom"]
+        
+        if user_id in generaux_data and "generaux" in generaux_data[user_id]:
+            if nom_general in generaux_data[user_id]["generaux"]:
+                # Ajouter le trait amélioré
+                if "traits_commandement" not in generaux_data[user_id]["generaux"][nom_general]:
+                    generaux_data[user_id]["generaux"][nom_general]["traits_commandement"] = []
+                
+                generaux_data[user_id]["generaux"][nom_general]["traits_commandement"].append(trait_selectionne)
+                
+                # Retirer le trait de base s'il est remplacé
+                traits_prerequis = trait_info["prerequis"]
+                traits_actuels = generaux_data[user_id]["generaux"][nom_general]["traits_commandement"]
+                
+                for prereq in traits_prerequis:
+                    if prereq in traits_actuels:
+                        traits_actuels.remove(prereq)
+                        break
+                
+                # Sauvegarder
+                save_generaux(generaux_data)
+                
+                embed = discord.Embed(
+                    title="⚡ Amélioration réussie !",
+                    description=f"Le trait **{trait_selectionne}** a été ajouté à **{nom_general}** !",
+                    color=0x00ff88
+                )
+                
+                embed.add_field(
+                    name="Nouveau trait",
+                    value=f"• **{trait_selectionne}**\n{trait_info['description']}",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="Effet de l'amélioration",
+                    value="• Le trait de base a été remplacé par sa version améliorée\n"
+                          "• Les bonus sont maintenant plus importants\n"
+                          "• Cette amélioration est permanente",
+                    inline=False
+                )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Général non trouvé.", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Erreur lors de l'amélioration.", ephemeral=True)
+
 # Classes pour la confirmation du général avec nom
 class GeneralConfirmationView(discord.ui.View):
     """Vue pour confirmer la création d'un général avec attribution d'un nom."""
@@ -9238,6 +9585,303 @@ async def reset_roll(interaction: discord.Interaction, pays: str):
         )
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# === CONSTANTES POUR LES TRAITS AMÉLIORÉS ET MARÉCHAUX ===
+
+# Traits de maréchaux (pour généraux terrestres 3⭐ uniquement)
+TRAITS_MARECHAUX = {
+    "Magicien de la logistique": {
+        "description": "Bonus modéré à la logistique des unités sous le commandement du maréchal",
+        "prerequis": ["Planificateur"],
+        "exclusif": "Planificateur minutieux"
+    },
+    "Planificateur minutieux": {
+        "description": "Bonus modéré à la planification des unités sous commandement du maréchal",
+        "prerequis": ["Planificateur"],
+        "exclusif": "Magicien de la logistique"
+    },
+    "Partisan de la défense": {
+        "description": "Léger bonus à la défense des unités sous commandement du maréchal",
+        "prerequis": [],
+        "exclusif": "Partisan de l'offensive"
+    },
+    "Partisan de l'offensive": {
+        "description": "Léger bonus à l'attaque des unités sous commandement du maréchal",
+        "prerequis": [],
+        "exclusif": "Partisan de la défense"
+    },
+    "Défenseur inébranlable": {
+        "description": "Bonus modéré à la défense des unités sous commandement du maréchal (trait rare)",
+        "prerequis": [],
+        "exclusif": "Attaquant agressif",
+        "rare": True
+    },
+    "Attaquant agressif": {
+        "description": "Bonus modéré à l'attaque des unités sous commandement du maréchal (trait rare)",
+        "prerequis": [],
+        "exclusif": "Défenseur inébranlable",
+        "rare": True
+    },
+    "Charismatique": {
+        "description": "Bonus modéré au moral des troupes sous le commandement du maréchal + bonus de propagande",
+        "prerequis": ["Personnalité publique"],
+        "exclusif": None
+    }
+}
+
+# Traits d'amélioration (traits de commandement améliorés)
+TRAITS_AMELIORATION = {
+    # Améliorations pour généraux terrestres
+    "Expert de la cavalerie": {
+        "description": "Bonus modéré d'attaque et léger bonus de défense pour unités équines/motorisées/mécanisées",
+        "prerequis": ["Officier de cavalerie"],
+        "exclusif": ["Expert des chars", "Expert du combat combiné"],
+        "type": "terrestre"
+    },
+    "Expert des chars": {
+        "description": "Bonus modéré d'attaque et de logistique pour les unités de chars",
+        "prerequis": ["Officier des blindés"],
+        "exclusif": ["Expert de la cavalerie", "Expert du combat combiné"],
+        "type": "terrestre"
+    },
+    "Expert du combat combiné": {
+        "description": "Bonus modéré d'attaque et de logistique pour toute unité motorisée/mécanisée/blindée (trait rare)",
+        "prerequis": ["Officier de cavalerie", "Officier des blindés"],
+        "exclusif": ["Expert de la cavalerie", "Expert des chars"],
+        "type": "terrestre",
+        "rare": True
+    },
+    "Expert de l'infanterie": {
+        "description": "Bonus modéré d'attaque et de planification pour les unités d'infanterie",
+        "prerequis": ["Officier d'infanterie"],
+        "exclusif": ["Entranché"],
+        "type": "terrestre"
+    },
+    "Entranché": {
+        "description": "Bonus modéré de défense et de logistique pour les unités d'infanterie",
+        "prerequis": ["Officier d'infanterie"],
+        "exclusif": ["Expert de l'infanterie"],
+        "type": "terrestre"
+    },
+    "Destructeur de forteresses": {
+        "description": "Bonus modéré lors des assauts contre positions fortifiées + léger bonus aux autres opérations du génie",
+        "prerequis": ["Officier du génie"],
+        "exclusif": [],
+        "type": "terrestre"
+    },
+    "Guérilleros": {
+        "description": "Bonus modéré aux opérations de reconnaissance, attaques surprises et actions de guérilla",
+        "prerequis": ["Officier de reconnaissance"],
+        "exclusif": [],
+        "type": "terrestre"
+    },
+    "Embusqué": {
+        "description": "Bonus modéré aux attaques de commandos et forces spéciales au-delà des lignes ennemies",
+        "prerequis": ["Officier des opérations spéciales"],
+        "exclusif": ["Parachutiste"],
+        "type": "terrestre"
+    },
+    "Parachutiste": {
+        "description": "Bonus modéré à la défense et logistique de toutes les unités parachutistes",
+        "prerequis": ["Officier des opérations spéciales"],
+        "exclusif": ["Embusqué"],
+        "type": "terrestre"
+    },
+    "Grenouille": {
+        "description": "Bonus modéré aux attaques amphibies et débarquements",
+        "prerequis": ["Conquérant"],
+        "exclusif": [],
+        "type": "terrestre"
+    },
+    "Prêtre des neiges": {
+        "description": "Bonus modéré de logistique, d'attaque et de défense en terrain neigeux",
+        "prerequis": ["Ours polaire"],
+        "exclusif": [],
+        "type": "terrestre"
+    },
+    "Adaptable": {
+        "description": "Léger bonus à tous les types de terrain (trait très rare)",
+        "prerequis": ["ours polaire", "montagnard", "renard du désert", "renard des marais", "combattant des plaines", "rat de la jungle", "éclaireur", "spécialiste du combat urbain"],
+        "exclusif": [],
+        "type": "terrestre",
+        "rare": True
+    }
+}
+
+# === COMMANDES DE PROMOTION ET D'AMÉLIORATION ===
+
+@bot.tree.command(name="promouvoir", description="[ADMIN] Promouvoir un général 3⭐ terrestre en maréchal")
+@app_commands.describe(
+    pays="Nom du pays dont le général doit être promu"
+)
+async def promouvoir_marechal(interaction: discord.Interaction, pays: str):
+    """Permet aux admins de promouvoir un général 3⭐ terrestre en maréchal."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Charger tous les généraux pour trouver ceux du pays
+    generaux_data = load_generaux()
+    pays_lower = pays.lower()
+    
+    # Trouver tous les généraux terrestres 3⭐ du pays spécifié
+    generaux_eligibles = []
+    for user_id, user_data in generaux_data.items():
+        if "generaux" in user_data:
+            for nom_general, general_info in user_data["generaux"].items():
+                if (general_info.get("pays", "").lower() == pays_lower and 
+                    general_info.get("stars", 0) >= 3 and
+                    general_info.get("domaine", "") == "terrestre" and
+                    not general_info.get("est_marechal", False)):
+                    generaux_eligibles.append({
+                        "user_id": user_id,
+                        "nom": nom_general,
+                        "stars": general_info.get("stars", 0),
+                        "info": general_info
+                    })
+    
+    if not generaux_eligibles:
+        embed = discord.Embed(
+            title="❌ Aucun général éligible",
+            description=f"Aucun général terrestre 3⭐ (ou plus) n'a été trouvé pour le pays **{pays}**.\n\n"
+                       f"**Critères requis :**\n"
+                       f"• Minimum 3⭐\n"
+                       f"• Domaine terrestre\n"
+                       f"• Pas encore maréchal",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Créer la vue de sélection pour la promotion
+    view = PromotionMarshalView(interaction.user.id, generaux_eligibles, pays)
+    
+    embed = discord.Embed(
+        title="🎖️ Promotion en Maréchal",
+        description=f"Sélectionnez le général du pays **{pays}** à promouvoir en maréchal :",
+        color=EMBED_COLOR
+    )
+    
+    # Ajouter la liste des généraux éligibles
+    generaux_list = []
+    for general in generaux_eligibles:
+        generaux_list.append(f"⭐" * general["stars"] + f" **{general['nom']}**")
+    
+    embed.add_field(
+        name="Généraux éligibles",
+        value="\n".join(generaux_list),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="ℹ️ Promotion en maréchal",
+        value="• Le général recevra un trait de maréchal\n"
+              "• Ses traits de général seront réduits au minimum\n"
+              "• Le trait de maréchal s'appliquera à toute l'armée/théâtre",
+        inline=False
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+@bot.tree.command(name="amelioration_general", description="[ADMIN] Améliorer un trait de commandement d'un général")
+@app_commands.describe(
+    pays="Nom du pays dont le général doit être amélioré"
+)
+async def amelioration_general(interaction: discord.Interaction, pays: str):
+    """Permet aux admins d'améliorer un trait de commandement d'un général."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Charger tous les généraux pour trouver ceux du pays
+    generaux_data = load_generaux()
+    pays_lower = pays.lower()
+    
+    # Trouver tous les généraux du pays spécifié
+    generaux_pays = []
+    for user_id, user_data in generaux_data.items():
+        if "generaux" in user_data:
+            for nom_general, general_info in user_data["generaux"].items():
+                if general_info.get("pays", "").lower() == pays_lower:
+                    # Vérifier si le général a des traits améliorables
+                    traits_ameliorables = []
+                    traits_actuels = general_info.get("traits_commandement", [])
+                    
+                    for trait_ameliore, info_ameliore in TRAITS_AMELIORATION.items():
+                        # Vérifier si le général a les prérequis
+                        if any(prereq.lower() in [t.lower() for t in traits_actuels] for prereq in info_ameliore["prerequis"]):
+                            # Vérifier qu'il n'a pas déjà ce trait amélioré
+                            if trait_ameliore.lower() not in [t.lower() for t in traits_actuels]:
+                                # Vérifier les exclusions
+                                if not any(exclu.lower() in [t.lower() for t in traits_actuels] for exclu in info_ameliore["exclusif"]):
+                                    traits_ameliorables.append(trait_ameliore)
+                    
+                    if traits_ameliorables:
+                        generaux_pays.append({
+                            "user_id": user_id,
+                            "nom": nom_general,
+                            "stars": general_info.get("stars", 0),
+                            "info": general_info,
+                            "traits_ameliorables": traits_ameliorables
+                        })
+    
+    if not generaux_pays:
+        embed = discord.Embed(
+            title="❌ Aucun général améliorable",
+            description=f"Aucun général du pays **{pays}** n'a de traits améliorables.\n\n"
+                       f"**Pour qu'un trait soit améliorable :**\n"
+                       f"• Le général doit avoir le trait prérequis\n"
+                       f"• Il ne doit pas déjà avoir le trait amélioré\n"
+                       f"• Il ne doit pas avoir de traits exclusifs",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Créer la vue de sélection pour l'amélioration
+    view = AmeliorationGeneralView(interaction.user.id, generaux_pays, pays)
+    
+    embed = discord.Embed(
+        title="⚡ Amélioration de Général",
+        description=f"Sélectionnez le général du pays **{pays}** à améliorer :",
+        color=EMBED_COLOR
+    )
+    
+    # Ajouter la liste des généraux améliorables
+    generaux_list = []
+    for general in generaux_pays:
+        nb_ameliorations = len(general["traits_ameliorables"])
+        generaux_list.append(f"⭐" * general["stars"] + f" **{general['nom']}** ({nb_ameliorations} améliorations possibles)")
+    
+    embed.add_field(
+        name="Généraux améliorables",
+        value="\n".join(generaux_list),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="ℹ️ Amélioration de traits",
+        value="• Les traits de commandement peuvent être améliorés\n"
+              "• L'amélioration remplace le trait de base\n"
+              "• Certaines améliorations sont exclusives entre elles",
+        inline=False
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
