@@ -4608,19 +4608,55 @@ async def calendrier(interaction: discord.Interaction, annee: int):
     if calendrier_data:
         await interaction.response.send_message(f"> Un calendrier est déjà en cours pour l'année {calendrier_data['annee']} ! Utilisez /reset-calendrier pour recommencer.", ephemeral=True)
         return
+    
+    # Créer les données du calendrier
     calendrier_data = {
         "annee": annee,
         "mois_index": 0,
         "jour_index": 0, # 0 = 1/2, 1 = 2/2
         "last_update": None,
         "messages": [],
-        "skip_first_midnight": True,  # Ignorer le premier passage à minuit
+        "skip_first_midnight": False,  # Ne plus ignorer le premier passage
         "jours_irl_actuel": 0  # Compteur pour alterner 2j/1j
     }
     save_calendrier(calendrier_data)
     save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
-    await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Mise à jour chaque jour à minuit (heure Paris).", ephemeral=True)
+    
+    # Envoyer immédiatement le premier message du calendrier
+    channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+    if channel:
+        mois_nom = CALENDRIER_MONTHS[0]  # Janvier
+        
+        embed = discord.Embed(
+            title=f"{CALENDRIER_EMOJI} Calendrier RP - {mois_nom} {annee}",
+            description=f"**{mois_nom} {annee} - 1ère quinzaine**\n\n"
+                       f"Le calendrier RP a commencé !\n"
+                       f"Nous sommes maintenant en **{mois_nom} {annee}**.",
+            color=CALENDRIER_COLOR
+        )
+        
+        embed.set_image(url=CALENDRIER_IMAGE_URL)
+        embed.set_footer(text="Calendrier RP • Alternance 2j/1j IRL")
+        
+        try:
+            message = await channel.send(embed=embed)
+            calendrier_data["messages"] = [str(message.id)]
+            
+            # Marquer la première mise à jour comme faite
+            import pytz
+            paris_tz = pytz.timezone("Europe/Paris")
+            now = datetime.datetime.now(paris_tz)
+            calendrier_data["last_update"] = now.isoformat()
+            save_calendrier(calendrier_data)
+            save_all_json_to_postgres()
+            
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du premier message calendrier: {e}")
+    
+    # Démarrer la tâche pour les mises à jour futures
     calendrier_update_task.start()
+    
+    await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Le premier message a été envoyé et les mises à jour se feront chaque jour à minuit (heure Paris).", ephemeral=True)
 
 @bot.tree.command(name="reset-calendrier", description="Réinitialise le calendrier RP")
 @app_commands.checks.has_permissions(administrator=True)
