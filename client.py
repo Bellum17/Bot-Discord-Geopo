@@ -7601,6 +7601,261 @@ def increment_user_roll_count(user_id):
     save_generaux(generaux_data)
     return generaux_data[user_key]["roll_count"]
 
+# Classes pour la sélection de pays
+class CountrySelectionView(discord.ui.View):
+    """Vue pour sélectionner un pays parmi les rôles de l'utilisateur."""
+    
+    def __init__(self, user_id, country_roles, ecole, domaine):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.country_roles = country_roles
+        self.ecole = ecole
+        self.domaine = domaine
+        
+        # Créer un sélecteur avec les pays de l'utilisateur
+        options = []
+        for role in country_roles[:25]:  # Discord limite à 25 options
+            options.append(discord.SelectOption(
+                label=role.name,
+                value=role.name,
+                description=f"Créer un général pour {role.name}"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez votre pays...",
+            options=options
+        )
+        select.callback = self.country_selected
+        self.add_item(select)
+    
+    async def country_selected(self, interaction: discord.Interaction):
+        """Callback quand un pays est sélectionné."""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+        
+        # Récupérer le pays sélectionné
+        pays = interaction.data["values"][0]
+        
+        # Exécuter la logique de roll_general avec le pays sélectionné
+        await self.execute_roll_general(interaction, pays)
+    
+    async def execute_roll_general(self, interaction, pays):
+        """Exécute la logique de roll_general avec le pays sélectionné."""
+        # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
+        current_rolls = get_pays_roll_count(pays)
+        
+        if current_rolls >= 3:
+            embed = discord.Embed(
+                title="❌ Limite de rolls atteinte",
+                description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
+                color=0xff4444
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Continuer avec la logique de génération du général...
+        # (copier le reste de la logique de roll_general ici)
+        await self.generate_general(interaction, pays)
+    
+    async def generate_general(self, interaction, pays):
+        """Génère le général avec la logique complète."""
+        # Conversion du bonus d'école
+        bonus_ecole = int(self.ecole)
+        
+        # Roll de base (1-100) + bonus d'école, plafonné à 100
+        roll_base = random.randint(1, 100)
+        roll_final = min(roll_base + bonus_ecole, 100)
+        
+        # Détermination du type de général selon le roll final
+        if roll_final <= 19:
+            type_general = "Général médiocre"
+            nb_traits_negatifs = 3
+            nb_traits_positifs = 1
+            nb_specialites = 0
+        elif roll_final <= 39:
+            type_general = "Général peu expérimenté"
+            nb_traits_negatifs = 2
+            nb_traits_positifs = 2
+            nb_specialites = 0
+        elif roll_final <= 59:
+            type_general = "Général expérimenté"
+            nb_traits_negatifs = 1
+            nb_traits_positifs = 2
+            nb_specialites = 0
+        elif roll_final <= 95:
+            type_general = "Grand Général"
+            nb_traits_negatifs = 1
+            nb_traits_positifs = 3
+            nb_specialites = 1
+        else:  # 96-100+
+            type_general = "Excellent Général"
+            nb_traits_negatifs = 0
+            nb_traits_positifs = 3
+            nb_specialites = 2
+        
+        # Listes des traits de personnalité (selon le document officiel)
+        traits_positifs_base = [
+            "Personnalité publique", "Courageux", "Inflexible"
+            # "Héros de guerre" retiré - uniquement attribuable par commande admin
+        ]
+        traits_negatifs_base = [
+            "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
+            "Paranoïaque", "Colérique"
+        ]
+        
+        # Traits de commandement selon le domaine (basés sur le document officiel)
+        traits_commandement = {
+            "terrestre": [
+                "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
+                "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
+                "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
+                "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
+                "Major de promotion"
+            ],
+            "marine": [
+                "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
+                "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
+                "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
+            ],
+            "aerien": [
+                "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
+                "Théoricien du support rapproché", "Poséidon"
+            ]
+        }
+        
+        # Sélection des traits positifs
+        traits_positifs_selectionnes = []
+        if nb_traits_positifs > 0:
+            # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
+            chance_genie = 1
+            if roll_final > 95:
+                chance_genie = 5
+            
+            if random.randint(1, 100) <= chance_genie:
+                traits_positifs_selectionnes.append("Stratège de génie")
+                nb_traits_positifs -= 1
+            
+            # Officier de carrière : 25% de chance
+            if nb_traits_positifs > 0 and random.randint(1, 100) <= 25:
+                traits_positifs_selectionnes.append("Officier de carrière")
+                nb_traits_positifs -= 1
+            
+            # Compléter avec les autres traits positifs
+            if nb_traits_positifs > 0:
+                traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
+                traits_positifs_selectionnes.extend(traits_restants)
+        
+        # Sélection des traits négatifs
+        traits_negatifs_selectionnes = []
+        if nb_traits_negatifs > 0:
+            # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Stratège de génie n'est pas déjà présent
+            if "Stratège de génie" not in traits_positifs_selectionnes:
+                chance_incompetent = 1
+                if roll_final < 16:
+                    chance_incompetent = 5
+                
+                if random.randint(1, 100) <= chance_incompetent:
+                    traits_negatifs_selectionnes.append("Incompétent")
+                    nb_traits_negatifs -= 1
+            
+            # Compléter avec les autres traits négatifs
+            if nb_traits_negatifs > 0:
+                # Créer une liste des traits négatifs disponibles
+                traits_negatifs_disponibles = traits_negatifs_base.copy()
+                
+                # Vérifier les conflits : si "Courageux" est dans les traits positifs, retirer "Lâche"
+                if "Courageux" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
+                    traits_negatifs_disponibles.remove("Lâche")
+                
+                # Vérifier les conflits : si "Stratège de génie" est dans les traits positifs, retirer "Incompétent"
+                if "Stratège de génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
+                    traits_negatifs_disponibles.remove("Incompétent")
+                
+                # Sélectionner les traits négatifs sans conflit
+                traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
+                traits_negatifs_selectionnes.extend(traits_restants)
+        
+        # Sélection des traits de commandement (spécialisations)
+        traits_commandement_selectionnes = []
+        if nb_specialites > 0 and self.domaine in traits_commandement:
+            traits_commandement_selectionnes = random.sample(
+                traits_commandement[self.domaine], 
+                min(nb_specialites, len(traits_commandement[self.domaine]))
+            )
+        
+        # Construction de l'embed de résultat
+        embed = discord.Embed(
+            title="🎲 Général généré - Confirmation requise",
+            color=EMBED_COLOR
+        )
+        
+        # Formatage du résultat
+        result_text = f"> − **Résultat du Roll :** {roll_final}\n"
+        result_text += f"> − **Type de Général tiré :** {type_general}\n"
+        
+        # Traits positifs
+        result_text += "> − **Traits positifs :**\n"
+        if traits_positifs_selectionnes:
+            result_text += f"> - {', '.join(traits_positifs_selectionnes)}\n"
+        else:
+            result_text += "> - Aucun\n"
+        
+        # Traits négatifs
+        result_text += "> − **Traits négatifs :**\n"
+        if traits_negatifs_selectionnes:
+            result_text += f"> - {', '.join(traits_negatifs_selectionnes)}\n"
+        else:
+            result_text += "> - Aucun\n"
+        
+        # Traits de commandement
+        result_text += "> − **Traits de commandement :**\n"
+        if traits_commandement_selectionnes:
+            result_text += f"> - {', '.join(traits_commandement_selectionnes)}\n"
+        else:
+            result_text += "> - Aucun trait de commandement\n"
+        
+        embed.description = result_text
+        embed.set_image(url=IMAGE_URL)
+        
+        # Informations supplémentaires en footer
+        ecole_names = {
+            "0": "Petite école",
+            "5": "École militaire moyenne", 
+            "10": "Grande École militaire",
+            "15": "Académie militaire",
+            "30": "Complexe Universitaire militaire"
+        }
+        
+        # Incrémenter le compteur de rolls pour le pays
+        new_roll_count = increment_pays_roll_count(pays)
+        
+        embed.set_footer(
+            text=f"École: {ecole_names[self.ecole]} | Domaine: {self.domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
+        )
+        
+        # Préparer les données du général pour la confirmation
+        general_data = {
+            "type": type_general,
+            "domaine": self.domaine,
+            "ecole": ecole_names[self.ecole],
+            "roll_final": roll_final,
+            "traits_positifs": traits_positifs_selectionnes,
+            "traits_negatifs": traits_negatifs_selectionnes,
+            "traits_commandement": traits_commandement_selectionnes
+        }
+        
+        # Créer la vue de confirmation
+        view = GeneralConfirmationView(interaction.user.id, pays, general_data)
+        
+        embed.add_field(
+            name="⚠️ Action requise",
+            value="Cliquez sur le bouton ci-dessous pour confirmer et nommer votre général.",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, view=view)
+
 # Classes pour la confirmation du général avec nom
 class GeneralConfirmationView(discord.ui.View):
     """Vue pour confirmer la création d'un général avec attribution d'un nom."""
@@ -7726,8 +7981,7 @@ class GeneralNamingModal(discord.ui.Modal):
 @bot.tree.command(name="roll_general", description="Génère un général aléatoire avec traits et spécialités")
 @app_commands.describe(
     ecole="École militaire du général (influence le bonus de base)",
-    domaine="Domaine de spécialisation du général",
-    pays="Nom du pays pour lequel créer le général"
+    domaine="Domaine de spécialisation du général"
 )
 @app_commands.choices(ecole=[
     discord.app_commands.Choice(name="Petite école (+0)", value="0"),
@@ -7741,21 +7995,45 @@ class GeneralNamingModal(discord.ui.Modal):
     discord.app_commands.Choice(name="Aérien", value="aerien"),
     discord.app_commands.Choice(name="Marine", value="marine")
 ])
-async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str, pays: str):
+async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
     
-    # Vérifier si l'utilisateur a le rôle du pays spécifié
-    user_roles = [role.name.lower() for role in interaction.user.roles]
-    pays_lower = pays.lower()
+    # Obtenir les rôles de pays de l'utilisateur (rôles qui ne sont pas @everyone ni des rôles système)
+    user_country_roles = []
+    system_roles = ["@everyone", "bot", "admin", "modérateur", "moderateur", "staff", "membre", "verified"]
     
-    if pays_lower not in user_roles:
+    for role in interaction.user.roles:
+        if role.name.lower() not in system_roles and not role.managed:
+            user_country_roles.append(role)
+    
+    # Si l'utilisateur n'a aucun rôle de pays
+    if not user_country_roles:
         embed = discord.Embed(
-            title="❌ Rôle manquant",
-            description=f"Vous devez avoir le rôle **{pays}** pour créer un général pour ce pays.",
+            title="❌ Aucun rôle de pays",
+            description="Vous n'avez aucun rôle de pays. Contactez un administrateur pour obtenir un rôle de pays.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
+    
+    # Si l'utilisateur a plusieurs rôles de pays, créer un sélecteur
+    if len(user_country_roles) > 1:
+        embed = discord.Embed(
+            title="🏛️ Sélection du pays",
+            description="Vous avez plusieurs rôles de pays. Sélectionnez le pays pour lequel vous voulez créer un général :",
+            color=EMBED_COLOR
+        )
+        
+        view = CountrySelectionView(interaction.user.id, user_country_roles, ecole, domaine)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        return
+    
+    # Si l'utilisateur a un seul rôle de pays, l'utiliser directement
+    pays = user_country_roles[0].name
+    
+    # Créer une instance de la vue et exécuter la génération directement
+    country_view = CountrySelectionView(interaction.user.id, user_country_roles, ecole, domaine)
+    await country_view.execute_roll_general(interaction, pays)
     
     # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
     current_rolls = get_pays_roll_count(pays)
