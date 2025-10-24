@@ -9039,10 +9039,10 @@ async def generaux(interaction: discord.Interaction):
 
 @bot.tree.command(name="trait", description="[ADMIN] Ajouter un trait à un général")
 @app_commands.describe(
-    pays="Nom du pays",
+    pays="Rôle du pays",
     trait="Trait à ajouter au général"
 )
-async def add_trait(interaction: discord.Interaction, pays: str, trait: str):
+async def add_trait(interaction: discord.Interaction, pays: discord.Role, trait: str):
     """Permet aux admins d'ajouter un trait à un général d'un pays."""
     
     # Vérifier les permissions admin
@@ -9055,16 +9055,38 @@ async def add_trait(interaction: discord.Interaction, pays: str, trait: str):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
+    # Vérifier que le rôle est bien un rôle de pays
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
+    
+    if not is_country_role(pays):
+        embed = discord.Embed(
+            title="❌ Rôle invalide",
+            description=f"Le rôle **{pays.name}** n'est pas reconnu comme un rôle de pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
     # Charger tous les généraux pour trouver ceux du pays
     generaux_data = load_generaux()
-    pays_lower = pays.lower()
+    pays_name = pays.name.lower()
     
     # Trouver tous les généraux du pays spécifié
     generaux_pays = []
     for user_id, user_data in generaux_data.items():
         if "generaux" in user_data:
             for nom_general, general_info in user_data["generaux"].items():
-                if general_info.get("pays", "").lower() == pays_lower:
+                if general_info.get("pays", "").lower() == pays_name:
                     generaux_pays.append({
                         "user_id": user_id,
                         "nom": nom_general,
@@ -9075,7 +9097,7 @@ async def add_trait(interaction: discord.Interaction, pays: str, trait: str):
     if not generaux_pays:
         embed = discord.Embed(
             title="❌ Aucun général trouvé",
-            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays.name}**.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -9088,15 +9110,15 @@ async def add_trait(interaction: discord.Interaction, pays: str, trait: str):
         options.append(discord.SelectOption(
             label=f"{general['nom']} ({stars_display})",
             value=str(i),
-            description=f"Général de {pays}"
+            description=f"Général de {pays.name}"
         ))
     
     # Créer la vue avec le menu déroulant
-    view = TraitSelectionView(generaux_pays, trait, pays)
+    view = TraitSelectionView(generaux_pays, trait, pays.name)
     
     embed = discord.Embed(
         title="🎯 Sélection du Général",
-        description=f"Sélectionnez le général de **{pays}** auquel ajouter le trait **{trait}** :",
+        description=f"Sélectionnez le général de **{pays.name}** auquel ajouter le trait **{trait}** :",
         color=EMBED_COLOR
     )
     
@@ -9295,14 +9317,14 @@ class ExperienceSelectionView(discord.ui.View):
 
 @bot.tree.command(name="general_gestion", description="[ADMIN] Gérer les généraux (supprimer/renommer)")
 @app_commands.describe(
-    pays="Nom du pays",
+    pays="Rôle du pays",
     action="Action à effectuer"
 )
 @app_commands.choices(action=[
     discord.app_commands.Choice(name="Supprimer (tuer)", value="kill"),
     discord.app_commands.Choice(name="Renommer", value="rename")
 ])
-async def manage_general(interaction: discord.Interaction, pays: str, action: str):
+async def manage_general(interaction: discord.Interaction, pays: discord.Role, action: str):
     """Permet aux admins de gérer les généraux (supprimer ou renommer)."""
     
     # Vérifier les permissions admin
@@ -9315,14 +9337,36 @@ async def manage_general(interaction: discord.Interaction, pays: str, action: st
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
+    # Vérifier que le rôle est bien un rôle de pays
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
+    
+    if not is_country_role(pays):
+        embed = discord.Embed(
+            title="❌ Rôle invalide",
+            description=f"Le rôle **{pays.name}** n'est pas reconnu comme un rôle de pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
     generaux_data = load_generaux()
-    pays_lower = pays.lower()
+    pays_name = pays.name.lower()
     
     generaux_pays = []
     for user_id, user_data in generaux_data.items():
         if "generaux" in user_data:
             for nom_general, general_info in user_data["generaux"].items():
-                if general_info.get("pays", "").lower() == pays_lower:
+                if general_info.get("pays", "").lower() == pays_name:
                     generaux_pays.append({
                         "user_id": user_id,
                         "nom": nom_general,
@@ -9333,18 +9377,18 @@ async def manage_general(interaction: discord.Interaction, pays: str, action: st
     if not generaux_pays:
         embed = discord.Embed(
             title="❌ Aucun général trouvé",
-            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays.name}**.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    view = ManagementSelectionView(generaux_pays, action, pays)
+    view = ManagementSelectionView(generaux_pays, action, pays.name)
     
     action_text = "supprimer" if action == "kill" else "renommer"
     embed = discord.Embed(
         title=f"🔧 Gestion des Généraux - {action_text.capitalize()}",
-        description=f"Sélectionnez le général de **{pays}** à {action_text} :",
+        description=f"Sélectionnez le général de **{pays.name}** à {action_text} :",
         color=EMBED_COLOR
     )
     
@@ -9454,9 +9498,9 @@ class RenameGeneralModal(discord.ui.Modal):
 
 @bot.tree.command(name="reset_roll", description="[ADMIN] Réinitialise les slots de roll d'un pays")
 @app_commands.describe(
-    pays="Nom du pays dont réinitialiser les slots de roll"
+    pays="Rôle du pays dont réinitialiser les slots de roll"
 )
-async def reset_roll(interaction: discord.Interaction, pays: str):
+async def reset_roll(interaction: discord.Interaction, pays: discord.Role):
     """Permet aux admins de réinitialiser les slots de roll d'un pays."""
     
     # Vérifier les permissions admin
@@ -9469,16 +9513,38 @@ async def reset_roll(interaction: discord.Interaction, pays: str):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
+    # Vérifier que le rôle est bien un rôle de pays
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
+    
+    if not is_country_role(pays):
+        embed = discord.Embed(
+            title="❌ Rôle invalide",
+            description=f"Le rôle **{pays.name}** n'est pas reconnu comme un rôle de pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
     # Récupérer le nombre de rolls actuel
-    current_rolls = get_pays_roll_count(pays)
+    current_rolls = get_pays_roll_count(pays.name)
     
     # Réinitialiser les rolls
-    success = reset_pays_roll_count(pays)
+    success = reset_pays_roll_count(pays.name)
     
     if success or current_rolls > 0:
         embed = discord.Embed(
             title="✅ Slots de roll réinitialisés",
-            description=f"Les slots de roll du pays **{pays}** ont été réinitialisés.\n\n"
+            description=f"Les slots de roll du pays **{pays.name}** ont été réinitialisés.\n\n"
                        f"**Avant :** {current_rolls}/3 rolls utilisés\n"
                        f"**Après :** 0/3 rolls utilisés\n\n"
                        f"Le pays peut maintenant effectuer 3 nouveaux rolls de généraux.",
@@ -9487,7 +9553,7 @@ async def reset_roll(interaction: discord.Interaction, pays: str):
     else:
         embed = discord.Embed(
             title="ℹ️ Aucune action nécessaire",
-            description=f"Le pays **{pays}** n'avait aucun roll enregistré.\n\n"
+            description=f"Le pays **{pays.name}** n'avait aucun roll enregistré.\n\n"
                        f"Les slots sont déjà disponibles (0/3 rolls utilisés).",
             color=EMBED_COLOR
         )
@@ -9618,32 +9684,16 @@ TRAITS_AMELIORATION = {
 
 # === COMMANDES DE PROMOTION ET D'AMÉLIORATION ===
 
-@bot.tree.command(name="promouvoir", description="[ADMIN] Promouvoir un général terrestre en maréchal")
+@bot.tree.command(name="promouvoir", description="Promouvoir un général terrestre en maréchal")
 async def promouvoir_marechal(interaction: discord.Interaction):
-    """Permet aux admins de promouvoir un général terrestre éligible en maréchal."""
+    """Permet de promouvoir un général terrestre éligible en maréchal."""
     
-    # Vérifier les permissions admin
-    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
-        embed = discord.Embed(
-            title="❌ Permission refusée",
-            description="Cette commande est réservée aux administrateurs.",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Obtenir les rôles de pays de l'utilisateur utilisant la même logique que roll_general
+    # Obtenir les rôles de pays de l'utilisateur en vérifiant s'ils ont de l'argent
     def is_country_role(role):
         """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     user_country_roles = []
     for role in interaction.user.roles:
