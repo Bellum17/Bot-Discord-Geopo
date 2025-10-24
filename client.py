@@ -271,7 +271,7 @@ intents.guilds = True
 class PaginationView(discord.ui.View):
     """Une vue pour la pagination des embeds avec boutons."""
     
-    def __init__(self, pages, author_id, timeout=60):
+    def __init__(self, pages, author_id, timeout=None):
         super().__init__(timeout=timeout)
         self.pages = pages
         self.author_id = author_id
@@ -2096,7 +2096,7 @@ async def classement_eco(interaction: discord.Interaction):
 
     class ClassementView(discord.ui.View):
         def __init__(self, pages):
-            super().__init__(timeout=600)
+            super().__init__(timeout=None0)
             self.pages = pages
             self.page_idx = 0
             self.message = None
@@ -3151,7 +3151,7 @@ async def unmute(interaction: discord.Interaction, membre: discord.Member):
 async def ban(interaction: discord.Interaction, membre: discord.Member, raison: str = None):
     class ConfirmBanView(discord.ui.View):
         def __init__(self):
-            super().__init__(timeout=30)
+            super().__init__(timeout=None)
         @discord.ui.button(label="Oui", style=discord.ButtonStyle.success)
         async def confirm(self, interaction2: discord.Interaction, button: discord.ui.Button):
             if interaction2.user.id != interaction.user.id:
@@ -3735,7 +3735,7 @@ async def reset_levels(interaction: discord.Interaction):
     # Créer une vue de confirmation
     class ResetConfirmView(discord.ui.View):
         def __init__(self):
-            super().__init__(timeout=30)
+            super().__init__(timeout=None)
             self.confirmed = False
         
         @discord.ui.button(label="✅ Confirmer", style=discord.ButtonStyle.danger)
@@ -3879,7 +3879,7 @@ async def classement_lvl(interaction: discord.Interaction):
 
     class ClassementView(discord.ui.View):
         def __init__(self, pages):
-            super().__init__(timeout=600)
+            super().__init__(timeout=None0)
             self.pages = pages
             self.page_idx = 0
             self.message = None
@@ -6523,7 +6523,7 @@ async def backup_error(interaction: discord.Interaction, error: app_commands.App
 # Classe pour la sélection de backup avec menu déroulant
 class BackupSelectView(discord.ui.View):
     def __init__(self, backup_files):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.backup_files = backup_files
         
         # Menu déroulant pour sélectionner la backup
@@ -6582,7 +6582,7 @@ class BackupSelectView(discord.ui.View):
         )
         
         # Boutons de confirmation finale
-        confirm_view = discord.ui.View(timeout=60)
+        confirm_view = discord.ui.View(timeout=None)
         
         confirm_btn = discord.ui.Button(
             label="CONFIRMER LA RESTAURATION",
@@ -7075,7 +7075,7 @@ class DeleteBackupConfirmView(discord.ui.Modal, title="Confirmation de Suppressi
 # Classe pour la sélection de backup à supprimer
 class DeleteBackupSelectView(discord.ui.View):
     def __init__(self, backup_files):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.backup_files = backup_files
         
         # Menu déroulant pour sélectionner la backup à supprimer
@@ -7132,7 +7132,7 @@ class DeleteBackupSelectView(discord.ui.View):
         )
         
         # Bouton de confirmation finale
-        confirm_view = discord.ui.View(timeout=60)
+        confirm_view = discord.ui.View(timeout=None)
         
         confirm_btn = discord.ui.Button(
             label="SUPPRIMER DÉFINITIVEMENT",
@@ -7606,7 +7606,7 @@ class CountrySelectionView(discord.ui.View):
     """Vue pour sélectionner un pays parmi les rôles de l'utilisateur."""
     
     def __init__(self, user_id, country_roles, ecole, domaine):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.user_id = user_id
         self.country_roles = country_roles
         self.ecole = ecole
@@ -7865,7 +7865,7 @@ class GeneralConfirmationView(discord.ui.View):
     """Vue pour confirmer la création d'un général avec attribution d'un nom."""
     
     def __init__(self, user_id, pays, general_data):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.user_id = user_id
         self.pays = pays
         self.general_data = general_data
@@ -7884,7 +7884,7 @@ class GeneralNamingModal(discord.ui.Modal):
     """Modal pour nommer un général après confirmation."""
     
     def __init__(self, pays, general_data):
-        super().__init__(title=f"Nommer votre général - {pays}")
+        super().__init__(title=f"Nommer le général")
         self.pays = pays
         self.general_data = general_data
         
@@ -8002,12 +8002,31 @@ class GeneralNamingModal(discord.ui.Modal):
 async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
     
-    # Obtenir les rôles de pays de l'utilisateur (rôles qui ne sont pas @everyone ni des rôles système)
+    # Définir les critères pour les rôles de pays
+    MIN_COUNTRY_ROLE_ID = 1413993747515052112  # ID minimum pour les rôles de pays
+    MAX_COUNTRY_ROLE_ID = 1413995459827077190  # ID maximum pour les rôles de pays
+    
+    # IDs de rôles à exclure (ne sont pas des pays)
+    EXCLUDED_ROLE_IDS = {
+        1413996176956461086,
+        1413995874304004157,
+        1413995735732457473,
+        1413995608922128394,
+        1413995502785138799
+    }
+    
+    # Fonction pour vérifier si un rôle est un rôle de pays
+    def is_country_role(role):
+        role_id = role.id
+        # Vérifier si l'ID est dans la plage autorisée et n'est pas exclu
+        return (MIN_COUNTRY_ROLE_ID <= role_id <= MAX_COUNTRY_ROLE_ID and 
+                role_id not in EXCLUDED_ROLE_IDS)
+    
+    # Obtenir les rôles de pays de l'utilisateur
     user_country_roles = []
-    system_roles = ["@everyone", "bot", "admin", "modérateur", "moderateur", "staff", "membre", "verified"]
     
     for role in interaction.user.roles:
-        if role.name.lower() not in system_roles and not role.managed:
+        if is_country_role(role):
             user_country_roles.append(role)
     
     # Si l'utilisateur n'a aucun rôle de pays
@@ -8555,7 +8574,7 @@ class GeneralImprovementView(discord.ui.View):
     """Vue pour l'amélioration des généraux avec système d'étoiles."""
     
     def __init__(self, user_id):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.user_id = user_id
     
     @discord.ui.button(label="Améliorer un Général", style=discord.ButtonStyle.primary, emoji="⭐")
@@ -8854,7 +8873,7 @@ class TraitSelectionView(discord.ui.View):
     """Vue pour sélectionner un général et lui ajouter un trait."""
     
     def __init__(self, generaux_pays, trait, pays):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.generaux_pays = generaux_pays
         self.trait = trait
         self.pays = pays
@@ -8974,7 +8993,7 @@ class ExperienceSelectionView(discord.ui.View):
     """Vue pour sélectionner un général et lui ajouter de l'expérience."""
     
     def __init__(self, generaux_pays, pourcentage, pays):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.generaux_pays = generaux_pays
         self.pourcentage = pourcentage
         self.pays = pays
@@ -9080,7 +9099,7 @@ class ManagementSelectionView(discord.ui.View):
     """Vue pour gérer les généraux (supprimer/renommer)."""
     
     def __init__(self, generaux_pays, action, pays):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.generaux_pays = generaux_pays
         self.action = action
         self.pays = pays
@@ -9555,7 +9574,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
 # Vue pour la sélection de catégorie dans /developpements
 class DeveloppementsCategorieView(discord.ui.View):
     def __init__(self, user_id, pays_roles, developpements_data):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.user_id = user_id
         self.pays_roles = pays_roles  # Liste des rôles pays de l'utilisateur
         self.developpements_data = developpements_data
@@ -9613,7 +9632,7 @@ class DeveloppementsCategorieView(discord.ui.View):
 # Vue pour la navigation des développements dans une catégorie
 class DeveloppementsNavigationView(discord.ui.View):
     def __init__(self, user_id, pays_roles, developpements_data, categorie, page):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
         self.user_id = user_id
         self.pays_roles = pays_roles
         self.developpements_data = developpements_data
@@ -10472,7 +10491,7 @@ async def force_sync_postgres(interaction: discord.Interaction):
         import subprocess
         result = subprocess.run([
             "python3", "backup_json_to_postgres.py"
-        ], cwd=BASE_DIR, capture_output=True, text=True, timeout=60)
+        ], cwd=BASE_DIR, capture_output=True, text=True, timeout=None)
         
         if result.returncode == 0:
             # Compter les réussites dans le output
