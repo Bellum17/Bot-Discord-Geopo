@@ -70,6 +70,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EMBED_COLOR = 0xefe7c5
 SANCTION_COLOR = 0x162e50  # Couleur pour les sanctions (mute, ban, warn)
 IMAGE_URL = "https://zupimages.net/up/21/03/vl8j.png"
+ADMIN_IDS = [300740726257139712]  # IDs des administrateurs du bot
 
 def get_paris_time():
     """Retourne l'heure actuelle de Paris (CEST/CET) en format ISO."""
@@ -7496,10 +7497,187 @@ class TechnoConfirmView(discord.ui.View):
 
 import random
 
+# Fichier pour stocker les généraux améliorés
+GENERAUX_FILE = os.path.join(DATA_DIR, "generaux.json")
+
+def load_generaux():
+    """Charge les données des généraux depuis le fichier."""
+    if not os.path.exists(GENERAUX_FILE):
+        return {}
+    try:
+        with open(GENERAUX_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du chargement des généraux: {e}")
+        return {}
+
+def save_generaux(data):
+    """Sauvegarde les données des généraux dans le fichier."""
+    try:
+        with open(GENERAUX_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        save_all_json_to_postgres()
+    except Exception as e:
+        print(f"[ERROR] Erreur lors de la sauvegarde des généraux: {e}")
+
+def format_stars(current, max_stars=5):
+    """Formate les étoiles pour l'affichage (★ remplie, ☆ vide)."""
+    filled = "★" * current
+    empty = "☆" * (max_stars - current)
+    return filled + empty
+
+def get_user_roll_count(user_id):
+    """Récupère le nombre de rolls effectués par un utilisateur aujourd'hui."""
+    generaux_data = load_generaux()
+    user_key = str(user_id)
+    
+    if user_key not in generaux_data:
+        generaux_data[user_key] = {"roll_count": 0, "last_roll_date": ""}
+    
+    # Vérifier si c'est un nouveau jour
+    today = datetime.now().strftime("%Y-%m-%d")
+    if generaux_data[user_key]["last_roll_date"] != today:
+        generaux_data[user_key]["roll_count"] = 0
+        generaux_data[user_key]["last_roll_date"] = today
+        save_generaux(generaux_data)
+    
+    return generaux_data[user_key]["roll_count"]
+
+def increment_user_roll_count(user_id):
+    """Incrémente le nombre de rolls d'un utilisateur pour aujourd'hui."""
+    generaux_data = load_generaux()
+    user_key = str(user_id)
+    
+    if user_key not in generaux_data:
+        generaux_data[user_key] = {"roll_count": 0, "last_roll_date": ""}
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    if generaux_data[user_key]["last_roll_date"] != today:
+        generaux_data[user_key]["roll_count"] = 0
+        generaux_data[user_key]["last_roll_date"] = today
+    
+    generaux_data[user_key]["roll_count"] += 1
+    save_generaux(generaux_data)
+    return generaux_data[user_key]["roll_count"]
+
+# Classes pour la confirmation du général avec nom
+class GeneralConfirmationView(discord.ui.View):
+    """Vue pour confirmer la création d'un général avec attribution d'un nom."""
+    
+    def __init__(self, user_id, pays, general_data):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.pays = pays
+        self.general_data = general_data
+    
+    @discord.ui.button(label="Confirmer et nommer le général", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm_general(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+            
+        # Afficher le modal pour nommer le général
+        modal = GeneralNamingModal(self.pays, self.general_data)
+        await interaction.response.send_modal(modal)
+
+class GeneralNamingModal(discord.ui.Modal):
+    """Modal pour nommer un général après confirmation."""
+    
+    def __init__(self, pays, general_data):
+        super().__init__(title=f"Nommer votre général - {pays}")
+        self.pays = pays
+        self.general_data = general_data
+        
+        self.nom_general = discord.ui.TextInput(
+            label="Nom du Général",
+            placeholder="Entrez le nom de votre général...",
+            max_length=50,
+            required=True
+        )
+        
+        self.add_item(self.nom_general)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        nom_general = self.nom_general.value
+        pays_key = self.pays.lower()
+        
+        # Charger les données des généraux
+        generaux_data = load_generaux()
+        
+        # Initialiser les données utilisateur si nécessaire
+        if user_id not in generaux_data:
+            generaux_data[user_id] = {"generaux": {}}
+        
+        if "generaux" not in generaux_data[user_id]:
+            generaux_data[user_id]["generaux"] = {}
+        
+        # Vérifier si le nom n'existe pas déjà
+        if nom_general in generaux_data[user_id]["generaux"]:
+            embed = discord.Embed(
+                title="❌ Nom déjà utilisé",
+                description=f"Vous avez déjà un général nommé **{nom_general}**. Choisissez un autre nom.",
+                color=0xff4444
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Créer le général avec toutes ses données
+        general_info = {
+            "stars": 0,
+            "pays": self.pays,
+            "type": self.general_data["type"],
+            "domaine": self.general_data["domaine"],
+            "ecole": self.general_data["ecole"],
+            "roll_final": self.general_data["roll_final"],
+            "traits_positifs": self.general_data["traits_positifs"],
+            "traits_negatifs": self.general_data["traits_negatifs"],
+            "traits_commandement": self.general_data["traits_commandement"],
+            "experience": 0
+        }
+        
+        generaux_data[user_id]["generaux"][nom_general] = general_info
+        save_generaux(generaux_data)
+        
+        # Créer l'embed de confirmation
+        embed = discord.Embed(
+            title="✅ Général créé avec succès !",
+            description=f"**{nom_general}** a été ajouté à votre armée de **{self.pays}** !",
+            color=0x00ff88
+        )
+        
+        # Ajouter les détails du général
+        embed.add_field(
+            name="📊 Informations",
+            value=f"**Type :** {self.general_data['type']}\n"
+                  f"**Domaine :** {self.general_data['domaine'].capitalize()}\n"
+                  f"**Roll :** {self.general_data['roll_final']}\n"
+                  f"**Étoiles :** {format_stars(0)}",
+            inline=True
+        )
+        
+        traits_text = ""
+        if self.general_data["traits_positifs"]:
+            traits_text += f"**Positifs :** {', '.join(self.general_data['traits_positifs'])}\n"
+        if self.general_data["traits_negatifs"]:
+            traits_text += f"**Négatifs :** {', '.join(self.general_data['traits_negatifs'])}\n"
+        if self.general_data["traits_commandement"]:
+            traits_text += f"**Commandement :** {', '.join(self.general_data['traits_commandement'])}"
+        
+        if traits_text:
+            embed.add_field(
+                name="🎯 Traits",
+                value=traits_text,
+                inline=False
+            )
+        
+        await interaction.response.send_message(embed=embed)
+
 @bot.tree.command(name="roll_general", description="Génère un général aléatoire avec traits et spécialités")
 @app_commands.describe(
     ecole="École militaire du général (influence le bonus de base)",
-    domaine="Domaine de spécialisation du général"
+    domaine="Domaine de spécialisation du général",
+    pays="Nom du pays pour lequel créer le général"
 )
 @app_commands.choices(ecole=[
     discord.app_commands.Choice(name="Petite école (+0)", value="0"),
@@ -7513,8 +7691,34 @@ import random
     discord.app_commands.Choice(name="Aérien", value="aerien"),
     discord.app_commands.Choice(name="Marine", value="marine")
 ])
-async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
+async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str, pays: str):
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
+    
+    # Vérifier si l'utilisateur a le rôle du pays spécifié
+    user_roles = [role.name.lower() for role in interaction.user.roles]
+    pays_lower = pays.lower()
+    
+    if pays_lower not in user_roles:
+        embed = discord.Embed(
+            title="❌ Rôle manquant",
+            description=f"Vous devez avoir le rôle **{pays}** pour créer un général pour ce pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Vérifier le nombre de rolls effectués aujourd'hui
+    user_id = interaction.user.id
+    current_rolls = get_user_roll_count(user_id)
+    
+    if current_rolls >= 3:
+        embed = discord.Embed(
+            title="❌ Limite de rolls atteinte",
+            description="Vous avez déjà effectué **3 rolls de général** aujourd'hui. Réessayez demain !",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
     
     # Conversion du bonus d'école
     bonus_ecole = int(ecole)
@@ -7550,28 +7754,45 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         nb_traits_positifs = 3
         nb_specialites = 2
     
-    # Listes des traits et spécialités
-    traits_positifs_base = ["Charismatique", "Courageux", "Sang-froid", "Calculateur", "Orateur de Guerre"]
-    traits_negatifs_base = ["Alcoolique", "Lâche", "Mégalomanie", "Arrogant", "Fanatisme", "Indécis", "Colérique", "Paranoïa"]
+    # Listes des traits de personnalité (selon le document officiel)
+    traits_positifs_base = [
+        "Personnalité publique", "Courageux", "Inflexible", "Officier de carrière", "Héros de guerre"
+    ]
+    traits_negatifs_base = [
+        "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
+        "Paranoïaque", "Colérique"
+    ]
     
-    # Spécialisations selon le domaine
-    specialisations = {
-        "aerien": ["As de la Chasse", "Planificateur de Bombardement"],
-        "terrestre": ["Expert de l'Offensive", "Expert Défensif", "Maître de la Blitzkrieg", 
-                     "Coordinateur de l'Infanterie", "Planificateur de l'Artillerie"],
-        "marine": ["Amiral de ligne", "Loup de mer", "Planificateur de débarquements"]
+    # Traits de commandement selon le domaine (basés sur le document officiel)
+    traits_commandement = {
+        "terrestre": [
+            "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
+            "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
+            "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
+            "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
+            "Major de promotion"
+        ],
+        "marine": [
+            "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
+            "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
+            "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
+        ],
+        "aerien": [
+            "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
+            "Théoricien du support rapproché", "Poséidon"
+        ]
     }
     
     # Sélection des traits positifs
     traits_positifs_selectionnes = []
     if nb_traits_positifs > 0:
-        # Génie : 1% de chance de base + 5% supplémentaires si roll > 95
+        # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
         chance_genie = 1
         if roll_final > 95:
             chance_genie = 5
         
         if random.randint(1, 100) <= chance_genie:
-            traits_positifs_selectionnes.append("Génie")
+            traits_positifs_selectionnes.append("Stratège de génie")
             nb_traits_positifs -= 1
         
         # Compléter avec les autres traits positifs
@@ -7582,8 +7803,8 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Sélection des traits négatifs
     traits_negatifs_selectionnes = []
     if nb_traits_negatifs > 0:
-        # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Génie n'est pas déjà présent
-        if "Génie" not in traits_positifs_selectionnes:
+        # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Stratège de génie n'est pas déjà présent
+        if "Stratège de génie" not in traits_positifs_selectionnes:
             chance_incompetent = 1
             if roll_final < 16:
                 chance_incompetent = 5
@@ -7601,20 +7822,20 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
             if "Courageux" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
                 traits_negatifs_disponibles.remove("Lâche")
             
-            # Vérifier les conflits : si "Génie" est dans les traits positifs, retirer "Incompétent"
-            if "Génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
+            # Vérifier les conflits : si "Stratège de génie" est dans les traits positifs, retirer "Incompétent"
+            if "Stratège de génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
                 traits_negatifs_disponibles.remove("Incompétent")
             
             # Sélectionner les traits négatifs sans conflit
             traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
             traits_negatifs_selectionnes.extend(traits_restants)
     
-    # Sélection des spécialités
-    specialites_selectionnees = []
-    if nb_specialites > 0 and domaine in specialisations:
-        specialites_selectionnees = random.sample(
-            specialisations[domaine], 
-            min(nb_specialites, len(specialisations[domaine]))
+    # Sélection des traits de commandement (spécialisations)
+    traits_commandement_selectionnes = []
+    if nb_specialites > 0 and domaine in traits_commandement:
+        traits_commandement_selectionnes = random.sample(
+            traits_commandement[domaine], 
+            min(nb_specialites, len(traits_commandement[domaine]))
         )
     
     # Construction de l'embed de résultat
@@ -7641,12 +7862,227 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     else:
         result_text += "> - Aucun\n"
     
-    # Spécialités
-    result_text += "> − **Spécialité :**\n"
-    if specialites_selectionnees:
-        result_text += f"> - {', '.join(specialites_selectionnees)}\n"
+    # Traits de commandement
+    result_text += "> − **Traits de commandement :**\n"
+    if traits_commandement_selectionnes:
+        result_text += f"> - {', '.join(traits_commandement_selectionnes)}\n"
     else:
-        result_text += "> - Aucune spécialité\n"
+        result_text += "> - Aucun trait de commandement\n"
+    
+    embed.description = result_text
+    embed.set_image(url=IMAGE_URL)
+    
+    # Informations supplémentaires en footer
+    ecole_names = {
+        "0": "Petite école",
+        "5": "École militaire moyenne", 
+        "10": "Grande École militaire",
+        "15": "Académie militaire",
+        "30": "Complexe Universitaire militaire"
+    }
+    
+    # Incrémenter le compteur de rolls
+    new_roll_count = increment_user_roll_count(user_id)
+    
+    embed.set_footer(
+        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
+    )
+    
+    # Préparer les données du général pour la confirmation
+    general_data = {
+        "type": type_general,
+        "domaine": domaine,
+        "ecole": ecole_names[ecole],
+        "roll_final": roll_final,
+        "traits_positifs": traits_positifs_selectionnes,
+        "traits_negatifs": traits_negatifs_selectionnes,
+        "traits_commandement": traits_commandement_selectionnes
+    }
+    
+    # Créer la vue de confirmation
+    view = GeneralConfirmationView(user_id, pays, general_data)
+    
+    # Modifier le titre de l'embed pour indiquer qu'il faut confirmer
+    embed.title = "🎲 Général généré - Confirmation requise"
+    embed.add_field(
+        name="⚠️ Action requise",
+        value="Cliquez sur le bouton ci-dessous pour confirmer et nommer votre général.",
+        inline=False
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view)
+
+# === COMMANDE DE TEST POUR LES GÉNÉRAUX ===
+
+@bot.tree.command(name="roll_general_test", description="Version de test pour générer des généraux (sans limite de rolls)")
+@app_commands.describe(
+    ecole="École militaire du général (influence le bonus de base)",
+    domaine="Domaine de spécialisation du général"
+)
+@app_commands.choices(ecole=[
+    discord.app_commands.Choice(name="Petite école (+0)", value="0"),
+    discord.app_commands.Choice(name="École militaire moyenne (+5)", value="5"),
+    discord.app_commands.Choice(name="Grande École militaire (+10)", value="10"),
+    discord.app_commands.Choice(name="Académie militaire (+15)", value="15"),
+    discord.app_commands.Choice(name="Complexe Universitaire militaire (+30)", value="30")
+])
+@app_commands.choices(domaine=[
+    discord.app_commands.Choice(name="Terrestre", value="terrestre"),
+    discord.app_commands.Choice(name="Aérien", value="aerien"),
+    discord.app_commands.Choice(name="Marine", value="marine")
+])
+async def roll_general_test(interaction: discord.Interaction, ecole: str, domaine: str):
+    """Version de test de la génération de général (sans limite de rolls)."""
+    
+    # Conversion du bonus d'école
+    bonus_ecole = int(ecole)
+    
+    # Roll de base (1-100) + bonus d'école, plafonné à 100
+    roll_base = random.randint(1, 100)
+    roll_final = min(roll_base + bonus_ecole, 100)
+    
+    # Détermination du type de général selon le roll final
+    if roll_final <= 19:
+        type_general = "Général médiocre"
+        nb_traits_negatifs = 3
+        nb_traits_positifs = 1
+        nb_specialites = 0
+    elif roll_final <= 39:
+        type_general = "Général peu expérimenté"
+        nb_traits_negatifs = 2
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 59:
+        type_general = "Général expérimenté"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 95:
+        type_general = "Grand Général"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 3
+        nb_specialites = 1
+    else:  # 96-100+
+        type_general = "Excellent Général"
+        nb_traits_negatifs = 0
+        nb_traits_positifs = 3
+        nb_specialites = 2
+    
+    # NOUVEAUX TRAITS (selon le document officiel)
+    # Traits de personnalité
+    traits_positifs_base = [
+        "Personnalité publique", "Courageux", "Inflexible", "Officier de carrière", "Héros de guerre"
+    ]
+    traits_negatifs_base = [
+        "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
+        "Paranoïaque", "Colérique"
+    ]
+    
+    # Traits de commandement selon le domaine
+    traits_commandement = {
+        "terrestre": [
+            "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
+            "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
+            "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
+            "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
+            "Major de promotion"
+        ],
+        "marine": [
+            "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
+            "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
+            "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
+        ],
+        "aerien": [
+            "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
+            "Théoricien du support rapproché", "Poséidon"
+        ]
+    }
+    
+    # Sélection des traits positifs
+    traits_positifs_selectionnes = []
+    if nb_traits_positifs > 0:
+        # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
+        chance_genie = 1
+        if roll_final > 95:
+            chance_genie = 5
+        
+        if random.randint(1, 100) <= chance_genie:
+            traits_positifs_selectionnes.append("Stratège de génie")
+            nb_traits_positifs -= 1
+        
+        # Compléter avec les autres traits positifs
+        if nb_traits_positifs > 0:
+            traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
+            traits_positifs_selectionnes.extend(traits_restants)
+    
+    # Sélection des traits négatifs
+    traits_negatifs_selectionnes = []
+    if nb_traits_negatifs > 0:
+        # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Stratège de génie n'est pas déjà présent
+        if "Stratège de génie" not in traits_positifs_selectionnes:
+            chance_incompetent = 1
+            if roll_final < 16:
+                chance_incompetent = 5
+            
+            if random.randint(1, 100) <= chance_incompetent:
+                traits_negatifs_selectionnes.append("Incompétent")
+                nb_traits_negatifs -= 1
+        
+        # Compléter avec les autres traits négatifs
+        if nb_traits_negatifs > 0:
+            # Créer une liste des traits négatifs disponibles
+            traits_negatifs_disponibles = traits_negatifs_base.copy()
+            
+            # Vérifier les conflits : si "Courage" est dans les traits positifs, retirer "Lâche"
+            if "Courage" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
+                traits_negatifs_disponibles.remove("Lâche")
+            
+            # Vérifier les conflits : si "Stratège de génie" est dans les traits positifs, retirer "Incompétent"
+            if "Stratège de génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
+                traits_negatifs_disponibles.remove("Incompétent")
+            
+            # Sélectionner les traits négatifs sans conflit
+            traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
+            traits_negatifs_selectionnes.extend(traits_restants)
+    
+    # Sélection des traits de commandement (spécialisations)
+    traits_commandement_selectionnes = []
+    if nb_specialites > 0 and domaine in traits_commandement:
+        traits_commandement_selectionnes = random.sample(
+            traits_commandement[domaine], 
+            min(nb_specialites, len(traits_commandement[domaine]))
+        )
+    
+    # Construction de l'embed de résultat
+    embed = discord.Embed(
+        title="🎲 Génération du Général (TEST)",
+        color=EMBED_COLOR
+    )
+    
+    # Formatage du résultat
+    result_text = f"> − **Résultat du Roll :** {roll_final}\n"
+    result_text += f"> − **Type de Général tiré :** {type_general}\n"
+    
+    # Traits positifs
+    result_text += "> − **Traits positifs :**\n"
+    if traits_positifs_selectionnes:
+        result_text += f"> - {', '.join(traits_positifs_selectionnes)}\n"
+    else:
+        result_text += "> - Aucun\n"
+    
+    # Traits négatifs
+    result_text += "> − **Traits négatifs :**\n"
+    if traits_negatifs_selectionnes:
+        result_text += f"> - {', '.join(traits_negatifs_selectionnes)}\n"
+    else:
+        result_text += "> - Aucun\n"
+    
+    # Traits de commandement
+    result_text += "> − **Traits de commandement :**\n"
+    if traits_commandement_selectionnes:
+        result_text += f"> - {', '.join(traits_commandement_selectionnes)}\n"
+    else:
+        result_text += "> - Aucun trait de commandement\n"
     
     embed.description = result_text
     embed.set_image(url=IMAGE_URL)
@@ -7661,10 +8097,637 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     }
     
     embed.set_footer(
-        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole})"
+        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | MODE TEST"
     )
     
     await interaction.response.send_message(embed=embed)
+
+# === SYSTÈME D'AMÉLIORATION DES GÉNÉRAUX ===
+
+class GeneralImprovementView(discord.ui.View):
+    """Vue pour l'amélioration des généraux avec système d'étoiles."""
+    
+    def __init__(self, user_id):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+    
+    @discord.ui.button(label="Améliorer un Général", style=discord.ButtonStyle.primary, emoji="⭐")
+    async def improve_general(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
+            return
+            
+        # Afficher le modal pour améliorer un général
+        modal = GeneralImprovementModal()
+        await interaction.response.send_modal(modal)
+
+class GeneralImprovementModal(discord.ui.Modal):
+    """Modal pour l'amélioration d'un général."""
+    
+    def __init__(self):
+        super().__init__(title="Amélioration d'un Général")
+        
+        self.nom_general = discord.ui.TextInput(
+            label="Nom du Général",
+            placeholder="Entrez le nom de votre général...",
+            max_length=50,
+            required=True
+        )
+        
+        self.add_item(self.nom_general)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        nom_general = self.nom_general.value
+        
+        # Charger les données des généraux
+        generaux_data = load_generaux()
+        
+        # Initialiser les données utilisateur si nécessaire
+        if user_id not in generaux_data:
+            generaux_data[user_id] = {"generaux": {}}
+        
+        if "generaux" not in generaux_data[user_id]:
+            generaux_data[user_id]["generaux"] = {}
+        
+        # Vérifier si le général existe
+        if nom_general not in generaux_data[user_id]["generaux"]:
+            # Créer un nouveau général avec 0 étoiles
+            generaux_data[user_id]["generaux"][nom_general] = {"stars": 0}
+        
+        general_data = generaux_data[user_id]["generaux"][nom_general]
+        current_stars = general_data.get("stars", 0)
+        
+        # Vérifier si le général peut encore être amélioré
+        if current_stars >= 5:
+            embed = discord.Embed(
+                title="⭐ Général déjà au maximum",
+                description=f"**{nom_general}** a déjà atteint le maximum de **5 étoiles** !\n\n{format_stars(5)}",
+                color=0xffaa00
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Calculer la chance d'amélioration (diminue avec le nombre d'étoiles)
+        base_chance = 70  # 70% de base
+        penalty_per_star = 5  # -5% par étoile existante
+        success_chance = max(10, base_chance - (current_stars * penalty_per_star))  # Minimum 10%
+        
+        # Effectuer le roll d'amélioration
+        roll = random.randint(1, 100)
+        success = roll <= success_chance
+        
+        if success:
+            # Amélioration réussie
+            new_stars = current_stars + 1
+            generaux_data[user_id]["generaux"][nom_general]["stars"] = new_stars
+            save_generaux(generaux_data)
+            
+            embed = discord.Embed(
+                title="✅ Amélioration réussie !",
+                description=f"**{nom_general}** a gagné une étoile !\n\n"
+                           f"**Avant :** {format_stars(current_stars)}\n"
+                           f"**Après :** {format_stars(new_stars)}\n\n"
+                           f"**Roll :** {roll} ≤ {success_chance}% ✅",
+                color=0x00ff88
+            )
+        else:
+            # Amélioration échouée
+            embed = discord.Embed(
+                title="❌ Amélioration échouée",
+                description=f"**{nom_general}** n'a pas gagné d'étoile cette fois.\n\n"
+                           f"**Étoiles actuelles :** {format_stars(current_stars)}\n\n"
+                           f"**Roll :** {roll} > {success_chance}% ❌",
+                color=0xff4444
+            )
+        
+        # Calculer la prochaine chance
+        if current_stars + (1 if success else 0) < 5:
+            next_chance = max(10, base_chance - ((current_stars + (1 if success else 0)) * penalty_per_star))
+            embed.add_field(
+                name="Prochaine tentative",
+                value=f"Chance de succès : **{next_chance}%**",
+                inline=False
+            )
+        
+        await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="mes_generaux", description="Affiche vos généraux et leurs niveaux d'étoiles")
+async def mes_generaux(interaction: discord.Interaction):
+    """Affiche la liste des généraux de l'utilisateur et permet de les améliorer."""
+    
+    user_id = str(interaction.user.id)
+    generaux_data = load_generaux()
+    
+    # Vérifier si l'utilisateur a des généraux
+    if user_id not in generaux_data or "generaux" not in generaux_data[user_id] or not generaux_data[user_id]["generaux"]:
+        embed = discord.Embed(
+            title="📋 Vos Généraux",
+            description="Vous n'avez encore aucun général enregistré.\n\n"
+                       "Utilisez `/roll_general` pour créer des généraux, puis revenez ici pour les améliorer !",
+            color=EMBED_COLOR
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Construire la liste des généraux
+    generaux_list = []
+    total_stars = 0
+    
+    for nom, data in generaux_data[user_id]["generaux"].items():
+        stars = data.get("stars", 0)
+        total_stars += stars
+        generaux_list.append(f"**{nom}** : {format_stars(stars)} ({stars}/5)")
+    
+    embed = discord.Embed(
+        title="⭐ Vos Généraux",
+        description="\n".join(generaux_list),
+        color=EMBED_COLOR
+    )
+    
+    embed.add_field(
+        name="📊 Statistiques",
+        value=f"**Nombre de généraux :** {len(generaux_list)}\n"
+              f"**Total d'étoiles :** {total_stars}",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="ℹ️ Comment améliorer ?",
+        value="Cliquez sur le bouton ci-dessous pour améliorer un de vos généraux !\n"
+              "Plus un général a d'étoiles, plus il est difficile de l'améliorer.",
+        inline=False
+    )
+    
+    view = GeneralImprovementView(interaction.user.id)
+    await interaction.response.send_message(embed=embed, view=view)
+
+# === NOUVELLE COMMANDE GÉNÉRAUX ===
+
+@bot.tree.command(name="generaux", description="Affiche la liste de vos généraux par pays")
+async def generaux(interaction: discord.Interaction):
+    """Affiche la liste de tous vos généraux organisés par pays."""
+    
+    user_id = str(interaction.user.id)
+    generaux_data = load_generaux()
+    
+    # Vérifier si l'utilisateur a des généraux
+    if user_id not in generaux_data or "generaux" not in generaux_data[user_id] or not generaux_data[user_id]["generaux"]:
+        embed = discord.Embed(
+            title="📋 Vos Généraux",
+            description="Vous n'avez encore aucun général enregistré.\n\n"
+                       "Utilisez `/roll_general` pour créer des généraux !",
+            color=EMBED_COLOR
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Organiser les généraux par pays
+    generaux_par_pays = {}
+    total_generaux = 0
+    total_stars = 0
+    
+    for nom, data in generaux_data[user_id]["generaux"].items():
+        pays = data.get("pays", "Inconnu")
+        stars = data.get("stars", 0)
+        type_general = data.get("type", "Inconnu")
+        domaine = data.get("domaine", "").capitalize()
+        
+        if pays not in generaux_par_pays:
+            generaux_par_pays[pays] = []
+        
+        generaux_par_pays[pays].append({
+            "nom": nom,
+            "stars": stars,
+            "type": type_general,
+            "domaine": domaine
+        })
+        
+        total_generaux += 1
+        total_stars += stars
+    
+    # Construire l'embed
+    embed = discord.Embed(
+        title="🏛️ Vos Généraux par Pays",
+        color=EMBED_COLOR
+    )
+    
+    # Ajouter chaque pays
+    for pays, generaux_list in generaux_par_pays.items():
+        pays_text = []
+        for general in generaux_list:
+            stars_display = format_stars(general["stars"])
+            pays_text.append(f"**{general['nom']}** ({general['type']})")
+            pays_text.append(f"└ {stars_display} • {general['domaine']}")
+        
+        embed.add_field(
+            name=f"🏴 {pays} ({len(generaux_list)} généraux)",
+            value="\n".join(pays_text),
+            inline=False
+        )
+    
+    # Statistiques globales
+    embed.add_field(
+        name="📊 Statistiques globales",
+        value=f"**Total de généraux :** {total_generaux}\n"
+              f"**Total d'étoiles :** {total_stars}",
+        inline=False
+    )
+    
+    await interaction.response.send_message(embed=embed)
+
+# === COMMANDES ADMIN POUR LES GÉNÉRAUX ===
+
+@bot.tree.command(name="trait", description="[ADMIN] Ajouter un trait à un général")
+@app_commands.describe(
+    pays="Nom du pays",
+    trait="Trait à ajouter au général"
+)
+async def add_trait(interaction: discord.Interaction, pays: str, trait: str):
+    """Permet aux admins d'ajouter un trait à un général d'un pays."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Charger tous les généraux pour trouver ceux du pays
+    generaux_data = load_generaux()
+    pays_lower = pays.lower()
+    
+    # Trouver tous les généraux du pays spécifié
+    generaux_pays = []
+    for user_id, user_data in generaux_data.items():
+        if "generaux" in user_data:
+            for nom_general, general_info in user_data["generaux"].items():
+                if general_info.get("pays", "").lower() == pays_lower:
+                    generaux_pays.append({
+                        "user_id": user_id,
+                        "nom": nom_general,
+                        "stars": general_info.get("stars", 0),
+                        "info": general_info
+                    })
+    
+    if not generaux_pays:
+        embed = discord.Embed(
+            title="❌ Aucun général trouvé",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Créer les choix pour le menu déroulant
+    options = []
+    for i, general in enumerate(generaux_pays[:25]):  # Discord limite à 25 options
+        stars_display = format_stars(general["stars"])
+        options.append(discord.SelectOption(
+            label=f"{general['nom']} ({stars_display})",
+            value=str(i),
+            description=f"Général de {pays}"
+        ))
+    
+    # Créer la vue avec le menu déroulant
+    view = TraitSelectionView(generaux_pays, trait, pays)
+    
+    embed = discord.Embed(
+        title="🎯 Sélection du Général",
+        description=f"Sélectionnez le général de **{pays}** auquel ajouter le trait **{trait}** :",
+        color=EMBED_COLOR
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class TraitSelectionView(discord.ui.View):
+    """Vue pour sélectionner un général et lui ajouter un trait."""
+    
+    def __init__(self, generaux_pays, trait, pays):
+        super().__init__(timeout=300)
+        self.generaux_pays = generaux_pays
+        self.trait = trait
+        self.pays = pays
+        
+        # Créer le menu déroulant
+        options = []
+        for i, general in enumerate(generaux_pays[:25]):
+            stars_display = format_stars(general["stars"])
+            options.append(discord.SelectOption(
+                label=f"{general['nom']} ({stars_display})",
+                value=str(i),
+                description=f"Général de {pays}"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez un général...",
+            options=options
+        )
+        select.callback = self.select_callback
+        self.add_item(select)
+    
+    async def select_callback(self, interaction: discord.Interaction):
+        selected_index = int(interaction.data["values"][0])
+        selected_general = self.generaux_pays[selected_index]
+        
+        # Charger les données actuelles
+        generaux_data = load_generaux()
+        user_id = selected_general["user_id"]
+        nom_general = selected_general["nom"]
+        
+        # Ajouter le trait (selon le type de trait)
+        if "traits_positifs" not in generaux_data[user_id]["generaux"][nom_general]:
+            generaux_data[user_id]["generaux"][nom_general]["traits_positifs"] = []
+        
+        # Ajouter le trait aux traits positifs (peut être modifié selon le type)
+        if self.trait not in generaux_data[user_id]["generaux"][nom_general]["traits_positifs"]:
+            generaux_data[user_id]["generaux"][nom_general]["traits_positifs"].append(self.trait)
+            save_generaux(generaux_data)
+            
+            embed = discord.Embed(
+                title="✅ Trait ajouté",
+                description=f"Le trait **{self.trait}** a été ajouté au général **{nom_general}** de **{self.pays}**.",
+                color=0x00ff88
+            )
+        else:
+            embed = discord.Embed(
+                title="⚠️ Trait déjà présent",
+                description=f"Le général **{nom_general}** possède déjà le trait **{self.trait}**.",
+                color=0xffaa00
+            )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="general_experience", description="[ADMIN] Ajouter de l'expérience à un général")
+@app_commands.describe(
+    pourcentage="Pourcentage d'expérience à ajouter (0-100)",
+    pays="Nom du pays"
+)
+async def add_experience(interaction: discord.Interaction, pourcentage: int, pays: str):
+    """Permet aux admins d'ajouter de l'expérience à un général."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    if pourcentage < 0 or pourcentage > 100:
+        embed = discord.Embed(
+            title="❌ Pourcentage invalide",
+            description="Le pourcentage doit être entre 0 et 100.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Même logique que pour les traits, mais avec ajout d'expérience
+    generaux_data = load_generaux()
+    pays_lower = pays.lower()
+    
+    generaux_pays = []
+    for user_id, user_data in generaux_data.items():
+        if "generaux" in user_data:
+            for nom_general, general_info in user_data["generaux"].items():
+                if general_info.get("pays", "").lower() == pays_lower:
+                    generaux_pays.append({
+                        "user_id": user_id,
+                        "nom": nom_general,
+                        "stars": general_info.get("stars", 0),
+                        "experience": general_info.get("experience", 0)
+                    })
+    
+    if not generaux_pays:
+        embed = discord.Embed(
+            title="❌ Aucun général trouvé",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    view = ExperienceSelectionView(generaux_pays, pourcentage, pays)
+    
+    embed = discord.Embed(
+        title="📈 Ajout d'Expérience",
+        description=f"Sélectionnez le général de **{pays}** auquel ajouter **{pourcentage}%** d'expérience :",
+        color=EMBED_COLOR
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class ExperienceSelectionView(discord.ui.View):
+    """Vue pour sélectionner un général et lui ajouter de l'expérience."""
+    
+    def __init__(self, generaux_pays, pourcentage, pays):
+        super().__init__(timeout=300)
+        self.generaux_pays = generaux_pays
+        self.pourcentage = pourcentage
+        self.pays = pays
+        
+        options = []
+        for i, general in enumerate(generaux_pays[:25]):
+            stars_display = format_stars(general["stars"])
+            options.append(discord.SelectOption(
+                label=f"{general['nom']} ({stars_display})",
+                value=str(i),
+                description=f"XP: {general['experience']}%"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez un général...",
+            options=options
+        )
+        select.callback = self.select_callback
+        self.add_item(select)
+    
+    async def select_callback(self, interaction: discord.Interaction):
+        selected_index = int(interaction.data["values"][0])
+        selected_general = self.generaux_pays[selected_index]
+        
+        generaux_data = load_generaux()
+        user_id = selected_general["user_id"]
+        nom_general = selected_general["nom"]
+        
+        # Ajouter l'expérience
+        current_exp = generaux_data[user_id]["generaux"][nom_general].get("experience", 0)
+        new_exp = min(current_exp + self.pourcentage, 100)
+        generaux_data[user_id]["generaux"][nom_general]["experience"] = new_exp
+        
+        save_generaux(generaux_data)
+        
+        embed = discord.Embed(
+            title="✅ Expérience ajoutée",
+            description=f"**{self.pourcentage}%** d'expérience ajoutée au général **{nom_general}** de **{self.pays}**.\n"
+                       f"Expérience: {current_exp}% → {new_exp}%",
+            color=0x00ff88
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="general_gestion", description="[ADMIN] Gérer les généraux (supprimer/renommer)")
+@app_commands.describe(
+    pays="Nom du pays",
+    action="Action à effectuer"
+)
+@app_commands.choices(action=[
+    discord.app_commands.Choice(name="Supprimer (tuer)", value="kill"),
+    discord.app_commands.Choice(name="Renommer", value="rename")
+])
+async def manage_general(interaction: discord.Interaction, pays: str, action: str):
+    """Permet aux admins de gérer les généraux (supprimer ou renommer)."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    generaux_data = load_generaux()
+    pays_lower = pays.lower()
+    
+    generaux_pays = []
+    for user_id, user_data in generaux_data.items():
+        if "generaux" in user_data:
+            for nom_general, general_info in user_data["generaux"].items():
+                if general_info.get("pays", "").lower() == pays_lower:
+                    generaux_pays.append({
+                        "user_id": user_id,
+                        "nom": nom_general,
+                        "stars": general_info.get("stars", 0),
+                        "type": general_info.get("type", "Inconnu")
+                    })
+    
+    if not generaux_pays:
+        embed = discord.Embed(
+            title="❌ Aucun général trouvé",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    view = ManagementSelectionView(generaux_pays, action, pays)
+    
+    action_text = "supprimer" if action == "kill" else "renommer"
+    embed = discord.Embed(
+        title=f"🔧 Gestion des Généraux - {action_text.capitalize()}",
+        description=f"Sélectionnez le général de **{pays}** à {action_text} :",
+        color=EMBED_COLOR
+    )
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class ManagementSelectionView(discord.ui.View):
+    """Vue pour gérer les généraux (supprimer/renommer)."""
+    
+    def __init__(self, generaux_pays, action, pays):
+        super().__init__(timeout=300)
+        self.generaux_pays = generaux_pays
+        self.action = action
+        self.pays = pays
+        
+        options = []
+        for i, general in enumerate(generaux_pays[:25]):
+            stars_display = format_stars(general["stars"])
+            options.append(discord.SelectOption(
+                label=f"{general['nom']} ({stars_display})",
+                value=str(i),
+                description=f"{general['type']}"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez un général...",
+            options=options
+        )
+        select.callback = self.select_callback
+        self.add_item(select)
+    
+    async def select_callback(self, interaction: discord.Interaction):
+        selected_index = int(interaction.data["values"][0])
+        selected_general = self.generaux_pays[selected_index]
+        
+        if self.action == "kill":
+            # Supprimer le général
+            generaux_data = load_generaux()
+            user_id = selected_general["user_id"]
+            nom_general = selected_general["nom"]
+            
+            del generaux_data[user_id]["generaux"][nom_general]
+            save_generaux(generaux_data)
+            
+            embed = discord.Embed(
+                title="💀 Général supprimé",
+                description=f"Le général **{nom_general}** de **{self.pays}** a été supprimé (tué au combat).",
+                color=0xff4444
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        elif self.action == "rename":
+            # Afficher un modal pour renommer
+            modal = RenameGeneralModal(selected_general, self.pays)
+            await interaction.response.send_modal(modal)
+
+class RenameGeneralModal(discord.ui.Modal):
+    """Modal pour renommer un général."""
+    
+    def __init__(self, general_info, pays):
+        super().__init__(title=f"Renommer le général - {pays}")
+        self.general_info = general_info
+        self.pays = pays
+        
+        self.nouveau_nom = discord.ui.TextInput(
+            label="Nouveau nom du général",
+            placeholder="Entrez le nouveau nom...",
+            default=general_info["nom"],
+            max_length=50,
+            required=True
+        )
+        
+        self.add_item(self.nouveau_nom)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        nouveau_nom = self.nouveau_nom.value
+        ancien_nom = self.general_info["nom"]
+        user_id = self.general_info["user_id"]
+        
+        generaux_data = load_generaux()
+        
+        # Vérifier que le nouveau nom n'existe pas déjà
+        if nouveau_nom in generaux_data[user_id]["generaux"]:
+            embed = discord.Embed(
+                title="❌ Nom déjà utilisé",
+                description=f"Un général nommé **{nouveau_nom}** existe déjà.",
+                color=0xff4444
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Renommer le général
+        general_data = generaux_data[user_id]["generaux"][ancien_nom]
+        generaux_data[user_id]["generaux"][nouveau_nom] = general_data
+        del generaux_data[user_id]["generaux"][ancien_nom]
+        
+        save_generaux(generaux_data)
+        
+        embed = discord.Embed(
+            title="✅ Général renommé",
+            description=f"Le général **{ancien_nom}** de **{self.pays}** a été renommé en **{nouveau_nom}**.",
+            color=0x00ff88
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
