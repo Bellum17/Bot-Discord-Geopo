@@ -415,7 +415,7 @@ def format_unit_range(min_val, max_val, unit_multiplier):
 # Fonction pour charger toutes les données
 def load_all_data():
     """Charge toutes les données nécessaires au démarrage."""
-    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings, developpements_data
+    global balances, log_channel_data, message_log_channel_data, loans, pib_data, pays_log_channel_data, pays_images, mute_log_channel_data, warnings, developpements_data, generaux_data
     
     # Chargement de toutes les données
     balances.update(load_balances())
@@ -427,6 +427,7 @@ def load_all_data():
     pays_images.update(load_pays_images())
     warnings.update(load_warnings())
     developpements_data.update(load_developpements())
+    generaux_data.update(load_generaux())
 ## Fonction de chargement du canal de statut supprimée (obsolète)
 
 def load_pays_images():
@@ -2945,7 +2946,8 @@ def check_duplicate_json_files():
     json_files = [
         "balances.json", "log_channel.json", "message_log_channel.json", 
         "loans.json", "balances_backup.json",
-        "transactions.json", "pays_log_channel.json", "pays_images.json"
+        "transactions.json", "pays_log_channel.json", "pays_images.json",
+        "generaux.json"
     ]
     
     duplicates = []
@@ -7503,6 +7505,13 @@ GENERAUX_FILE = os.path.join(DATA_DIR, "generaux.json")
 def load_generaux():
     """Charge les données des généraux depuis le fichier."""
     if not os.path.exists(GENERAUX_FILE):
+        # Créer le fichier avec un dictionnaire vide si il n'existe pas
+        try:
+            with open(GENERAUX_FILE, "w") as f:
+                json.dump({}, f, indent=2)
+            print(f"[INFO] Fichier {GENERAUX_FILE} créé.")
+        except Exception as e:
+            print(f"[ERROR] Erreur lors de la création de {GENERAUX_FILE}: {e}")
         return {}
     try:
         with open(GENERAUX_FILE, "r") as f:
@@ -7525,6 +7534,40 @@ def format_stars(current, max_stars=5):
     filled = "★" * current
     empty = "☆" * (max_stars - current)
     return filled + empty
+
+def get_pays_roll_count(pays):
+    """Récupère le nombre de rolls effectués pour un pays (définitif, pas quotidien)."""
+    generaux_data = load_generaux()
+    pays_key = f"pays_{pays.lower()}"
+    
+    if pays_key not in generaux_data:
+        generaux_data[pays_key] = {"roll_count": 0}
+        save_generaux(generaux_data)
+    
+    return generaux_data[pays_key].get("roll_count", 0)
+
+def increment_pays_roll_count(pays):
+    """Incrémente le nombre de rolls d'un pays (définitif)."""
+    generaux_data = load_generaux()
+    pays_key = f"pays_{pays.lower()}"
+    
+    if pays_key not in generaux_data:
+        generaux_data[pays_key] = {"roll_count": 0}
+    
+    generaux_data[pays_key]["roll_count"] = generaux_data[pays_key].get("roll_count", 0) + 1
+    save_generaux(generaux_data)
+    return generaux_data[pays_key]["roll_count"]
+
+def reset_pays_roll_count(pays):
+    """Remet à zéro le nombre de rolls d'un pays."""
+    generaux_data = load_generaux()
+    pays_key = f"pays_{pays.lower()}"
+    
+    if pays_key in generaux_data:
+        generaux_data[pays_key]["roll_count"] = 0
+        save_generaux(generaux_data)
+        return True
+    return False
 
 def get_user_roll_count(user_id):
     """Récupère le nombre de rolls effectués par un utilisateur aujourd'hui."""
@@ -7622,9 +7665,18 @@ class GeneralNamingModal(discord.ui.Modal):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
+        # Calculer les étoiles initiales selon les traits
+        initial_stars = 1  # Par défaut 1 étoile
+        
+        # Vérifier les traits spéciaux
+        if "Stratège de génie" in self.general_data["traits_positifs"]:
+            initial_stars = 3
+        elif "Incompétent" in self.general_data["traits_negatifs"]:
+            initial_stars = 0
+        
         # Créer le général avec toutes ses données
         general_info = {
-            "stars": 0,
+            "stars": initial_stars,
             "pays": self.pays,
             "type": self.general_data["type"],
             "domaine": self.general_data["domaine"],
@@ -7652,7 +7704,7 @@ class GeneralNamingModal(discord.ui.Modal):
             value=f"**Type :** {self.general_data['type']}\n"
                   f"**Domaine :** {self.general_data['domaine'].capitalize()}\n"
                   f"**Roll :** {self.general_data['roll_final']}\n"
-                  f"**Étoiles :** {format_stars(0)}",
+                  f"**Étoiles :** {format_stars(initial_stars)}",
             inline=True
         )
         
@@ -7707,14 +7759,13 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Vérifier le nombre de rolls effectués aujourd'hui
-    user_id = interaction.user.id
-    current_rolls = get_user_roll_count(user_id)
+    # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
+    current_rolls = get_pays_roll_count(pays)
     
     if current_rolls >= 3:
         embed = discord.Embed(
             title="❌ Limite de rolls atteinte",
-            description="Vous avez déjà effectué **3 rolls de général** aujourd'hui. Réessayez demain !",
+            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -7881,8 +7932,8 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         "30": "Complexe Universitaire militaire"
     }
     
-    # Incrémenter le compteur de rolls
-    new_roll_count = increment_user_roll_count(user_id)
+    # Incrémenter le compteur de rolls pour le pays
+    new_roll_count = increment_pays_roll_count(pays)
     
     embed.set_footer(
         text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
@@ -7900,7 +7951,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     }
     
     # Créer la vue de confirmation
-    view = GeneralConfirmationView(user_id, pays, general_data)
+    view = GeneralConfirmationView(interaction.user.id, pays, general_data)
     
     # Modifier le titre de l'embed pour indiquer qu'il faut confirmer
     embed.title = "🎲 Général généré - Confirmation requise"
@@ -8728,6 +8779,50 @@ class RenameGeneralModal(discord.ui.Modal):
         )
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# === COMMANDE RESET ROLL ===
+
+@bot.tree.command(name="reset_roll", description="[ADMIN] Réinitialise les slots de roll d'un pays")
+@app_commands.describe(
+    pays="Nom du pays dont réinitialiser les slots de roll"
+)
+async def reset_roll(interaction: discord.Interaction, pays: str):
+    """Permet aux admins de réinitialiser les slots de roll d'un pays."""
+    
+    # Vérifier les permissions admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Récupérer le nombre de rolls actuel
+    current_rolls = get_pays_roll_count(pays)
+    
+    # Réinitialiser les rolls
+    success = reset_pays_roll_count(pays)
+    
+    if success or current_rolls > 0:
+        embed = discord.Embed(
+            title="✅ Slots de roll réinitialisés",
+            description=f"Les slots de roll du pays **{pays}** ont été réinitialisés.\n\n"
+                       f"**Avant :** {current_rolls}/3 rolls utilisés\n"
+                       f"**Après :** 0/3 rolls utilisés\n\n"
+                       f"Le pays peut maintenant effectuer 3 nouveaux rolls de généraux.",
+            color=0x00ff88
+        )
+    else:
+        embed = discord.Embed(
+            title="ℹ️ Aucune action nécessaire",
+            description=f"Le pays **{pays}** n'avait aucun roll enregistré.\n\n"
+                       f"Les slots sont déjà disponibles (0/3 rolls utilisés).",
+            color=EMBED_COLOR
+        )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # === SYSTÈME DE TECHNOLOGIES MILITAIRES ===
 
