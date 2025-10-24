@@ -8912,114 +8912,6 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
 
 # === SYSTÈME D'AMÉLIORATION DES GÉNÉRAUX ===
 
-class GeneralImprovementView(discord.ui.View):
-    """Vue pour l'amélioration des généraux avec système d'étoiles."""
-    
-    def __init__(self, user_id):
-        super().__init__(timeout=None)
-        self.user_id = user_id
-    
-    @discord.ui.button(label="Améliorer un Général", style=discord.ButtonStyle.primary, emoji="⭐")
-    async def improve_general(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Vous ne pouvez pas utiliser cette interaction.", ephemeral=True)
-            return
-            
-        # Afficher le modal pour améliorer un général
-        modal = GeneralImprovementModal()
-        await interaction.response.send_modal(modal)
-
-class GeneralImprovementModal(discord.ui.Modal):
-    """Modal pour l'amélioration d'un général."""
-    
-    def __init__(self):
-        super().__init__(title="Amélioration d'un Général")
-        
-        self.nom_general = discord.ui.TextInput(
-            label="Nom du Général",
-            placeholder="Entrez le nom de votre général...",
-            max_length=50,
-            required=True
-        )
-        
-        self.add_item(self.nom_general)
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        user_id = str(interaction.user.id)
-        nom_general = self.nom_general.value
-        
-        # Charger les données des généraux
-        generaux_data = load_generaux()
-        
-        # Initialiser les données utilisateur si nécessaire
-        if user_id not in generaux_data:
-            generaux_data[user_id] = {"generaux": {}}
-        
-        if "generaux" not in generaux_data[user_id]:
-            generaux_data[user_id]["generaux"] = {}
-        
-        # Vérifier si le général existe
-        if nom_general not in generaux_data[user_id]["generaux"]:
-            # Créer un nouveau général avec 0 étoiles
-            generaux_data[user_id]["generaux"][nom_general] = {"stars": 0}
-        
-        general_data = generaux_data[user_id]["generaux"][nom_general]
-        current_stars = general_data.get("stars", 0)
-        
-        # Vérifier si le général peut encore être amélioré
-        if current_stars >= 5:
-            embed = discord.Embed(
-                title="⭐ Général déjà au maximum",
-                description=f"**{nom_general}** a déjà atteint le maximum de **5 étoiles** !\n\n{format_stars(5)}",
-                color=0xffaa00
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        # Calculer la chance d'amélioration (diminue avec le nombre d'étoiles)
-        base_chance = 70  # 70% de base
-        penalty_per_star = 5  # -5% par étoile existante
-        success_chance = max(10, base_chance - (current_stars * penalty_per_star))  # Minimum 10%
-        
-        # Effectuer le roll d'amélioration
-        roll = random.randint(1, 100)
-        success = roll <= success_chance
-        
-        if success:
-            # Amélioration réussie
-            new_stars = current_stars + 1
-            generaux_data[user_id]["generaux"][nom_general]["stars"] = new_stars
-            save_generaux(generaux_data)
-            
-            embed = discord.Embed(
-                title="✅ Amélioration réussie !",
-                description=f"**{nom_general}** a gagné une étoile !\n\n"
-                           f"**Avant :** {format_stars(current_stars)}\n"
-                           f"**Après :** {format_stars(new_stars)}\n\n"
-                           f"**Roll :** {roll} ≤ {success_chance}% ✅",
-                color=0x00ff88
-            )
-        else:
-            # Amélioration échouée
-            embed = discord.Embed(
-                title="❌ Amélioration échouée",
-                description=f"**{nom_general}** n'a pas gagné d'étoile cette fois.\n\n"
-                           f"**Étoiles actuelles :** {format_stars(current_stars)}\n\n"
-                           f"**Roll :** {roll} > {success_chance}% ❌",
-                color=0xff4444
-            )
-        
-        # Calculer la prochaine chance
-        if current_stars + (1 if success else 0) < 5:
-            next_chance = max(10, base_chance - ((current_stars + (1 if success else 0)) * penalty_per_star))
-            embed.add_field(
-                name="Prochaine tentative",
-                value=f"Chance de succès : **{next_chance}%**",
-                inline=False
-            )
-        
-        await interaction.response.send_message(embed=embed)
-
 @bot.tree.command(name="mes_generaux", description="Affiche vos généraux et leurs niveaux d'étoiles")
 async def mes_generaux(interaction: discord.Interaction):
     """Affiche la liste des généraux de l'utilisateur et permet de les améliorer."""
@@ -9061,14 +8953,13 @@ async def mes_generaux(interaction: discord.Interaction):
     )
     
     embed.add_field(
-        name="ℹ️ Comment améliorer ?",
-        value="Cliquez sur le bouton ci-dessous pour améliorer un de vos généraux !\n"
-              "Plus un général a d'étoiles, plus il est difficile de l'améliorer.",
+        name="ℹ️ Évolution des généraux",
+        value="Les généraux évoluent maintenant par un système de pourcentage de progression.\n"
+              "Contactez le staff pour améliorer vos généraux.",
         inline=False
     )
     
-    view = GeneralImprovementView(interaction.user.id)
-    await interaction.response.send_message(embed=embed, view=view)
+    await interaction.response.send_message(embed=embed)
 
 # === NOUVELLE COMMANDE GÉNÉRAUX ===
 
@@ -9272,9 +9163,9 @@ class TraitSelectionView(discord.ui.View):
 @bot.tree.command(name="general_experience", description="[ADMIN] Ajouter de l'expérience à un général")
 @app_commands.describe(
     pourcentage="Pourcentage d'expérience à ajouter (0-100)",
-    pays="Nom du pays"
+    pays="Rôle du pays dont le général doit recevoir de l'expérience"
 )
-async def add_experience(interaction: discord.Interaction, pourcentage: int, pays: str):
+async def add_experience(interaction: discord.Interaction, pourcentage: int, pays: discord.Role):
     """Permet aux admins d'ajouter de l'expérience à un général."""
     
     # Vérifier les permissions admin
@@ -9296,15 +9187,37 @@ async def add_experience(interaction: discord.Interaction, pourcentage: int, pay
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Même logique que pour les traits, mais avec ajout d'expérience
+    # Vérifier que le rôle est bien un rôle de pays
+    def is_country_role(role):
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
+    
+    if not is_country_role(pays):
+        embed = discord.Embed(
+            title="❌ Rôle invalide",
+            description=f"Le rôle **{pays.name}** n'est pas reconnu comme un rôle de pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Rechercher les généraux du pays
     generaux_data = load_generaux()
-    pays_lower = pays.lower()
+    pays_name = pays.name.lower()
     
     generaux_pays = []
     for user_id, user_data in generaux_data.items():
         if "generaux" in user_data:
             for nom_general, general_info in user_data["generaux"].items():
-                if general_info.get("pays", "").lower() == pays_lower:
+                if general_info.get("pays", "").lower() == pays_name:
                     generaux_pays.append({
                         "user_id": user_id,
                         "nom": nom_general,
@@ -9315,17 +9228,17 @@ async def add_experience(interaction: discord.Interaction, pourcentage: int, pay
     if not generaux_pays:
         embed = discord.Embed(
             title="❌ Aucun général trouvé",
-            description=f"Aucun général n'a été trouvé pour le pays **{pays}**.",
+            description=f"Aucun général n'a été trouvé pour le pays **{pays.name}**.",
             color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    view = ExperienceSelectionView(generaux_pays, pourcentage, pays)
+    view = ExperienceSelectionView(generaux_pays, pourcentage, pays.name)
     
     embed = discord.Embed(
         title="📈 Ajout d'Expérience",
-        description=f"Sélectionnez le général de **{pays}** auquel ajouter **{pourcentage}%** d'expérience :",
+        description=f"Sélectionnez le général de **{pays.name}** auquel ajouter **{pourcentage}%** d'expérience :",
         color=EMBED_COLOR
     )
     
