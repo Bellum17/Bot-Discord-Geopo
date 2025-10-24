@@ -8349,25 +8349,18 @@ class GeneralNamingModal(discord.ui.Modal):
 async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
     
-    # Définir les critères pour les rôles de pays
-    MIN_COUNTRY_ROLE_ID = 1413995459827077190  # ID minimum pour les rôles de pays
-    MAX_COUNTRY_ROLE_ID = 1413993747515052112  # ID maximum pour les rôles de pays
-    
-    # IDs de rôles à exclure (ne sont pas des pays)
-    EXCLUDED_ROLE_IDS = {
-        1413996176956461086,
-        1413995874304004157,
-        1413995735732457473,
-        1413995608922128394,
-        1413995502785138799
-    }
-    
     # Fonction pour vérifier si un rôle est un rôle de pays
     def is_country_role(role):
-        role_id = role.id
-        # Vérifier si l'ID est dans la plage autorisée et n'est pas exclu
-        return (MIN_COUNTRY_ROLE_ID <= role_id <= MAX_COUNTRY_ROLE_ID and 
-                role_id not in EXCLUDED_ROLE_IDS)
+        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        role_id = str(role.id)
+        # Un rôle est considéré comme un pays s'il existe dans le système de balances
+        # ou s'il existe dans pays_images (rôles pays créés)
+        if role_id in balances:
+            return True
+        
+        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
+        pays_images_data = load_pays_images()
+        return role_id in pays_images_data
     
     # Obtenir les rôles de pays de l'utilisateur
     user_country_roles = []
