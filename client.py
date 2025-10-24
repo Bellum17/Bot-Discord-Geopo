@@ -8350,8 +8350,8 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
     
     # Définir les critères pour les rôles de pays
-    MIN_COUNTRY_ROLE_ID = 1413993747515052112  # ID minimum pour les rôles de pays
-    MAX_COUNTRY_ROLE_ID = 1413995459827077190  # ID maximum pour les rôles de pays
+    MIN_COUNTRY_ROLE_ID = 1413995459827077190  # ID minimum pour les rôles de pays
+    MAX_COUNTRY_ROLE_ID = 1413993747515052112  # ID maximum pour les rôles de pays
     
     # IDs de rôles à exclure (ne sont pas des pays)
     EXCLUDED_ROLE_IDS = {
