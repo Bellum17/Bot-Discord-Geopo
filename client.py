@@ -7805,7 +7805,117 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     
     # Listes des traits de personnalité (selon le document officiel)
     traits_positifs_base = [
-        "Personnalité publique", "Courageux", "Inflexible", "Officier de carrière", "Héros de guerre"
+        "Personnalité publique", "Courageux", "Inflexible"
+        # "Héros de guerre" retiré - uniquement attribuable par commande admin
+    ]
+    traits_negatifs_base = [
+        "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
+        "Paranoïaque", "Colérique"
+    ]
+    
+    # Traits de commandement selon le domaine (basés sur le document officiel)
+    traits_commandement = {
+        "terrestre": [
+            "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
+            "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
+            "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
+            "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
+            "Major de promotion"
+        ],
+        "marine": [
+            "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
+            "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
+            "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
+        ],
+        "aerien": [
+            "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
+            "Théoricien du support rapproché", "Poséidon"
+        ]
+    }
+    
+    # Sélection des traits positifs
+    traits_positifs_selectionnes = []
+    if nb_traits_positifs > 0:
+        # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
+        chance_genie = 1
+        if roll_final > 95:
+            chance_genie = 5
+        
+        if random.randint(1, 100) <= chance_genie:
+            traits_positifs_selectionnes.append("Stratège de génie")
+            nb_traits_positifs -= 1
+        
+        # Officier de carrière : 25% de chance
+        if nb_traits_positifs > 0 and random.randint(1, 100) <= 25:
+            traits_positifs_selectionnes.append("Officier de carrière")
+            nb_traits_positifs -= 1
+        
+        # Compléter avec les autres traits positifs
+        if nb_traits_positifs > 0:
+            traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
+            traits_positifs_selectionnes.extend(traits_restants)
+    user_roles = [role.name.lower() for role in interaction.user.roles]
+    pays_lower = pays.lower()
+    
+    if pays_lower not in user_roles:
+        embed = discord.Embed(
+            title="❌ Rôle manquant",
+            description=f"Vous devez avoir le rôle **{pays}** pour créer un général pour ce pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
+    current_rolls = get_pays_roll_count(pays)
+    
+    if current_rolls >= 3:
+        embed = discord.Embed(
+            title="❌ Limite de rolls atteinte",
+            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.\n\nUtilisez `/reset_roll` pour réinitialiser les slots (commande admin).",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    # Conversion du bonus d'école
+    bonus_ecole = int(ecole)
+    
+    # Roll de base (1-100) + bonus d'école, plafonné à 100
+    roll_base = random.randint(1, 100)
+    roll_final = min(roll_base + bonus_ecole, 100)
+    
+    # Détermination du type de général selon le roll final
+    if roll_final <= 19:
+        type_general = "Général médiocre"
+        nb_traits_negatifs = 3
+        nb_traits_positifs = 1
+        nb_specialites = 0
+    elif roll_final <= 39:
+        type_general = "Général peu expérimenté"
+        nb_traits_negatifs = 2
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 59:
+        type_general = "Général expérimenté"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 2
+        nb_specialites = 0
+    elif roll_final <= 95:
+        type_general = "Grand Général"
+        nb_traits_negatifs = 1
+        nb_traits_positifs = 3
+        nb_specialites = 1
+    else:  # 96-100+
+        type_general = "Excellent Général"
+        nb_traits_negatifs = 0
+        nb_traits_positifs = 3
+        nb_specialites = 2
+    
+    # Listes des traits de personnalité (selon le document officiel)
+    traits_positifs_base = [
+        "Personnalité publique", "Courageux", "Inflexible"
+        # "Héros de guerre" retiré - uniquement attribuable par commande admin
     ]
     traits_negatifs_base = [
         "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
@@ -8020,7 +8130,8 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
     # NOUVEAUX TRAITS (selon le document officiel)
     # Traits de personnalité
     traits_positifs_base = [
-        "Personnalité publique", "Courageux", "Inflexible", "Officier de carrière", "Héros de guerre"
+        "Personnalité publique", "Courageux", "Inflexible"
+        # "Héros de guerre" retiré - uniquement attribuable par commande admin
     ]
     traits_negatifs_base = [
         "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
@@ -8057,6 +8168,11 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
         
         if random.randint(1, 100) <= chance_genie:
             traits_positifs_selectionnes.append("Stratège de génie")
+            nb_traits_positifs -= 1
+        
+        # Officier de carrière : 25% de chance
+        if nb_traits_positifs > 0 and random.randint(1, 100) <= 25:
+            traits_positifs_selectionnes.append("Officier de carrière")
             nb_traits_positifs -= 1
         
         # Compléter avec les autres traits positifs
