@@ -360,9 +360,6 @@ async def on_guild_join(guild: discord.Guild):
 # Variables globales pour les données
 balances = {}
 log_channel_data = {}
-# Variables globales pour les données
-balances = {}
-log_channel_data = {}
 message_log_channel_data = {}
 loans = []
 pib_data = {}
@@ -371,6 +368,7 @@ pays_images = {}
 mute_log_channel_data = {}
 warnings = {}
 developpements_data = {}
+generaux_data = {}
 bonus_xp_active = {}  # {guild_id: end_time}
 
 # Chargement des balances et autres données après la définition de la fonction
