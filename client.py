@@ -2263,6 +2263,19 @@ async def reset_economie(interaction: discord.Interaction):
 @bot.tree.command(name="balance", description="Affiche l'argent de votre pays ou d'un autre rôle (optionnel)")
 @app_commands.describe(role="Le rôle (pays) dont vous voulez voir l'argent (optionnel)")
 async def balance(interaction: discord.Interaction, role: discord.Role = None):
+    await interaction.response.defer(ephemeral=True)
+    
+    # Restaurer les données depuis PostgreSQL pour avoir les valeurs les plus récentes
+    print("[DEBUG] Restauration des données depuis PostgreSQL...")
+    restore_all_json_from_postgres()
+    
+    # Recharger les données après restauration
+    global balances, pib_data
+    balances.clear()
+    balances.update(load_balances())
+    pib_data.clear()
+    pib_data.update(load_pib())
+    
     # Si aucun rôle n'est précisé, on cherche le premier rôle du membre qui est dans le système balances
     if role is None:
         # D'abord, essayer de trouver un rôle déjà dans le système balances
@@ -2283,25 +2296,23 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
                     print(f"[DEBUG] Rôle pays {role.name} ({role_id}) initialisé avec 0 dans balances")
         
         if not user_roles:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "> Vous n'avez aucun rôle pays. Précisez un rôle pour voir sa balance.", ephemeral=True)
             return
         
         role = user_roles[0]
     # Vérifie que l'utilisateur a bien ce rôle ou est admin
     if role not in interaction.user.roles and not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "> Vous n'avez pas ce rôle, vous ne pouvez pas voir la balance de ce pays.", ephemeral=True)
         return
     role_id = str(role.id)
     
-    # Recharger les balances depuis le fichier pour s'assurer d'avoir les données les plus récentes
-    current_balances = load_balances()
-    montant = current_balances.get(role_id, 0)
+    # Utiliser les données fraîchement restaurées depuis PostgreSQL
+    montant = balances.get(role_id, 0)
     print(f"[DEBUG] Balance pour role_id {role_id}: {montant}")
     
-    # Récupérer le PIB depuis pib.json
-    pib_data = load_pib()
+    # Récupérer le PIB depuis les données restaurées
     pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
     
     # Vérification de type pour éviter les erreurs
@@ -2399,7 +2410,7 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         color=0xebe3bd
     )
     embed.set_image(url="https://cdn.discordapp.com/attachments/1393317478133661746/1430388154057232455/balance.png?ex=68f99847&is=68f846c7&hm=caf730cf84810b8340517e384f07ee782ae2e619c82fd831c321dff36eeea061&")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 # Commande pour ajouter de l'argent à un rôle
 @bot.tree.command(name="add_money", description="Ajoute de l'argent au budget ou PIB d'un rôle (admin seulement)")
