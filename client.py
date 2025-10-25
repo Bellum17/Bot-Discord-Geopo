@@ -72,6 +72,11 @@ SANCTION_COLOR = 0x162e50  # Couleur pour les sanctions (mute, ban, warn)
 IMAGE_URL = "https://zupimages.net/up/21/03/vl8j.png"
 ADMIN_IDS = [300740726257139712]  # IDs des administrateurs du bot
 COUNTRY_MANAGER_ROLE_ID = 1418245630639476868  # Rôle autorisé à créer/supprimer des pays
+EXCLUDED_ROLE_IDS = [1424143590246056127]  # Rôles exclus du système économique
+
+def is_valid_country_role(role_id):
+    """Vérifie si un rôle peut être utilisé dans le système économique."""
+    return int(role_id) not in EXCLUDED_ROLE_IDS
 
 def has_country_management_permissions(interaction: discord.Interaction):
     """Vérifie si l'utilisateur a les permissions pour gérer les pays."""
@@ -493,10 +498,14 @@ def load_balances():
 
 def save_balances(balances_data):
     """Sauvegarde les balances dans le fichier principal."""
+    # Filtrer les rôles exclus avant la sauvegarde
+    filtered_balances = {role_id: balance for role_id, balance in balances_data.items() 
+                        if is_valid_country_role(role_id)}
+    
     try:
         with open(BALANCE_FILE, "w") as f:
-            json.dump(balances_data, f)
-        print(f"[DEBUG] Balances sauvegardées dans {BALANCE_FILE}")
+            json.dump(filtered_balances, f)
+        print(f"[DEBUG] Balances sauvegardées dans {BALANCE_FILE} ({len(filtered_balances)} entrées)")
     except Exception as e:
         print(f"Erreur lors de la sauvegarde des balances: {e}")
 
@@ -590,15 +599,19 @@ def load_pib():
 def save_pib(pib_data):
     """Sauvegarde les données du PIB et synchronise avec PostgreSQL."""
     try:
+        # Filtrer les rôles exclus avant la sauvegarde
+        filtered_pib = {role_id: pib for role_id, pib in pib_data.items() 
+                       if is_valid_country_role(role_id)}
+        
         # Si le dictionnaire est vide, supprimer le fichier
-        if not pib_data:
+        if not filtered_pib:
             if os.path.exists(PIB_FILE):
                 os.remove(PIB_FILE)
                 print("Fichier pib.json supprimé car aucun pays n'a de PIB.")
         else:
             # Créer le fichier seulement s'il y a des données
             with open(PIB_FILE, "w") as f:
-                json.dump(pib_data, f, indent=2)
+                json.dump(filtered_pib, f, indent=2)
         save_all_json_to_postgres()
     except Exception as e:
         print(f"Erreur lors de la sauvegarde du PIB: {e}")
@@ -2255,12 +2268,12 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
     # Si aucun rôle n'est précisé, on cherche le premier rôle du membre qui est dans le système balances
     if role is None:
         # D'abord, essayer de trouver un rôle déjà dans le système balances
-        user_roles = [r for r in interaction.user.roles if str(r.id) in current_balances]
+        user_roles = [r for r in interaction.user.roles if str(r.id) in current_balances and is_valid_country_role(str(r.id))]
         
         # Si aucun rôle n'est trouvé, chercher dans pays_images (rôles pays créés)
         if not user_roles:
             pays_images_data = load_pays_images()
-            user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
+            user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data and is_valid_country_role(str(r.id))]
         
         if not user_roles:
             await interaction.followup.send(
