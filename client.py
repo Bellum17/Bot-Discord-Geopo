@@ -2295,24 +2295,13 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         return
     role_id = str(role.id)
     
-    # Initialiser le rôle dans balances s'il n'existe pas
-    if role_id not in balances:
-        balances[role_id] = 0
-        save_balances(balances)
-        print(f"[DEBUG] Rôle {role.name} ({role_id}) initialisé avec 0 dans balances")
-    
-    montant = balances.get(role_id, 0)
+    # Recharger les balances depuis le fichier pour s'assurer d'avoir les données les plus récentes
+    current_balances = load_balances()
+    montant = current_balances.get(role_id, 0)
     print(f"[DEBUG] Balance pour role_id {role_id}: {montant}")
     
     # Récupérer le PIB depuis pib.json
     pib_data = load_pib()
-    
-    # Initialiser le PIB s'il n'existe pas
-    if role_id not in pib_data:
-        pib_data[role_id] = 0
-        save_pib(pib_data)
-        print(f"[DEBUG] PIB pour rôle {role.name} ({role_id}) initialisé avec 0")
-    
     pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
     
     # Vérification de type pour éviter les erreurs
