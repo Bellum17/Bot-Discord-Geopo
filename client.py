@@ -2153,7 +2153,7 @@ async def payer(interaction: discord.Interaction, montant: int, cible: typing.Op
             description=f"> {format_number(montant)} {MONNAIE_EMOJI} payés de {pays_role.mention} à {cible.mention}.{INVISIBLE_CHAR}",
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
     else:
         # Paiement au bot : l'argent est détruit, on ne save pas balances
         balances[pays_id] -= montant
@@ -2165,7 +2165,7 @@ async def payer(interaction: discord.Interaction, montant: int, cible: typing.Op
             description=f"> {format_number(montant)} {MONNAIE_EMOJI} ont été retirés de la circulation depuis {pays_role.mention}.{INVISIBLE_CHAR}",
             color=discord.Color.red()
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
 # Commande pour reset l'économie
 @bot.tree.command(name="reset_economie", description="Réinitialise toute l'économie et supprime l'argent en circulation (admin seulement)")
@@ -4629,9 +4629,9 @@ async def calendrier(interaction: discord.Interaction, annee: int):
         
         embed = discord.Embed(
             title=f"{CALENDRIER_EMOJI} Calendrier RP - {mois_nom} {annee}",
-            description=f"**{mois_nom} {annee} - 1ère quinzaine**\n\n"
+            description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - 1/2\n\n"
                        f"Le calendrier RP a commencé !\n"
-                       f"Nous sommes maintenant en **{mois_nom} {annee}**.",
+                       f"Nous sommes maintenant en {mois_nom} {annee}.",
             color=CALENDRIER_COLOR
         )
         
@@ -5125,11 +5125,9 @@ async def calendrier_update_task():
     channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
     if channel:
         embed = discord.Embed(
-            description=(
-                "\u2800\n"
-                f"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀{CALENDRIER_EMOJI} **{mois} {calendrier_data['annee']} ({jour_str})**\n"
-                "\u2800"
-            ),
+            description=f"{CALENDRIER_EMOJI} {mois} {calendrier_data['annee']} - {jour_str}\n\n"
+                       f"Le calendrier RP continue !\n"
+                       f"Nous sommes maintenant en {mois} {calendrier_data['annee']}.",
             color=CALENDRIER_COLOR
         )
         embed.set_image(url=CALENDRIER_IMAGE_URL)
@@ -8435,6 +8433,7 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # Créer une instance de la vue et exécuter la génération directement
     country_view = CountrySelectionView(interaction.user.id, user_country_roles, ecole, domaine)
     await country_view.execute_roll_general(interaction, pays)
+    return  # Arrêter ici pour éviter la duplication
     
     # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
     current_rolls = get_pays_roll_count(pays)
@@ -8447,309 +8446,6 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
-    
-    # Conversion du bonus d'école
-    bonus_ecole = int(ecole)
-    
-    # Roll de base (1-100) + bonus d'école, plafonné à 100
-    roll_base = random.randint(1, 100)
-    roll_final = min(roll_base + bonus_ecole, 100)
-    
-    # Détermination du type de général selon le roll final
-    if roll_final <= 19:
-        type_general = "Général médiocre"
-        nb_traits_negatifs = 3
-        nb_traits_positifs = 1
-        nb_specialites = 0
-    elif roll_final <= 39:
-        type_general = "Général peu expérimenté"
-        nb_traits_negatifs = 2
-        nb_traits_positifs = 2
-        nb_specialites = 0
-    elif roll_final <= 59:
-        type_general = "Général expérimenté"
-        nb_traits_negatifs = 1
-        nb_traits_positifs = 2
-        nb_specialites = 0
-    elif roll_final <= 95:
-        type_general = "Grand Général"
-        nb_traits_negatifs = 1
-        nb_traits_positifs = 3
-        nb_specialites = 1
-    else:  # 96-100+
-        type_general = "Excellent Général"
-        nb_traits_negatifs = 0
-        nb_traits_positifs = 3
-        nb_specialites = 2
-    
-    # Listes des traits de personnalité (selon le document officiel)
-    traits_positifs_base = [
-        "Personnalité publique", "Courageux", "Inflexible"
-        # "Héros de guerre" retiré - uniquement attribuable par commande admin
-    ]
-    traits_negatifs_base = [
-        "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
-        "Paranoïaque", "Colérique"
-    ]
-    
-    # Traits de commandement selon le domaine (basés sur le document officiel)
-    traits_commandement = {
-        "terrestre": [
-            "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
-            "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
-            "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
-            "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
-            "Major de promotion"
-        ],
-        "marine": [
-            "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
-            "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
-            "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
-        ],
-        "aerien": [
-            "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
-            "Théoricien du support rapproché", "Poséidon"
-        ]
-    }
-    
-    # Sélection des traits positifs
-    traits_positifs_selectionnes = []
-    if nb_traits_positifs > 0:
-        # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
-        chance_genie = 1
-        if roll_final > 95:
-            chance_genie = 5
-        
-        if random.randint(1, 100) <= chance_genie:
-            traits_positifs_selectionnes.append("Stratège de génie")
-            nb_traits_positifs -= 1
-        
-        # Officier de carrière : 25% de chance
-        if nb_traits_positifs > 0 and random.randint(1, 100) <= 25:
-            traits_positifs_selectionnes.append("Officier de carrière")
-            nb_traits_positifs -= 1
-        
-        # Compléter avec les autres traits positifs
-        if nb_traits_positifs > 0:
-            traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
-            traits_positifs_selectionnes.extend(traits_restants)
-    user_roles = [role.name.lower() for role in interaction.user.roles]
-    pays_lower = pays.lower()
-    
-    if pays_lower not in user_roles:
-        embed = discord.Embed(
-            title="❌ Rôle manquant",
-            description=f"Vous devez avoir le rôle **{pays}** pour créer un général pour ce pays.",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Vérifier le nombre de rolls effectués pour ce pays (limite définitive)
-    current_rolls = get_pays_roll_count(pays)
-    
-    if current_rolls >= 3:
-        embed = discord.Embed(
-            title="❌ Limite de rolls atteinte",
-            description=f"Le pays **{pays}** a déjà effectué ses **3 rolls de général** autorisés.",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Conversion du bonus d'école
-    bonus_ecole = int(ecole)
-    
-    # Roll de base (1-100) + bonus d'école, plafonné à 100
-    roll_base = random.randint(1, 100)
-    roll_final = min(roll_base + bonus_ecole, 100)
-    
-    # Détermination du type de général selon le roll final
-    if roll_final <= 19:
-        type_general = "Général médiocre"
-        nb_traits_negatifs = 3
-        nb_traits_positifs = 1
-        nb_specialites = 0
-    elif roll_final <= 39:
-        type_general = "Général peu expérimenté"
-        nb_traits_negatifs = 2
-        nb_traits_positifs = 2
-        nb_specialites = 0
-    elif roll_final <= 59:
-        type_general = "Général expérimenté"
-        nb_traits_negatifs = 1
-        nb_traits_positifs = 2
-        nb_specialites = 0
-    elif roll_final <= 95:
-        type_general = "Grand Général"
-        nb_traits_negatifs = 1
-        nb_traits_positifs = 3
-        nb_specialites = 1
-    else:  # 96-100+
-        type_general = "Excellent Général"
-        nb_traits_negatifs = 0
-        nb_traits_positifs = 3
-        nb_specialites = 2
-    
-    # Listes des traits de personnalité (selon le document officiel)
-    traits_positifs_base = [
-        "Personnalité publique", "Courageux", "Inflexible"
-        # "Héros de guerre" retiré - uniquement attribuable par commande admin
-    ]
-    traits_negatifs_base = [
-        "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
-        "Paranoïaque", "Colérique"
-    ]
-    
-    # Traits de commandement selon le domaine (basés sur le document officiel)
-    traits_commandement = {
-        "terrestre": [
-            "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
-            "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
-            "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
-            "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
-            "Major de promotion"
-        ],
-        "marine": [
-            "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
-            "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
-            "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
-        ],
-        "aerien": [
-            "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
-            "Théoricien du support rapproché", "Poséidon"
-        ]
-    }
-    
-    # Sélection des traits positifs
-    traits_positifs_selectionnes = []
-    if nb_traits_positifs > 0:
-        # Stratège de génie : 1% de chance de base + 5% supplémentaires si roll > 95
-        chance_genie = 1
-        if roll_final > 95:
-            chance_genie = 5
-        
-        if random.randint(1, 100) <= chance_genie:
-            traits_positifs_selectionnes.append("Stratège de génie")
-            nb_traits_positifs -= 1
-        
-        # Compléter avec les autres traits positifs
-        if nb_traits_positifs > 0:
-            traits_restants = random.sample(traits_positifs_base, min(nb_traits_positifs, len(traits_positifs_base)))
-            traits_positifs_selectionnes.extend(traits_restants)
-    
-    # Sélection des traits négatifs
-    traits_negatifs_selectionnes = []
-    if nb_traits_negatifs > 0:
-        # Incompétent : 1% de chance de base + 5% supplémentaires si roll < 16, mais seulement si Stratège de génie n'est pas déjà présent
-        if "Stratège de génie" not in traits_positifs_selectionnes:
-            chance_incompetent = 1
-            if roll_final < 16:
-                chance_incompetent = 5
-            
-            if random.randint(1, 100) <= chance_incompetent:
-                traits_negatifs_selectionnes.append("Incompétent")
-                nb_traits_negatifs -= 1
-        
-        # Compléter avec les autres traits négatifs
-        if nb_traits_negatifs > 0:
-            # Créer une liste des traits négatifs disponibles
-            traits_negatifs_disponibles = traits_negatifs_base.copy()
-            
-            # Vérifier les conflits : si "Courageux" est dans les traits positifs, retirer "Lâche"
-            if "Courageux" in traits_positifs_selectionnes and "Lâche" in traits_negatifs_disponibles:
-                traits_negatifs_disponibles.remove("Lâche")
-            
-            # Vérifier les conflits : si "Stratège de génie" est dans les traits positifs, retirer "Incompétent"
-            if "Stratège de génie" in traits_positifs_selectionnes and "Incompétent" in traits_negatifs_disponibles:
-                traits_negatifs_disponibles.remove("Incompétent")
-            
-            # Sélectionner les traits négatifs sans conflit
-            traits_restants = random.sample(traits_negatifs_disponibles, min(nb_traits_negatifs, len(traits_negatifs_disponibles)))
-            traits_negatifs_selectionnes.extend(traits_restants)
-    
-    # Sélection des traits de commandement (spécialisations)
-    traits_commandement_selectionnes = []
-    if nb_specialites > 0 and domaine in traits_commandement:
-        traits_commandement_selectionnes = random.sample(
-            traits_commandement[domaine], 
-            min(nb_specialites, len(traits_commandement[domaine]))
-        )
-    
-    # Construction de l'embed de résultat
-    embed = discord.Embed(
-        title="🎲 Génération du Général",
-        color=EMBED_COLOR
-    )
-    
-    # Formatage du résultat
-    result_text = f"> − **Résultat du Roll :** {roll_final}\n"
-    result_text += f"> − **Type de Général tiré :** {type_general}\n"
-    
-    # Traits positifs
-    result_text += "> − **Traits positifs :**\n"
-    if traits_positifs_selectionnes:
-        result_text += f"> - {', '.join(traits_positifs_selectionnes)}\n"
-    else:
-        result_text += "> - Aucun\n"
-    
-    # Traits négatifs
-    result_text += "> − **Traits négatifs :**\n"
-    if traits_negatifs_selectionnes:
-        result_text += f"> - {', '.join(traits_negatifs_selectionnes)}\n"
-    else:
-        result_text += "> - Aucun\n"
-    
-    # Traits de commandement
-    result_text += "> − **Traits de commandement :**\n"
-    if traits_commandement_selectionnes:
-        result_text += f"> - {', '.join(traits_commandement_selectionnes)}\n"
-    else:
-        result_text += "> - Aucun trait de commandement\n"
-    
-    embed.description = result_text
-    embed.set_image(url=IMAGE_URL)
-    
-    # Informations supplémentaires en footer
-    ecole_names = {
-        "0": "Petite école",
-        "5": "École militaire moyenne", 
-        "10": "Grande École militaire",
-        "15": "Académie militaire",
-        "30": "Complexe Universitaire militaire"
-    }
-    
-    # Incrémenter le compteur de rolls pour le pays
-    new_roll_count = increment_pays_roll_count(pays)
-    
-    embed.set_footer(
-        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
-    )
-    
-    # Préparer les données du général pour la confirmation
-    general_data = {
-        "type": type_general,
-        "domaine": domaine,
-        "ecole": ecole_names[ecole],
-        "roll_final": roll_final,
-        "traits_positifs": traits_positifs_selectionnes,
-        "traits_negatifs": traits_negatifs_selectionnes,
-        "traits_commandement": traits_commandement_selectionnes
-    }
-    
-    # Créer la vue de confirmation
-    view = GeneralConfirmationView(interaction.user.id, pays, general_data)
-    
-    # Modifier le titre de l'embed pour indiquer qu'il faut confirmer
-    embed.title = "🎲 Général généré - Confirmation requise"
-    embed.add_field(
-        name="⚠️ Action requise",
-        value="Cliquez sur le bouton ci-dessous pour confirmer et nommer votre général.",
-        inline=False
-    )
-    
-    await interaction.response.send_message(embed=embed, view=view)
-
 # === COMMANDE DE TEST POUR LES GÉNÉRAUX ===
 
 @bot.tree.command(name="roll_general_test", description="Version de test pour générer des généraux (sans limite de rolls)")
