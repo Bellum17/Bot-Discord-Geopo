@@ -4913,6 +4913,247 @@ async def reset_calendrier_cmd(interaction: discord.Interaction):
         + (" Sauvegarde PostgreSQL nettoyée." if remote_deleted else ""),
         ephemeral=True
     )
+
+@bot.tree.command(name="pass_mois", description="📅 Fait avancer le calendrier RP jusqu'au mois suivant")
+@app_commands.checks.has_permissions(administrator=True)
+async def pass_mois_cmd(interaction: discord.Interaction):
+    """Fait avancer le calendrier RP jusqu'au mois suivant en respectant la logique d'alternance."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Vérifier qu'un calendrier est actif
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        await interaction.followup.send(
+            "❌ Aucun calendrier RP n'est actuellement actif.\n"
+            "Utilisez `/calendrier` pour en lancer un.",
+            ephemeral=True
+        )
+        return
+    
+    # Vérifier que le calendrier n'est pas terminé
+    if calendrier_data["mois_index"] >= len(CALENDRIER_MONTHS):
+        await interaction.followup.send(
+            "❌ Le calendrier RP est déjà terminé.\n"
+            "Utilisez `/calendrier` pour lancer une nouvelle année.",
+            ephemeral=True
+        )
+        return
+    
+    # État actuel
+    mois_actuel = calendrier_data["mois_index"]
+    jour_actuel = calendrier_data["jour_index"]
+    jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
+    annee = calendrier_data["annee"]
+    
+    # Simuler l'avancement jusqu'au prochain mois
+    sim_mois = mois_actuel
+    sim_jour = jour_actuel
+    sim_jours_irl = jours_irl_actuel
+    jours_simules = 0
+    
+    # Continuer jusqu'à atteindre le prochain mois
+    while sim_mois == mois_actuel and sim_mois < len(CALENDRIER_MONTHS):
+        # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
+        if sim_mois % 2 == 0:  # Mois pairs : 2 jours IRL
+            jours_requis = 2
+        else:  # Mois impairs : 1 jour IRL
+            jours_requis = 1
+        
+        # Incrémenter le compteur de jours IRL
+        sim_jours_irl += 1
+        jours_simules += 1
+        
+        # Avancer le jour uniquement si on a atteint le nombre de jours requis
+        if sim_jours_irl >= jours_requis:
+            if sim_jour == 0:
+                sim_jour = 1  # 1/2 → 2/2
+            else:
+                sim_jour = 0  # 2/2 → 1/2 du mois suivant
+                sim_mois += 1
+            
+            # Reset le compteur pour le prochain cycle
+            sim_jours_irl = 0
+    
+    # Vérifier qu'on n'a pas dépassé la fin du calendrier
+    if sim_mois >= len(CALENDRIER_MONTHS):
+        await interaction.followup.send(
+            f"❌ Impossible d'avancer au mois suivant : le calendrier se terminerait.\n"
+            f"Mois actuel : **{CALENDRIER_MONTHS[mois_actuel]} {annee}**\n"
+            f"Il s'agit du dernier mois de l'année RP.",
+            ephemeral=True
+        )
+        return
+    
+    # Créer l'embed de confirmation
+    embed_confirm = discord.Embed(
+        title="📅 Confirmation d'Avancement",
+        color=0xff6600
+    )
+    
+    mois_actuel_nom = CALENDRIER_MONTHS[mois_actuel]
+    nouveau_mois_nom = CALENDRIER_MONTHS[sim_mois]
+    jour_actuel_str = "1/2" if jour_actuel == 0 else "2/2"
+    nouveau_jour_str = "1/2" if sim_jour == 0 else "2/2"
+    
+    description = f"**Calendrier RP actuel :**\n"
+    description += f"📅 {mois_actuel_nom} {annee} - {jour_actuel_str}\n"
+    description += f"🕐 Jours IRL actuels : {jours_irl_actuel}\n\n"
+    description += f"**Après avancement :**\n"
+    description += f"📅 {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n"
+    description += f"🕐 Jours IRL simulés : {jours_simules}\n\n"
+    description += f"⚡ Cette action va faire avancer le calendrier jour par jour jusqu'au mois suivant.\n"
+    description += f"🔄 La logique d'alternance 2j/1j sera respectée.\n"
+    description += f"🔬 **Tous les développements expirés seront finalisés.**\n\n"
+    description += f"Confirmez-vous cet avancement ?"
+    
+    embed_confirm.description = description
+    
+    # Créer les boutons de confirmation
+    view = discord.ui.View(timeout=60)
+    
+    # Bouton Confirmer
+    async def confirmer_avancement(button_interaction):
+        await button_interaction.response.defer()
+        
+        try:
+            # Recharger les données pour être sûr
+            calendrier_data_fresh = load_calendrier()
+            if not calendrier_data_fresh:
+                await button_interaction.followup.send(
+                    "❌ Le calendrier a été supprimé entre temps.",
+                    ephemeral=True
+                )
+                return
+            
+            # Re-simuler l'avancement pour obtenir l'état final
+            temp_mois = calendrier_data_fresh["mois_index"]
+            temp_jour = calendrier_data_fresh["jour_index"]
+            temp_jours_irl = calendrier_data_fresh.get("jours_irl_actuel", 0)
+            mois_initial = temp_mois
+            avancements = 0
+            
+            # Simuler pas à pas jusqu'au prochain mois
+            channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+            
+            while temp_mois == mois_initial and temp_mois < len(CALENDRIER_MONTHS):
+                # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
+                if temp_mois % 2 == 0:  # Mois pairs : 2 jours IRL
+                    jours_requis = 2
+                else:  # Mois impairs : 1 jour IRL
+                    jours_requis = 1
+                
+                # Incrémenter le compteur de jours IRL
+                temp_jours_irl += 1
+                
+                # Avancer le jour uniquement si on a atteint le nombre de jours requis
+                if temp_jours_irl >= jours_requis:
+                    if temp_jour == 0:
+                        temp_jour = 1  # 1/2 → 2/2
+                        avancements += 1
+                    else:
+                        temp_jour = 0  # 2/2 → 1/2 du mois suivant
+                        temp_mois += 1
+                        avancements += 1
+                    
+                    # Reset le compteur pour le prochain cycle
+                    temp_jours_irl = 0
+                    
+                    # Poster un message pour chaque avancement significatif
+                    if channel and temp_mois <= len(CALENDRIER_MONTHS):
+                        if temp_mois < len(CALENDRIER_MONTHS):
+                            mois_nom = CALENDRIER_MONTHS[temp_mois]
+                            jour_str = "1/2" if temp_jour == 0 else "2/2"
+                            
+                            embed = discord.Embed(
+                                description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - {jour_str}\n\n"
+                                           f"⚡ **Avancement administratif du calendrier !**\n"
+                                           f"Le calendrier a été avancé manuellement pas à pas.",
+                                color=CALENDRIER_COLOR
+                            )
+                            embed.set_image(url=CALENDRIER_IMAGE_URL)
+                            
+                            try:
+                                message = await channel.send(embed=embed)
+                                calendrier_data_fresh.setdefault("messages", [])
+                                calendrier_data_fresh["messages"].append(str(message.id))
+                            except Exception as e:
+                                print(f"❌ Erreur lors de l'envoi du message calendrier: {e}")
+            
+            # Mettre à jour le calendrier avec l'état final
+            now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+            calendrier_data_fresh["mois_index"] = temp_mois
+            calendrier_data_fresh["jour_index"] = temp_jour
+            calendrier_data_fresh["jours_irl_actuel"] = temp_jours_irl
+            calendrier_data_fresh["last_update"] = now.isoformat()
+            
+            # Sauvegarder
+            save_calendrier(calendrier_data_fresh)
+            
+            # Vérifier et terminer automatiquement les développements dans tous les serveurs
+            total_completed = 0
+            for guild in bot.guilds:
+                guild_id = str(guild.id)
+                developments_completed = check_and_complete_developments(guild_id)
+                total_completed += developments_completed
+                if developments_completed > 0:
+                    print(f"📅 Avancement manuel: {developments_completed} développements terminés dans {guild.name}")
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            # Embed de succès
+            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data['mois']]
+            nouveau_jour_str = f"{calendrier_data['jour']}/{calendrier_data['alternance']}"
+            
+            success_embed = discord.Embed(
+                title="✅ Calendrier Avancé",
+                description=f"**Ancien état :** {mois_actuel_nom} {annee} - {jour_actuel_str}\n"
+                           f"**Nouvel état :** {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n\n"
+                           f"📱 Messages postés : {avancements}\n"
+                           f"🔬 Développements finalisés : {total_completed}\n"
+                           f"💾 Sauvegarde PostgreSQL : ✅ Effectuée",
+                color=0x00ff00
+            )
+            
+            await button_interaction.followup.send(embed=success_embed, ephemeral=True)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Erreur",
+                description=f"Une erreur est survenue lors de l'avancement :\n```{str(e)}```",
+                color=0xff0000
+            )
+            await button_interaction.followup.send(embed=error_embed, ephemeral=True)
+    
+    # Bouton Annuler
+    async def annuler_avancement(button_interaction):
+        await button_interaction.response.defer()
+        cancel_embed = discord.Embed(
+            title="❌ Avancement Annulé",
+            description="L'avancement du calendrier a été annulé.",
+            color=0xffa500
+        )
+        await button_interaction.followup.send(embed=cancel_embed, ephemeral=True)
+    
+    confirm_button = discord.ui.Button(
+        label="Avancer d'un mois",
+        style=discord.ButtonStyle.primary,
+        emoji="⚡"
+    )
+    confirm_button.callback = confirmer_avancement
+    
+    cancel_button = discord.ui.Button(
+        label="Annuler",
+        style=discord.ButtonStyle.secondary,
+        emoji="❌"
+    )
+    cancel_button.callback = annuler_avancement
+    
+    view.add_item(confirm_button)
+    view.add_item(cancel_button)
+    
+    await interaction.followup.send(embed=embed_confirm, view=view, ephemeral=True)
+
 async def generate_help_banner(
     sections: typing.List[typing.Tuple[str, typing.List[typing.Tuple[str, str]]]]
 ) -> typing.Optional[io.BytesIO]:
