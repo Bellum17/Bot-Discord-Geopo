@@ -5125,6 +5125,92 @@ async def pass_mois_cmd(interaction: discord.Interaction):
             )
             await button_interaction.followup.send(embed=error_embed, ephemeral=True)
     
+    # Bouton pour avancer d'un seul jour IRL
+    async def avancer_un_jour(button_interaction):
+        await button_interaction.response.defer()
+        
+        try:
+            # Recharger les données pour être sûr
+            calendrier_data_fresh = load_calendrier()
+            temp_mois = calendrier_data_fresh['mois']
+            temp_jour = calendrier_data_fresh['jour']
+            temp_jours_irl = calendrier_data_fresh['jours_irl']
+            annee = calendrier_data_fresh['annee']
+            
+            # Avancer d'un seul jour IRL
+            temp_jours_irl += 1
+            
+            # Vérifier si c'est le moment d'avancer le jour RP
+            alternance = calendrier_data_fresh['alternance']
+            if temp_jours_irl >= alternance:
+                # Avancer d'un jour RP
+                if temp_jour == 0:
+                    temp_jour = 1  # 1/2 → 2/2
+                else:
+                    temp_jour = 0  # 2/2 → 1/2 du mois suivant
+                    temp_mois += 1
+                
+                # Reset le compteur pour le prochain cycle
+                temp_jours_irl = 0
+            
+            # Sauvegarder les nouvelles données
+            calendrier_data_fresh['mois'] = temp_mois
+            calendrier_data_fresh['jour'] = temp_jour
+            calendrier_data_fresh['jours_irl'] = temp_jours_irl
+            save_calendrier(calendrier_data_fresh)
+            
+            # Poster un message si on a changé de jour RP
+            if temp_jours_irl == 0:  # On vient de changer de jour RP
+                channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+                if channel and temp_mois < len(CALENDRIER_MONTHS):
+                    mois_nom = CALENDRIER_MONTHS[temp_mois]
+                    jour_str = "1/2" if temp_jour == 0 else "2/2"
+                    
+                    embed = discord.Embed(
+                        description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - {jour_str}\n\n"
+                                   f"⏱️ **Avancement d'un jour IRL !**\n"
+                                   f"Le calendrier a été avancé manuellement.",
+                        color=CALENDRIER_COLOR
+                    )
+                    embed.set_image(url=CALENDRIER_IMAGE_URL)
+                    
+                    try:
+                        message = await channel.send(embed=embed)
+                        calendrier_data_fresh.setdefault("messages", [])
+                        calendrier_data_fresh["messages"].append(str(message.id))
+                        save_calendrier(calendrier_data_fresh)
+                    except Exception as e:
+                        print(f"❌ Erreur lors de l'envoi du message calendrier: {e}")
+            
+            # Finaliser les développements si nécessaire
+            total_completed = check_and_complete_developments(button_interaction.guild.id)
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            # Embed de succès
+            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data_fresh['mois']]
+            nouveau_jour_str = f"{calendrier_data_fresh['jour']}/{calendrier_data_fresh['alternance']}"
+            
+            success_embed = discord.Embed(
+                title="✅ Calendrier Avancé (+1 jour IRL)",
+                description=f"**Nouvel état :** {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n"
+                           f"🕐 Jours IRL : {calendrier_data_fresh['jours_irl']}/{calendrier_data_fresh['alternance']}\n\n"
+                           f"🔬 Développements finalisés : {total_completed}\n"
+                           f"💾 Sauvegarde PostgreSQL : ✅ Effectuée",
+                color=0x00ff00
+            )
+            
+            await button_interaction.followup.send(embed=success_embed, ephemeral=True)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Erreur",
+                description=f"Une erreur est survenue lors de l'avancement :\n```{str(e)}```",
+                color=0xff0000
+            )
+            await button_interaction.followup.send(embed=error_embed, ephemeral=True)
+    
     # Bouton Annuler
     async def annuler_avancement(button_interaction):
         await button_interaction.response.defer()
@@ -5142,6 +5228,13 @@ async def pass_mois_cmd(interaction: discord.Interaction):
     )
     confirm_button.callback = confirmer_avancement
     
+    one_day_button = discord.ui.Button(
+        label="Avancer d'1 jour IRL",
+        style=discord.ButtonStyle.success,
+        emoji="⏱️"
+    )
+    one_day_button.callback = avancer_un_jour
+    
     cancel_button = discord.ui.Button(
         label="Annuler",
         style=discord.ButtonStyle.secondary,
@@ -5150,6 +5243,7 @@ async def pass_mois_cmd(interaction: discord.Interaction):
     cancel_button.callback = annuler_avancement
     
     view.add_item(confirm_button)
+    view.add_item(one_day_button)
     view.add_item(cancel_button)
     
     await interaction.followup.send(embed=embed_confirm, view=view, ephemeral=True)
