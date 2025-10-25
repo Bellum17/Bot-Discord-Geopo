@@ -5132,17 +5132,22 @@ async def pass_mois_cmd(interaction: discord.Interaction):
         try:
             # Recharger les données pour être sûr
             calendrier_data_fresh = load_calendrier()
-            temp_mois = calendrier_data_fresh['mois']
-            temp_jour = calendrier_data_fresh['jour']
-            temp_jours_irl = calendrier_data_fresh['jours_irl']
+            temp_mois = calendrier_data_fresh['mois_index']
+            temp_jour = calendrier_data_fresh['jour_index']
+            temp_jours_irl = calendrier_data_fresh.get('jours_irl_actuel', 0)
             annee = calendrier_data_fresh['annee']
             
             # Avancer d'un seul jour IRL
             temp_jours_irl += 1
             
-            # Vérifier si c'est le moment d'avancer le jour RP
-            alternance = calendrier_data_fresh['alternance']
-            if temp_jours_irl >= alternance:
+            # Vérifier si c'est le moment d'avancer le jour RP selon l'alternance
+            # Mois pairs (0,2,4...) = 2 jours IRL, Mois impairs (1,3,5...) = 1 jour IRL
+            if temp_mois % 2 == 0:  # Mois pairs : 2 jours IRL
+                alternance_actuelle = 2
+            else:  # Mois impairs : 1 jour IRL
+                alternance_actuelle = 1
+            
+            if temp_jours_irl >= alternance_actuelle:
                 # Avancer d'un jour RP
                 if temp_jour == 0:
                     temp_jour = 1  # 1/2 → 2/2
@@ -5154,9 +5159,9 @@ async def pass_mois_cmd(interaction: discord.Interaction):
                 temp_jours_irl = 0
             
             # Sauvegarder les nouvelles données
-            calendrier_data_fresh['mois'] = temp_mois
-            calendrier_data_fresh['jour'] = temp_jour
-            calendrier_data_fresh['jours_irl'] = temp_jours_irl
+            calendrier_data_fresh['mois_index'] = temp_mois
+            calendrier_data_fresh['jour_index'] = temp_jour
+            calendrier_data_fresh['jours_irl_actuel'] = temp_jours_irl
             save_calendrier(calendrier_data_fresh)
             
             # Poster un message si on a changé de jour RP
@@ -5189,13 +5194,19 @@ async def pass_mois_cmd(interaction: discord.Interaction):
             save_all_json_to_postgres()
             
             # Embed de succès
-            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data_fresh['mois']]
-            nouveau_jour_str = f"{calendrier_data_fresh['jour']}/{calendrier_data_fresh['alternance']}"
+            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data_fresh['mois_index']]
+            nouveau_jour_str = "1/2" if calendrier_data_fresh['jour_index'] == 0 else "2/2"
+            
+            # Calculer l'alternance pour l'affichage
+            if calendrier_data_fresh['mois_index'] % 2 == 0:
+                alternance_affichage = 2
+            else:
+                alternance_affichage = 1
             
             success_embed = discord.Embed(
                 title="✅ Calendrier Avancé (+1 jour IRL)",
                 description=f"**Nouvel état :** {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n"
-                           f"🕐 Jours IRL : {calendrier_data_fresh['jours_irl']}/{calendrier_data_fresh['alternance']}\n\n"
+                           f"🕐 Jours IRL : {calendrier_data_fresh['jours_irl_actuel']}/{alternance_affichage}\n\n"
                            f"🔬 Développements finalisés : {total_completed}\n"
                            f"💾 Sauvegarde PostgreSQL : ✅ Effectuée",
                 color=0x00ff00
