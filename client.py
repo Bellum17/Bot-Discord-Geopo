@@ -71,6 +71,24 @@ EMBED_COLOR = 0xefe7c5
 SANCTION_COLOR = 0x162e50  # Couleur pour les sanctions (mute, ban, warn)
 IMAGE_URL = "https://zupimages.net/up/21/03/vl8j.png"
 ADMIN_IDS = [300740726257139712]  # IDs des administrateurs du bot
+COUNTRY_MANAGER_ROLE_ID = 1418245630639476868  # Rôle autorisé à créer/supprimer des pays
+
+def has_country_management_permissions(interaction: discord.Interaction):
+    """Vérifie si l'utilisateur a les permissions pour gérer les pays."""
+    # Vérifier permissions admin
+    if interaction.user.guild_permissions.administrator:
+        return True
+    
+    # Vérifier ADMIN_IDS
+    if interaction.user.id in ADMIN_IDS:
+        return True
+    
+    # Vérifier le rôle spécifique
+    for role in interaction.user.roles:
+        if role.id == COUNTRY_MANAGER_ROLE_ID:
+            return True
+    
+    return False
 
 def get_paris_time():
     """Retourne l'heure actuelle de Paris (CEST/CET) en format ISO."""
@@ -1197,7 +1215,6 @@ def convert_to_bold_letters(text):
 
 # Pour la commande creer_pays, ajouter ces rôles à la gestion
 @bot.tree.command(name="creer_pays", description="Crée un nouveau pays avec son rôle et son salon")
-@app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(
     nom="Nom du pays",
     budget="Budget initial du pays",
@@ -1310,6 +1327,16 @@ async def creer_pays(
 ):
     """Crée un nouveau pays avec son rôle et son salon."""
     await interaction.response.defer()
+    
+    # Vérifier les permissions pour créer des pays
+    if not has_country_management_permissions(interaction):
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Vous n'avez pas les permissions nécessaires pour créer des pays.",
+            color=0xff4444
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
     
     # Vérifier que le budget est positif
     ROLE_PAYS_PAR_DEFAUT = 1417253039491776733
@@ -2509,9 +2536,19 @@ async def remove_money(interaction: discord.Interaction, role: discord.Role, mon
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="supprimer_pays", description="Supprime un pays, son rôle et son salon")
-@app_commands.checks.has_permissions(administrator=True)
 async def supprimer_pays(interaction: discord.Interaction, pays: discord.Role, raison: str = None):
     """Supprime un pays, son rôle et son salon."""
+    
+    # Vérifier les permissions pour supprimer des pays
+    if not has_country_management_permissions(interaction):
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Vous n'avez pas les permissions nécessaires pour supprimer des pays.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
     # Suppression des transactions liées au pays
     try:
         import os, json
@@ -7601,6 +7638,21 @@ def reset_pays_roll_count(pays):
         return True
     return False
 
+def decrement_pays_roll_count(pays):
+    """Décrémente le nombre de rolls d'un pays (pour récupérer un roll)."""
+    generaux_data = load_generaux()
+    pays_key = f"pays_{pays.lower()}"
+    
+    if pays_key not in generaux_data:
+        generaux_data[pays_key] = {"roll_count": 0}
+    
+    current_count = generaux_data[pays_key].get("roll_count", 0)
+    if current_count > 0:
+        generaux_data[pays_key]["roll_count"] = current_count - 1
+        save_generaux(generaux_data)
+        return True
+    return False
+
 def get_user_roll_count(user_id):
     """Récupère le nombre de rolls effectués par un utilisateur aujourd'hui."""
     generaux_data = load_generaux()
@@ -9226,13 +9278,95 @@ class RenameGeneralModal(discord.ui.Modal):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+# === CLASSE POUR LA SÉLECTION DE GÉNÉRAL À SUPPRIMER ===
+
+class GeneralDeletionView(discord.ui.View):
+    def __init__(self, pays_role, generaux_list):
+        super().__init__(timeout=None)
+        self.pays_role = pays_role
+        self.generaux_list = generaux_list
+        
+        # Créer le menu déroulant avec les généraux
+        options = []
+        for general_name, general_data in generaux_list:
+            # Créer une description courte du général
+            type_general = general_data.get("type", "Inconnu")
+            domaine = general_data.get("domaine", "Inconnu")
+            experience = general_data.get("experience", 0)
+            
+            description = f"{type_general} | {domaine.capitalize()} | XP: {experience}"
+            
+            options.append(discord.SelectOption(
+                label=general_name,
+                description=description[:100],  # Limiter à 100 caractères
+                value=general_name
+            ))
+        
+        if options:
+            self.add_item(GeneralDeletionSelect(options, pays_role))
+
+class GeneralDeletionSelect(discord.ui.Select):
+    def __init__(self, options, pays_role):
+        super().__init__(
+            placeholder="Choisissez le général à supprimer...",
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+        self.pays_role = pays_role
+    
+    async def callback(self, interaction: discord.Interaction):
+        general_name = self.values[0]
+        
+        # Charger les données des généraux
+        generaux_data = load_generaux()
+        
+        # Trouver l'utilisateur qui possède ce général
+        user_found = None
+        for user_id, user_data in generaux_data.items():
+            if general_name in user_data.get("generaux", {}):
+                user_found = user_id
+                break
+        
+        if not user_found:
+            await interaction.response.send_message(
+                f"❌ Général **{general_name}** introuvable.", 
+                ephemeral=True
+            )
+            return
+        
+        # Supprimer le général
+        del generaux_data[user_found]["generaux"][general_name]
+        save_generaux(generaux_data)
+        
+        # Décrémenter le compteur de rolls du pays (donner un roll en plus)
+        success = decrement_pays_roll_count(self.pays_role.name)
+        
+        # Récupérer le nouveau nombre de rolls
+        new_roll_count = get_pays_roll_count(self.pays_role.name)
+        
+        embed = discord.Embed(
+            title="✅ Général supprimé",
+            description=f"Le général **{general_name}** du pays **{self.pays_role.name}** a été supprimé.\n\n"
+                       f"**Nouveau nombre de rolls utilisés :** {new_roll_count}/3\n"
+                       f"**Rolls disponibles :** {3 - new_roll_count}/3",
+            color=0x00ff88
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 # === COMMANDE RESET ROLL ===
 
 @bot.tree.command(name="reset_roll", description="[ADMIN] Réinitialise les slots de roll d'un pays")
 @app_commands.describe(
-    pays="Rôle du pays dont réinitialiser les slots de roll"
+    pays="Rôle du pays dont réinitialiser les slots de roll",
+    supprimer_un_general="Si True, permet de supprimer un seul général pour récupérer un roll"
 )
-async def reset_roll(interaction: discord.Interaction, pays: discord.Role):
+@app_commands.choices(supprimer_un_general=[
+    discord.app_commands.Choice(name="Non - Reset complet (tous les rolls)", value="false"),
+    discord.app_commands.Choice(name="Oui - Supprimer un général spécifique", value="true")
+])
+async def reset_roll(interaction: discord.Interaction, pays: discord.Role, supprimer_un_general: str = "false"):
     """Permet aux admins de réinitialiser les slots de roll d'un pays."""
     
     # Vérifier les permissions admin
@@ -9270,27 +9404,69 @@ async def reset_roll(interaction: discord.Interaction, pays: discord.Role):
     # Récupérer le nombre de rolls actuel
     current_rolls = get_pays_roll_count(pays.name)
     
-    # Réinitialiser les rolls
-    success = reset_pays_roll_count(pays.name)
-    
-    if success or current_rolls > 0:
+    # Vérifier le mode choisi
+    if supprimer_un_general == "true":
+        # Mode suppression d'un seul général
+        
+        # Charger les données des généraux pour trouver ceux du pays
+        generaux_data = load_generaux()
+        generaux_du_pays = []
+        
+        for user_id, user_data in generaux_data.items():
+            if user_id.startswith("pays_"):
+                continue  # Ignorer les entrées de compteur de pays
+            
+            for general_name, general_data in user_data.get("generaux", {}).items():
+                # Vérifier si ce général appartient au pays concerné
+                general_pays = general_data.get("pays", "")
+                if general_pays.lower() == pays.name.lower():
+                    generaux_du_pays.append((general_name, general_data))
+        
+        if not generaux_du_pays:
+            embed = discord.Embed(
+                title="❌ Aucun général trouvé",
+                description=f"Le pays **{pays.name}** n'a aucun général à supprimer.",
+                color=0xff4444
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Créer la vue avec menu déroulant
+        view = GeneralDeletionView(pays, generaux_du_pays)
+        
         embed = discord.Embed(
-            title="✅ Slots de roll réinitialisés",
-            description=f"Les slots de roll du pays **{pays.name}** ont été réinitialisés.\n\n"
-                       f"**Avant :** {current_rolls}/3 rolls utilisés\n"
-                       f"**Après :** 0/3 rolls utilisés\n\n"
-                       f"Le pays peut maintenant effectuer 3 nouveaux rolls de généraux.",
-            color=0x00ff88
+            title="🗑️ Suppression d'un général",
+            description=f"Choisissez le général du pays **{pays.name}** à supprimer.\n\n"
+                       f"**Rolls actuels :** {current_rolls}/3 utilisés\n"
+                       f"**Après suppression :** {max(0, current_rolls-1)}/3 utilisés\n\n"
+                       f"⚠️ Cette action est irréversible !",
+            color=0xffa500
         )
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        
     else:
-        embed = discord.Embed(
-            title="ℹ️ Aucune action nécessaire",
-            description=f"Le pays **{pays.name}** n'avait aucun roll enregistré.\n\n"
-                       f"Les slots sont déjà disponibles (0/3 rolls utilisés).",
-            color=EMBED_COLOR
-        )
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+        # Mode reset complet (comportement original)
+        success = reset_pays_roll_count(pays.name)
+        
+        if success or current_rolls > 0:
+            embed = discord.Embed(
+                title="✅ Slots de roll réinitialisés",
+                description=f"Les slots de roll du pays **{pays.name}** ont été réinitialisés.\n\n"
+                           f"**Avant :** {current_rolls}/3 rolls utilisés\n"
+                           f"**Après :** 0/3 rolls utilisés\n\n"
+                           f"Le pays peut maintenant effectuer 3 nouveaux rolls de généraux.",
+                color=0x00ff88
+            )
+        else:
+            embed = discord.Embed(
+                title="ℹ️ Aucune action nécessaire",
+                description=f"Le pays **{pays.name}** n'avait aucun roll enregistré.\n\n"
+                           f"Les slots sont déjà disponibles (0/3 rolls utilisés).",
+                color=EMBED_COLOR
+            )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # === CONSTANTES POUR LES TRAITS AMÉLIORÉS ET MARÉCHAUX ===
 
