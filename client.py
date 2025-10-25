@@ -4495,24 +4495,20 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     
     mois_difference = mois_total_fin - mois_total_actuel
     
-    # Le calendrier se met à jour à minuit heure Paris (CEST = UTC+2)
+    # Le calendrier se met à jour à minuit heure Paris (CET/CEST selon la saison)
     # 1 mois RP = 2 jours IRL (1/2 puis 2/2)
-    # Forcer CEST pour garantir un affichage cohérent à minuit
-    import datetime
+    # Utiliser ZoneInfo pour gérer automatiquement CET/CEST
     
-    # Créer explicitement un fuseau CEST (UTC+2)
-    cest_tz = datetime.timezone(datetime.timedelta(hours=2))
+    # Obtenir l'heure actuelle à Paris (gère automatiquement CET/CEST)
+    now_paris = datetime.datetime.now(ZoneInfo("Europe/Paris"))
     
-    # Obtenir l'heure actuelle en CEST
-    now_cest = datetime.datetime.now(cest_tz)
-    
-    # Calculer le prochain minuit en CEST
-    demain = now_cest.date() + datetime.timedelta(days=1)
-    next_midnight_cest = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=cest_tz)
+    # Calculer le prochain minuit à Paris
+    demain = now_paris.date() + datetime.timedelta(days=1)
+    next_midnight_paris = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=ZoneInfo("Europe/Paris"))
     
     # CORRECTION : Ajouter 1 heure pour compenser le décalage d'affichage Discord
     # Discord affiche 23h00 au lieu de 00h00 à cause du fuseau horaire local
-    next_midnight_cest = next_midnight_cest + datetime.timedelta(hours=1)
+    next_midnight_paris = next_midnight_paris + datetime.timedelta(hours=1)
     
     # NOUVELLE LOGIQUE : Calculer combien de jours IRL selon l'alternance 2j/1j
     jours_irl_necessaires = 0
@@ -4553,7 +4549,7 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
             jours_irl_necessaires = 0
     
     # Calculer le timestamp final
-    fin_timestamp = next_midnight_cest + datetime.timedelta(days=jours_irl_necessaires)
+    fin_timestamp = next_midnight_paris + datetime.timedelta(days=jours_irl_necessaires)
     
     # Convertir en timestamp UTC
     return int(fin_timestamp.timestamp())
@@ -4633,7 +4629,6 @@ def format_development_end_info(dev):
     return f"⏳ **EN COURS**\n⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
 
 from discord.ext.tasks import loop
-import pytz
 import datetime
 
 @bot.tree.command(name="calendrier", description="Lance le calendrier RP pour une année donnée")
@@ -4680,9 +4675,7 @@ async def calendrier(interaction: discord.Interaction, annee: int):
             calendrier_data["messages"] = [str(message.id)]
             
             # Marquer la première mise à jour comme faite
-            import pytz
-            paris_tz = pytz.timezone("Europe/Paris")
-            now = datetime.datetime.now(paris_tz)
+            now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
             calendrier_data["last_update"] = now.isoformat()
             save_calendrier(calendrier_data)
             save_all_json_to_postgres()
@@ -5112,8 +5105,7 @@ async def calendrier_update_task():
         return
     
     # Vérifier si on doit avancer (minuit heure Paris)
-    paris_tz = pytz.timezone("Europe/Paris")
-    now = datetime.datetime.now(paris_tz)
+    now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
     
     # Vérifier si c'est minuit (ou proche de minuit)
     if now.hour != 0:
@@ -5122,9 +5114,11 @@ async def calendrier_update_task():
     last_update = calendrier_data.get("last_update")
     if last_update:
         last_update_dt = datetime.datetime.fromisoformat(last_update)
-        # Ne pas relocaliser si tzinfo déjà présent
+        # Convertir vers le fuseau horaire de Paris si nécessaire
         if last_update_dt.tzinfo is None:
-            last_update_dt = paris_tz.localize(last_update_dt)
+            last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
+        else:
+            last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
         if last_update_dt.date() == now.date():
             return # déjà mis à jour aujourd'hui
     
@@ -5201,6 +5195,58 @@ async def calendrier_update_task():
     # Stop si Décembre 2/2 passé
     if calendrier_data["mois_index"] >= len(CALENDRIER_MONTHS):
         calendrier_update_task.stop()
+
+@bot.tree.command(name="debug_heure", description="Debug : affiche les informations d'heure pour le calendrier")
+@app_commands.checks.has_permissions(administrator=True)
+async def debug_heure(interaction: discord.Interaction):
+    """Debug des informations d'heure pour le calendrier."""
+    from datetime import datetime
+    
+    # Heure actuelle Paris
+    now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+    
+    # Heure UTC
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    
+    # Informations sur le fuseau horaire
+    tz_name = now_paris.tzname()  # CET ou CEST
+    offset = now_paris.utcoffset().total_seconds() / 3600  # Décalage en heures
+    
+    # Calendrier
+    calendrier_data = load_calendrier()
+    last_update = calendrier_data.get("last_update") if calendrier_data else None
+    
+    embed = discord.Embed(
+        title="🕐 Debug Heure - Calendrier",
+        color=0x3498db
+    )
+    
+    embed.add_field(
+        name="🌍 Heure Paris", 
+        value=f"`{now_paris.strftime('%Y-%m-%d %H:%M:%S %Z')}`\nFuseau: **{tz_name}** (UTC{offset:+.0f})",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🌐 Heure UTC", 
+        value=f"`{now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}`",
+        inline=False
+    )
+    
+    if calendrier_data:
+        embed.add_field(
+            name="📅 Calendrier RP", 
+            value=f"Mois: **{calendrier_data['mois_index']}** | Jour: **{calendrier_data['jour_index']}**\nDernière MAJ: `{last_update}`",
+            inline=False
+        )
+    
+    embed.add_field(
+        name="⏰ Condition Minuit", 
+        value=f"Heure actuelle: **{now_paris.hour}h**\nCondition minuit: **{'✅ OUI' if now_paris.hour == 0 else '❌ NON'}**",
+        inline=False
+    )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # === COMMANDES D'AVERTISSEMENT ===
 
