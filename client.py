@@ -4312,8 +4312,20 @@ async def on_ready():
 
     calendrier_data = load_calendrier()
     if calendrier_data and calendrier_data["mois_index"] < len(CALENDRIER_MONTHS):
+        # Vérifier et rattraper le calendrier si nécessaire
+        print("📅 Vérification du calendrier au démarrage...")
+        calendrier_rattrape = await check_and_catchup_calendrier()
+        if calendrier_rattrape:
+            print("✅ Calendrier rattrapé automatiquement")
+        else:
+            print("✅ Calendrier déjà à jour")
+        
+        # Démarrer la tâche de mise à jour si pas déjà en cours
         if not calendrier_update_task.is_running():
             calendrier_update_task.start()
+            print("🔄 Tâche de mise à jour du calendrier démarrée")
+    else:
+        print("📅 Aucun calendrier actif ou calendrier terminé")
 
 # === Mise à jour dynamique des salons vocaux de stats ===
 @bot.event
@@ -4449,6 +4461,147 @@ def save_calendrier(data):
 def reset_calendrier():
     if os.path.exists(CALENDRIER_FILE):
         os.remove(CALENDRIER_FILE)
+
+async def check_and_catchup_calendrier():
+    """
+    Vérifie si le calendrier a pris du retard et le rattrape automatiquement.
+    Appelé lors de la reconnexion du bot.
+    """
+    try:
+        # Restaurer depuis PostgreSQL d'abord pour avoir les données les plus récentes
+        restore_all_json_from_postgres()
+        print("📥 Données restaurées depuis PostgreSQL")
+        
+        calendrier_data = load_calendrier()
+        if not calendrier_data:
+            print("📅 Aucun calendrier actif à vérifier")
+            return False
+        
+        # Heure actuelle Paris
+        now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+        last_update = calendrier_data.get("last_update")
+        
+        if not last_update:
+            print("📅 Aucune dernière mise à jour trouvée dans le calendrier")
+            return False
+        
+        # Parser la dernière mise à jour
+        last_update_dt = datetime.datetime.fromisoformat(last_update)
+        if last_update_dt.tzinfo is None:
+            last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
+        else:
+            last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
+        
+        # Calculer les jours écoulés
+        delta = now - last_update_dt
+        jours_ecoules = delta.days
+        
+        print(f"📅 Dernière MAJ calendrier: {last_update_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"📅 Heure actuelle: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"📅 Jours écoulés: {jours_ecoules}")
+        
+        if jours_ecoules <= 0:
+            print("📅 Calendrier à jour, aucun rattrapage nécessaire")
+            return False
+        
+        # Variables de l'état actuel
+        mois_index = calendrier_data["mois_index"]
+        jour_index = calendrier_data["jour_index"]
+        jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
+        
+        print(f"📅 État avant rattrapage: Mois {mois_index}, Jour {jour_index}, Jours IRL: {jours_irl_actuel}")
+        
+        # Simuler les jours écoulés
+        jours_a_simuler = jours_ecoules
+        avancements = 0
+        
+        channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+        
+        while jours_a_simuler > 0 and mois_index < len(CALENDRIER_MONTHS):
+            # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
+            if mois_index % 2 == 0:  # Mois pairs : 2 jours IRL
+                jours_requis = 2
+            else:  # Mois impairs : 1 jour IRL
+                jours_requis = 1
+            
+            # Incrémenter le compteur de jours IRL
+            jours_irl_actuel += 1
+            jours_a_simuler -= 1
+            
+            # Avancer le jour uniquement si on a atteint le nombre de jours requis
+            if jours_irl_actuel >= jours_requis:
+                if jour_index == 0:
+                    jour_index = 1
+                    print(f"📅 Avancement: {CALENDRIER_MONTHS[mois_index]} 1/2 → 2/2")
+                else:
+                    jour_index = 0
+                    mois_index += 1
+                    if mois_index < len(CALENDRIER_MONTHS):
+                        print(f"📅 Avancement: {CALENDRIER_MONTHS[mois_index-1]} 2/2 → {CALENDRIER_MONTHS[mois_index]} 1/2")
+                    else:
+                        print(f"📅 Calendrier terminé après {CALENDRIER_MONTHS[mois_index-1]} 2/2")
+                        break
+                
+                # Reset le compteur pour le prochain mois
+                jours_irl_actuel = 0
+                avancements += 1
+                
+                # Poster le message dans le canal calendrier si disponible
+                if channel and mois_index < len(CALENDRIER_MONTHS):
+                    mois = CALENDRIER_MONTHS[mois_index]
+                    jour_str = "1/2" if jour_index == 0 else "2/2"
+                    
+                    embed = discord.Embed(
+                        description=f"{CALENDRIER_EMOJI} {mois} {calendrier_data['annee']} - {jour_str}\n\n"
+                                   f"⚡ Rattrapage automatique du calendrier !\n"
+                                   f"Le calendrier a été mis à jour automatiquement.",
+                        color=CALENDRIER_COLOR
+                    )
+                    embed.set_image(url=CALENDRIER_IMAGE_URL)
+                    
+                    try:
+                        message = await channel.send(embed=embed)
+                        calendrier_data.setdefault("messages", [])
+                        calendrier_data["messages"].append(str(message.id))
+                    except Exception as e:
+                        print(f"❌ Erreur lors de l'envoi du message de rattrapage: {e}")
+        
+        # Mettre à jour les données
+        calendrier_data["mois_index"] = mois_index
+        calendrier_data["jour_index"] = jour_index
+        calendrier_data["jours_irl_actuel"] = jours_irl_actuel
+        calendrier_data["last_update"] = now.isoformat()
+        
+        save_calendrier(calendrier_data)
+        save_all_json_to_postgres()
+        
+        print(f"📅 État après rattrapage: Mois {mois_index}, Jour {jour_index}, Jours IRL: {jours_irl_actuel}")
+        print(f"✅ Calendrier rattrapé avec {avancements} avancement(s)")
+        
+        # Vérifier et terminer automatiquement les développements dans tous les serveurs
+        if avancements > 0:
+            total_completed = 0
+            for guild in bot.guilds:
+                guild_id = str(guild.id)
+                developments_completed = check_and_complete_developments(guild_id)
+                total_completed += developments_completed
+                if developments_completed > 0:
+                    print(f"📅 Rattrapage automatique: {developments_completed} développements terminés dans {guild.name}")
+            
+            if total_completed > 0:
+                print(f"📅 Total développements terminés lors du rattrapage: {total_completed}")
+        
+        # Arrêter la tâche si calendrier terminé
+        if mois_index >= len(CALENDRIER_MONTHS):
+            if calendrier_update_task.is_running():
+                calendrier_update_task.stop()
+                print("📅 Calendrier terminé, tâche automatique arrêtée")
+        
+        return avancements > 0
+        
+    except Exception as e:
+        print(f"❌ Erreur lors du rattrapage du calendrier: {e}")
+        return False
 
 def calculate_fin_with_calendar(duree_mois):
     """
@@ -11093,6 +11246,260 @@ async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code:
              f"Reset effectué par {interaction.user.display_name}"
     
     await interaction.followup.send(message, ephemeral=True)
+
+class SupprimerCentreView(discord.ui.View):
+    def __init__(self, centres_data, guild_id, role_id, role_name):
+        super().__init__(timeout=300)
+        self.centres_data = centres_data
+        self.guild_id = guild_id
+        self.role_id = role_id
+        self.role_name = role_name
+        
+        # Créer le menu déroulant avec les centres
+        if guild_id in centres_data and role_id in centres_data[guild_id]:
+            centres = centres_data[guild_id][role_id]
+            if centres:
+                options = []
+                for i, centre in enumerate(centres):
+                    nom_centre = centre.get("nom", centre.get("localisation", f"Centre {i+1}"))
+                    localisation = centre.get("localisation", "Localisation inconnue")
+                    specialisation = centre.get("specialisation", "Spécialisation inconnue")
+                    niveau = centre.get("niveau", 1)
+                    
+                    # Description courte pour le menu
+                    description = f"Niv.{niveau} - {specialisation}"
+                    if centre.get("localisation"):
+                        description += f" ({localisation})"
+                    
+                    options.append(discord.SelectOption(
+                        label=nom_centre[:100],  # Limite Discord
+                        description=description[:100],  # Limite Discord
+                        value=str(i),
+                        emoji="🏭"
+                    ))
+                
+                self.centre_select.options = options
+            else:
+                # Aucun centre à supprimer
+                self.centre_select.disabled = True
+        else:
+            self.centre_select.disabled = True
+
+    @discord.ui.select(
+        placeholder="Sélectionnez le centre à supprimer...",
+        min_values=1,
+        max_values=1
+    )
+    async def centre_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        await interaction.response.defer()
+        
+        try:
+            centre_index = int(select.values[0])
+            centres = self.centres_data[self.guild_id][self.role_id]
+            
+            if 0 <= centre_index < len(centres):
+                centre_a_supprimer = centres[centre_index]
+                nom_centre = centre_a_supprimer.get("nom", centre_a_supprimer.get("localisation", f"Centre {centre_index+1}"))
+                
+                # Vérifier s'il y a des développements en cours dans ce centre
+                developpements_data = load_developpements()
+                developpements_en_cours = []
+                
+                if (self.guild_id in developpements_data and 
+                    self.role_id in developpements_data[self.guild_id]):
+                    for dev in developpements_data[self.guild_id][self.role_id]:
+                        if (dev.get("centre_attache") == nom_centre and 
+                            dev.get("statut", "en_cours") == "en_cours"):
+                            developpements_en_cours.append(dev)
+                
+                # Créer l'embed de confirmation
+                embed = discord.Embed(
+                    title="🗑️ Confirmation de Suppression",
+                    color=0xff4444
+                )
+                
+                description = f"**Centre à supprimer :** {nom_centre}\n"
+                if centre_a_supprimer.get("localisation"):
+                    description += f"**📍 Localisation :** {centre_a_supprimer['localisation']}\n"
+                description += f"**🔬 Spécialisation :** {centre_a_supprimer['specialisation']}\n"
+                description += f"**📊 Niveau :** {centre_a_supprimer['niveau']}/3\n"
+                description += f"**🏭 Pays :** {self.role_name}\n\n"
+                
+                if developpements_en_cours:
+                    description += f"⚠️ **ATTENTION :** Ce centre a {len(developpements_en_cours)} développement(s) en cours :\n"
+                    for dev in developpements_en_cours:
+                        description += f"• {dev['nom']}\n"
+                    description += "\n**Ces développements seront également supprimés !**\n\n"
+                
+                description += "**Cette action est irréversible.** Confirmez-vous la suppression ?"
+                embed.description = description
+                
+                # Créer les boutons de confirmation
+                view = discord.ui.View(timeout=60)
+                
+                # Bouton Confirmer
+                async def confirmer_suppression(button_interaction):
+                    await button_interaction.response.defer()
+                    
+                    try:
+                        # Recharger les données pour être sûr
+                        centres_data_fresh = load_centres_tech()
+                        developpements_data_fresh = load_developpements()
+                        
+                        # Supprimer le centre
+                        centres_supprimes = 0
+                        if (self.guild_id in centres_data_fresh and 
+                            self.role_id in centres_data_fresh[self.guild_id] and
+                            centre_index < len(centres_data_fresh[self.guild_id][self.role_id])):
+                            
+                            centre_supprime = centres_data_fresh[self.guild_id][self.role_id].pop(centre_index)
+                            centres_supprimes = 1
+                            
+                            # Si plus de centres, supprimer la clé du pays
+                            if not centres_data_fresh[self.guild_id][self.role_id]:
+                                del centres_data_fresh[self.guild_id][self.role_id]
+                                # Si plus de pays dans le serveur, supprimer la clé du serveur
+                                if not centres_data_fresh[self.guild_id]:
+                                    del centres_data_fresh[self.guild_id]
+                            
+                            save_centres_tech(centres_data_fresh)
+                        
+                        # Supprimer les développements liés
+                        developpements_supprimes = 0
+                        if (self.guild_id in developpements_data_fresh and 
+                            self.role_id in developpements_data_fresh[self.guild_id]):
+                            
+                            developpements_restants = []
+                            for dev in developpements_data_fresh[self.guild_id][self.role_id]:
+                                if dev.get("centre_attache") != nom_centre:
+                                    developpements_restants.append(dev)
+                                else:
+                                    developpements_supprimes += 1
+                            
+                            if developpements_restants:
+                                developpements_data_fresh[self.guild_id][self.role_id] = developpements_restants
+                            else:
+                                del developpements_data_fresh[self.guild_id][self.role_id]
+                                # Si plus de pays dans le serveur, supprimer la clé du serveur
+                                if not developpements_data_fresh[self.guild_id]:
+                                    del developpements_data_fresh[self.guild_id]
+                            
+                            save_developpements(developpements_data_fresh)
+                        
+                        # Sauvegarder dans PostgreSQL
+                        save_all_json_to_postgres()
+                        
+                        # Embed de succès
+                        success_embed = discord.Embed(
+                            title="✅ Centre Supprimé",
+                            description=f"**Centre :** {nom_centre}\n"
+                                       f"**Pays :** {self.role_name}\n\n"
+                                       f"🏭 Centres supprimés : {centres_supprimes}\n"
+                                       f"🔬 Développements annulés : {developpements_supprimes}\n\n"
+                                       f"💾 Sauvegarde PostgreSQL effectuée.",
+                            color=0x00ff00
+                        )
+                        
+                        await button_interaction.followup.send(embed=success_embed, ephemeral=True)
+                        
+                    except Exception as e:
+                        error_embed = discord.Embed(
+                            title="❌ Erreur",
+                            description=f"Une erreur est survenue lors de la suppression :\n```{str(e)}```",
+                            color=0xff0000
+                        )
+                        await button_interaction.followup.send(embed=error_embed, ephemeral=True)
+                
+                # Bouton Annuler
+                async def annuler_suppression(button_interaction):
+                    await button_interaction.response.defer()
+                    cancel_embed = discord.Embed(
+                        title="❌ Suppression Annulée",
+                        description="La suppression du centre a été annulée.",
+                        color=0xffa500
+                    )
+                    await button_interaction.followup.send(embed=cancel_embed, ephemeral=True)
+                
+                confirm_button = discord.ui.Button(
+                    label="Confirmer la suppression",
+                    style=discord.ButtonStyle.danger,
+                    emoji="🗑️"
+                )
+                confirm_button.callback = confirmer_suppression
+                
+                cancel_button = discord.ui.Button(
+                    label="Annuler",
+                    style=discord.ButtonStyle.secondary,
+                    emoji="❌"
+                )
+                cancel_button.callback = annuler_suppression
+                
+                view.add_item(confirm_button)
+                view.add_item(cancel_button)
+                
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                
+            else:
+                error_embed = discord.Embed(
+                    title="❌ Erreur",
+                    description="Centre invalide sélectionné.",
+                    color=0xff0000
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Erreur",
+                description=f"Une erreur est survenue :\n```{str(e)}```",
+                color=0xff0000
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+@bot.tree.command(name="supprimer_centre", description="🗑️ Supprimer un centre technologique d'un pays")
+@app_commands.describe(
+    pays="Le pays dont supprimer un centre"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def supprimer_centre(interaction: discord.Interaction, pays: discord.Role):
+    """Supprimer un centre technologique d'un pays spécifique."""
+    await interaction.response.defer(ephemeral=True)
+    
+    guild_id = str(interaction.guild.id)
+    role_id = str(pays.id)
+    
+    # Charger les centres technologiques
+    centres_data = load_centres_tech()
+    
+    # Vérifier si le pays a des centres
+    if (guild_id not in centres_data or 
+        role_id not in centres_data[guild_id] or 
+        not centres_data[guild_id][role_id]):
+        
+        embed = discord.Embed(
+            title="❌ Aucun Centre",
+            description=f"**Pays :** {pays.mention}\n\n"
+                       f"Ce pays n'a aucun centre technologique à supprimer.",
+            color=0xff4444
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    
+    centres = centres_data[guild_id][role_id]
+    
+    # Créer l'embed d'information
+    embed = discord.Embed(
+        title="🗑️ Suppression de Centre Technologique",
+        description=f"**Pays :** {pays.mention}\n"
+                   f"**Centres disponibles :** {len(centres)}\n\n"
+                   f"Sélectionnez le centre à supprimer dans le menu ci-dessous.\n"
+                   f"⚠️ **Attention :** Cette action supprimera également tous les développements en cours dans ce centre.",
+        color=0xff6600
+    )
+    
+    # Créer la vue avec le menu déroulant
+    view = SupprimerCentreView(centres_data, guild_id, role_id, pays.name)
+    
+    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
 @bot.tree.command(name="force_sync_postgres", description="Force la synchronisation des données avec PostgreSQL")
 @app_commands.checks.has_permissions(administrator=True)
