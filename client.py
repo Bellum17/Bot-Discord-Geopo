@@ -2249,30 +2249,22 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
     restore_all_json_from_postgres()
     
     # Recharger les données après restauration
-    global balances, pib_data
-    balances.clear()
-    balances.update(load_balances())
-    pib_data.clear()
-    pib_data.update(load_pib())
+    current_balances = load_balances()
+    current_pib_data = load_pib()
     
     # Si aucun rôle n'est précisé, on cherche le premier rôle du membre qui est dans le système balances
     if role is None:
         # D'abord, essayer de trouver un rôle déjà dans le système balances
-        user_roles = [r for r in interaction.user.roles if str(r.id) in balances]
+        user_roles = [r for r in interaction.user.roles if str(r.id) in current_balances]
         
         # Si aucun rôle n'est trouvé, chercher dans pays_images (rôles pays créés)
         if not user_roles:
             pays_images_data = load_pays_images()
             user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
             
-            # Si un rôle pays est trouvé mais pas dans balances, l'initialiser
+            # Si un rôle pays est trouvé mais pas dans balances, pas d'initialisation
             if user_roles:
                 role = user_roles[0]
-                role_id = str(role.id)
-                if role_id not in balances:
-                    balances[role_id] = 0
-                    save_balances(balances)
-                    print(f"[DEBUG] Rôle pays {role.name} ({role_id}) initialisé avec 0 dans balances")
         
         if not user_roles:
             await interaction.followup.send(
@@ -2287,12 +2279,28 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         return
     role_id = str(role.id)
     
-    # Utiliser les données fraîchement restaurées depuis PostgreSQL
-    montant = balances.get(role_id, 0)
+    print(f"[DEBUG] User: {interaction.user.name}")
+    print(f"[DEBUG] Role recherché: {role.name} (ID: {role_id})")
+    print(f"[DEBUG] Balances disponibles: {len(current_balances)} entrées")
+    print(f"[DEBUG] PIB disponibles: {len(current_pib_data)} entrées")
+    
+    # Utiliser les données fraîchement chargées depuis PostgreSQL
+    montant = current_balances.get(role_id, 0)
     print(f"[DEBUG] Balance pour role_id {role_id}: {montant}")
     
-    # Récupérer le PIB depuis les données restaurées
-    pib = pib_data.get(role_id, 0)  # PIB stocké comme entier simple
+    # Récupérer le PIB depuis les données fraîchement chargées
+    pib = current_pib_data.get(role_id, 0)  # PIB stocké comme entier simple
+    print(f"[DEBUG] PIB pour role_id {role_id}: {pib}")
+    
+    # Vérifier si le role_id existe dans les données
+    if role_id not in current_balances:
+        print(f"[DEBUG] ⚠️ Role ID {role_id} NON TROUVÉ dans balances.json")
+        # Afficher les 5 premiers role_ids pour comparaison
+        sample_ids = list(current_balances.keys())[:5]
+        print(f"[DEBUG] Exemples de role_ids disponibles: {sample_ids}")
+    
+    if role_id not in current_pib_data:
+        print(f"[DEBUG] ⚠️ Role ID {role_id} NON TROUVÉ dans pib.json")
     
     # Vérification de type pour éviter les erreurs
     if isinstance(pib, dict):
@@ -2303,7 +2311,7 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         pib = 0
     
     print(f"[DEBUG] PIB pour role_id {role_id}: {pib}")
-    print(f"[DEBUG] PIB data complet: {pib_data}")
+    print(f"[DEBUG] PIB data complet: {current_pib_data}")
     # Calcul de la dette totale (somme des emprunts avec taux)
     dette_totale = 0
     emprunts_trouves = []
