@@ -2261,10 +2261,6 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
         if not user_roles:
             pays_images_data = load_pays_images()
             user_roles = [r for r in interaction.user.roles if str(r.id) in pays_images_data]
-            
-            # Si un rôle pays est trouvé mais pas dans balances, pas d'initialisation
-            if user_roles:
-                role = user_roles[0]
         
         if not user_roles:
             await interaction.followup.send(
@@ -2272,14 +2268,18 @@ async def balance(interaction: discord.Interaction, role: discord.Role = None):
             return
         
         role = user_roles[0]
+        print(f"[DEBUG] Rôle automatiquement détecté: {role.name} (ID: {role.id})")
+    
     # Vérifie que l'utilisateur a bien ce rôle ou est admin
     if role not in interaction.user.roles and not interaction.user.guild_permissions.administrator:
         await interaction.followup.send(
             "> Vous n'avez pas ce rôle, vous ne pouvez pas voir la balance de ce pays.", ephemeral=True)
         return
+    
     role_id = str(role.id)
     
     print(f"[DEBUG] User: {interaction.user.name}")
+    print(f"[DEBUG] Tous les rôles de l'utilisateur: {[f'{r.name}({r.id})' for r in interaction.user.roles]}")
     print(f"[DEBUG] Role recherché: {role.name} (ID: {role_id})")
     print(f"[DEBUG] Balances disponibles: {len(current_balances)} entrées")
     print(f"[DEBUG] PIB disponibles: {len(current_pib_data)} entrées")
