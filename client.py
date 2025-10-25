@@ -10325,7 +10325,6 @@ async def developpements(interaction: discord.Interaction):
     discord.app_commands.Choice(name="Armes de Destruction Massive", value="Armes de Destruction Massive"),
     discord.app_commands.Choice(name="Spatial", value="Spatial")
 ])
-@app_commands.checks.has_permissions(administrator=True)
 async def centre_tech(interaction: discord.Interaction, nom: str, localisation: str, specialisation: str):
     """Crée un nouveau centre technologique."""
     await interaction.response.defer()
@@ -10441,7 +10440,6 @@ async def centre_autocomplete(
 @bot.tree.command(name="amelioration", description="Améliorer un centre technologique")
 @app_commands.describe(centre="Nom du centre à améliorer")
 @app_commands.autocomplete(centre=centre_autocomplete)
-@app_commands.checks.has_permissions(administrator=True)
 async def amelioration(interaction: discord.Interaction, centre: str):
     """Améliore un centre technologique."""
     await interaction.response.defer()
@@ -10534,7 +10532,6 @@ async def amelioration(interaction: discord.Interaction, centre: str):
     await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="gestion_centres", description="Gérer vos centres technologiques")
-@app_commands.checks.has_permissions(administrator=True)
 async def gestion_centres(interaction: discord.Interaction):
     """Affiche la gestion des centres technologiques."""
     await interaction.response.defer(ephemeral=True)
