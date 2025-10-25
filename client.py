@@ -467,58 +467,38 @@ def save_pays_images(data):
         print(f"Erreur lors de la sauvegarde des images de pays: {e}")
 
 def load_balances():
-    """Charge les données des balances depuis le fichier."""
+    """Charge les données des balances depuis le fichier principal."""
     balances_data = {}
     
-    # Essayer de charger le fichier principal
+    # Charger le fichier principal
     try:
         if os.path.exists(BALANCE_FILE):
             with open(BALANCE_FILE, "r") as f:
                 balances_data = json.load(f)
                 print(f"Balances chargées depuis {BALANCE_FILE}: {len(balances_data)} entrées")
     except Exception as e:
-        print(f"Erreur lors du chargement des balances principales: {e}")
-    
-    # Si le fichier principal est vide ou corrompu, essayer le backup
-    if not balances_data and os.path.exists(BALANCE_BACKUP_FILE):
-        try:
-            with open(BALANCE_BACKUP_FILE, "r") as f:
-                balances_data = json.load(f)
-                print(f"Balances restaurées depuis la sauvegarde: {len(balances_data)} entrées")
-        except Exception as e:
-            print(f"Erreur lors du chargement de la sauvegarde des balances: {e}")
+        print(f"Erreur lors du chargement des balances: {e}")
     
     # Si aucun fichier n'existe, créer un fichier vide
     if not balances_data:
         balances_data = {}
         print("Création d'un nouveau fichier de balances")
     
-    # Créer les fichiers s'ils n'existent pas
+    # Créer le fichier s'il n'existe pas
     if not os.path.exists(BALANCE_FILE):
         with open(BALANCE_FILE, "w") as f:
-            json.dump(balances_data, f)
-    if not os.path.exists(BALANCE_BACKUP_FILE):
-        with open(BALANCE_BACKUP_FILE, "w") as f:
             json.dump(balances_data, f)
     
     return balances_data
 
 def save_balances(balances_data):
-    """Sauvegarde les balances dans le fichier."""
-    # Sauvegarde principale
+    """Sauvegarde les balances dans le fichier principal."""
     try:
         with open(BALANCE_FILE, "w") as f:
             json.dump(balances_data, f)
+        print(f"[DEBUG] Balances sauvegardées dans {BALANCE_FILE}")
     except Exception as e:
         print(f"Erreur lors de la sauvegarde des balances: {e}")
-    
-    # Sauvegarde de secours (moins fréquente pour éviter l'usure du disque)
-    if random.random() < 0.2:  # 20% de chance de faire un backup
-        try:
-            with open(BALANCE_BACKUP_FILE, "w") as f:
-                json.dump(balances_data, f)
-        except Exception as e:
-            print(f"Erreur lors de la sauvegarde de secours des balances: {e}")
 
 def load_log_channel():
     """Charge les données du canal de log."""
@@ -2218,7 +2198,6 @@ async def reset_economie(interaction: discord.Interaction):
         # Sauvegarder les fichiers vides
         for file_path, empty_value in [
             (BALANCE_FILE, {}),
-            (BALANCE_BACKUP_FILE, {}),
             (LOANS_FILE, []),
             (PIB_FILE, {}),
             (TRANSACTION_LOG_FILE, []),
