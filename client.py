@@ -9292,9 +9292,9 @@ async def mes_generaux(interaction: discord.Interaction):
 
 # === NOUVELLE COMMANDE GÉNÉRAUX ===
 
-@bot.tree.command(name="generaux", description="Affiche la liste de vos généraux par pays")
+@bot.tree.command(name="generaux", description="Affiche la liste de vos généraux avec menu de sélection")
 async def generaux(interaction: discord.Interaction):
-    """Affiche la liste de tous vos généraux organisés par pays."""
+    """Affiche la liste de tous vos généraux avec un menu pour voir les détails."""
     
     user_id = str(interaction.user.id)
     generaux_data = load_generaux()
@@ -9310,8 +9310,8 @@ async def generaux(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Organiser les généraux par pays
-    generaux_par_pays = {}
+    # Créer la liste de généraux pour le menu
+    generaux_list = []
     total_generaux = 0
     total_stars = 0
     
@@ -9321,58 +9321,166 @@ async def generaux(interaction: discord.Interaction):
         type_general = data.get("type", "Inconnu")
         domaine = data.get("domaine", "").capitalize()
         
-        if pays not in generaux_par_pays:
-            generaux_par_pays[pays] = []
-        
-        generaux_par_pays[pays].append({
+        generaux_list.append({
             "nom": nom,
             "stars": stars,
             "type": type_general,
-            "domaine": domaine
+            "domaine": domaine,
+            "pays": pays,
+            "data": data
         })
         
         total_generaux += 1
         total_stars += stars
     
-    # Construire l'embed
+    # Créer l'embed principal avec le menu
     embed = discord.Embed(
-        title="🏛️ Vos Généraux par Pays",
+        title="🏛️ Vos Généraux",
+        description=f"**Total :** {total_generaux} généraux • {total_stars} étoiles\n\n"
+                   f"Sélectionnez un général dans le menu ci-dessous pour voir ses détails :",
         color=EMBED_COLOR
     )
     
-    # Ajouter chaque pays
-    for pays, generaux_list in generaux_par_pays.items():
-        pays_text = []
-        for general in generaux_list:
-            stars_display = format_stars(general["stars"])
-            pays_text.append(f"**{general['nom']}** ({general['type']})")
-            pays_text.append(f"└ {stars_display} • {general['domaine']}")
-        
-        embed.add_field(
-            name=f"🏴 {pays} ({len(generaux_list)} généraux)",
-            value="\n".join(pays_text),
-            inline=False
-        )
+    # Ajouter un aperçu rapide par pays
+    generaux_par_pays = {}
+    for general in generaux_list:
+        pays = general["pays"]
+        if pays not in generaux_par_pays:
+            generaux_par_pays[pays] = []
+        generaux_par_pays[pays].append(general)
     
-    # Statistiques globales
+    apercu_text = []
+    for pays, generaux in generaux_par_pays.items():
+        total_stars_pays = sum(g["stars"] for g in generaux)
+        apercu_text.append(f"🏴 **{pays}** : {len(generaux)} généraux ({total_stars_pays}⭐)")
+    
     embed.add_field(
-        name="📊 Statistiques globales",
-        value=f"**Total de généraux :** {total_generaux}\n"
-              f"**Total d'étoiles :** {total_stars}",
+        name="📊 Aperçu par pays",
+        value="\n".join(apercu_text) if apercu_text else "Aucun général",
         inline=False
     )
     
-    await interaction.response.send_message(embed=embed)
+    # Créer la vue avec le menu déroulant
+    view = GenerauxSelectionView(generaux_list, user_id)
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class GenerauxSelectionView(discord.ui.View):
+    """Vue pour sélectionner un général et voir ses détails."""
+    
+    def __init__(self, generaux_list, user_id):
+        super().__init__(timeout=300)
+        self.generaux_list = generaux_list
+        self.user_id = user_id
+        
+        # Créer le menu déroulant avec tous les généraux
+        options = []
+        for i, general in enumerate(generaux_list[:25]):  # Limite Discord
+            stars_display = format_stars(general["stars"])
+            options.append(discord.SelectOption(
+                label=f"{general['nom']} ({stars_display})",
+                value=str(i),
+                description=f"{general['pays']} • {general['domaine']} • {general['type']}"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez un général pour voir ses détails...",
+            options=options
+        )
+        select.callback = self.general_selected_callback
+        self.add_item(select)
+    
+    async def general_selected_callback(self, interaction: discord.Interaction):
+        selected_index = int(interaction.data["values"][0])
+        selected_general = self.generaux_list[selected_index]
+        
+        # Créer l'embed détaillé du général
+        embed = discord.Embed(
+            title=f"👨‍💼 {selected_general['nom']}",
+            color=EMBED_COLOR
+        )
+        
+        # Informations de base
+        stars_display = format_stars(selected_general["stars"])
+        embed.add_field(
+            name="📋 Informations de base",
+            value=f"**Pays :** {selected_general['pays']}\n"
+                  f"**Domaine :** {selected_general['domaine']}\n"
+                  f"**Type :** {selected_general['type']}\n"
+                  f"**Étoiles :** {stars_display}",
+            inline=False
+        )
+        
+        # Traits
+        data = selected_general["data"]
+        traits_sections = []
+        
+        # Traits positifs
+        if "traits_positifs" in data and data["traits_positifs"]:
+            traits_sections.append(f"**✨ Traits positifs :**\n• " + "\n• ".join(data["traits_positifs"]))
+        
+        # Traits négatifs
+        if "traits_negatifs" in data and data["traits_negatifs"]:
+            traits_sections.append(f"**💀 Traits négatifs :**\n• " + "\n• ".join(data["traits_negatifs"]))
+        
+        # Traits de commandement
+        if "traits_commandement" in data and data["traits_commandement"]:
+            traits_sections.append(f"**⚔️ Traits de commandement :**\n• " + "\n• ".join(data["traits_commandement"]))
+        
+        # Traits d'amélioration
+        if "traits_amelioration" in data and data["traits_amelioration"]:
+            traits_sections.append(f"**🔧 Traits d'amélioration :**\n• " + "\n• ".join(data["traits_amelioration"]))
+        
+        # Traits de maréchal
+        if "traits_marechaux" in data and data["traits_marechaux"]:
+            traits_sections.append(f"**👑 Traits de maréchal :**\n• " + "\n• ".join(data["traits_marechaux"]))
+        
+        if traits_sections:
+            embed.add_field(
+                name="🎯 Traits",
+                value="\n\n".join(traits_sections),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="🎯 Traits",
+                value="Aucun trait particulier",
+                inline=False
+            )
+        
+        # Expérience (si disponible)
+        if "experience" in data:
+            experience = data["experience"]
+            embed.add_field(
+                name="💪 Expérience",
+                value=f"{experience}% vers la prochaine étoile",
+                inline=True
+            )
+        
+        # Statistiques spéciales (si disponibles)
+        stats_info = []
+        if "bonus_ecole" in data:
+            stats_info.append(f"**École :** +{data['bonus_ecole']}")
+        if "roll_final" in data:
+            stats_info.append(f"**Roll final :** {data['roll_final']}")
+        
+        if stats_info:
+            embed.add_field(
+                name="📊 Statistiques",
+                value="\n".join(stats_info),
+                inline=True
+            )
+        
+        await interaction.response.edit_message(embed=embed, view=self)
 
 # === COMMANDES ADMIN POUR LES GÉNÉRAUX ===
 
-@bot.tree.command(name="trait", description="[ADMIN] Ajouter un trait à un général")
+@bot.tree.command(name="trait", description="[ADMIN] Gérer les traits d'un général")
 @app_commands.describe(
-    pays="Rôle du pays",
-    trait="Trait à ajouter au général"
+    pays="Rôle du pays"
 )
-async def add_trait(interaction: discord.Interaction, pays: discord.Role, trait: str):
-    """Permet aux admins d'ajouter un trait à un général d'un pays."""
+async def manage_trait(interaction: discord.Interaction, pays: discord.Role):
+    """Permet aux admins de gérer les traits d'un général d'un pays."""
     
     # Vérifier les permissions admin
     if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
@@ -9432,37 +9540,26 @@ async def add_trait(interaction: discord.Interaction, pays: discord.Role, trait:
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Créer les choix pour le menu déroulant
-    options = []
-    for i, general in enumerate(generaux_pays[:25]):  # Discord limite à 25 options
-        stars_display = format_stars(general["stars"])
-        options.append(discord.SelectOption(
-            label=f"{general['nom']} ({stars_display})",
-            value=str(i),
-            description=f"Général de {pays.name}"
-        ))
-    
-    # Créer la vue avec le menu déroulant
-    view = TraitSelectionView(generaux_pays, trait, pays.name)
+    # Créer la vue avec le menu déroulant pour sélectionner le général
+    view = GeneralTraitManagementView(generaux_pays, pays.name)
     
     embed = discord.Embed(
-        title="🎯 Sélection du Général",
-        description=f"Sélectionnez le général de **{pays.name}** auquel ajouter le trait **{trait}** :",
+        title="🎯 Gestion des Traits - Sélection du Général",
+        description=f"Sélectionnez le général de **{pays.name}** dont vous voulez gérer les traits :",
         color=EMBED_COLOR
     )
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-class TraitSelectionView(discord.ui.View):
-    """Vue pour sélectionner un général et lui ajouter un trait."""
+class GeneralTraitManagementView(discord.ui.View):
+    """Vue pour sélectionner un général et gérer ses traits."""
     
-    def __init__(self, generaux_pays, trait, pays):
-        super().__init__(timeout=None)
+    def __init__(self, generaux_pays, pays):
+        super().__init__(timeout=300)
         self.generaux_pays = generaux_pays
-        self.trait = trait
         self.pays = pays
         
-        # Créer le menu déroulant
+        # Créer le menu déroulant pour sélectionner le général
         options = []
         for i, general in enumerate(generaux_pays[:25]):
             stars_display = format_stars(general["stars"])
@@ -9476,40 +9573,417 @@ class TraitSelectionView(discord.ui.View):
             placeholder="Choisissez un général...",
             options=options
         )
-        select.callback = self.select_callback
+        select.callback = self.select_general_callback
         self.add_item(select)
     
-    async def select_callback(self, interaction: discord.Interaction):
+    async def select_general_callback(self, interaction: discord.Interaction):
         selected_index = int(interaction.data["values"][0])
         selected_general = self.generaux_pays[selected_index]
         
-        # Charger les données actuelles
+        # Créer la vue pour choisir l'action (ajouter/supprimer)
+        view = TraitActionView(selected_general, self.pays)
+        
+        embed = discord.Embed(
+            title="⚡ Action sur les Traits",
+            description=f"**Général sélectionné :** {selected_general['nom']} ({format_stars(selected_general['stars'])})\n"
+                       f"**Pays :** {self.pays}\n\n"
+                       f"Que voulez-vous faire ?",
+            color=EMBED_COLOR
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+class TraitActionView(discord.ui.View):
+    """Vue pour choisir si on veut ajouter ou supprimer un trait."""
+    
+    def __init__(self, selected_general, pays):
+        super().__init__(timeout=300)
+        self.selected_general = selected_general
+        self.pays = pays
+        
+        # Bouton pour ajouter un trait
+        add_button = discord.ui.Button(
+            label="Ajouter un trait",
+            style=discord.ButtonStyle.success,
+            emoji="➕"
+        )
+        add_button.callback = self.add_trait_callback
+        self.add_item(add_button)
+        
+        # Bouton pour supprimer un trait
+        remove_button = discord.ui.Button(
+            label="Supprimer un trait",
+            style=discord.ButtonStyle.danger,
+            emoji="➖"
+        )
+        remove_button.callback = self.remove_trait_callback
+        self.add_item(remove_button)
+    
+    async def add_trait_callback(self, interaction: discord.Interaction):
+        # Créer la vue pour sélectionner la catégorie de trait
+        view = TraitCategorySelectionView(self.selected_general, self.pays)
+        
+        embed = discord.Embed(
+            title="📂 Sélection de Catégorie",
+            description=f"**Général :** {self.selected_general['nom']}\n"
+                       f"**Pays :** {self.pays}\n\n"
+                       f"Sélectionnez d'abord la catégorie de trait à ajouter :",
+            color=0x00ff88
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+    
+    async def remove_trait_callback(self, interaction: discord.Interaction):
+        # Charger les traits actuels du général
+        generaux_data = load_generaux()
+        user_id = self.selected_general["user_id"]
+        nom_general = self.selected_general["nom"]
+        general_info = generaux_data[user_id]["generaux"][nom_general]
+        
+        # Collecter tous les traits du général avec leurs catégories
+        categorized_traits = {}
+        if "traits_positifs" in general_info:
+            categorized_traits["Traits de Personnalité Positifs"] = general_info["traits_positifs"]
+        if "traits_negatifs" in general_info:
+            categorized_traits["Traits de Personnalité Négatifs"] = general_info["traits_negatifs"]
+        if "traits_commandement" in general_info:
+            categorized_traits["Traits de Commandement"] = general_info["traits_commandement"]
+        if "traits_amelioration" in general_info:
+            categorized_traits["Traits d'Amélioration"] = general_info["traits_amelioration"]
+        if "traits_marechaux" in general_info:
+            categorized_traits["Traits de Maréchal"] = general_info["traits_marechaux"]
+        
+        # Aplatir la liste pour la compatibilité
+        all_traits = []
+        for category_traits in categorized_traits.values():
+            all_traits.extend(category_traits)
+        
+        if not all_traits:
+            embed = discord.Embed(
+                title="❌ Aucun trait à supprimer",
+                description=f"Le général **{nom_general}** n'a aucun trait à supprimer.",
+                color=0xff4444
+            )
+            await interaction.response.edit_message(embed=embed, view=None)
+            return
+        
+        # Créer la vue pour sélectionner le trait à supprimer
+        view = RemoveTraitSelectionView(self.selected_general, self.pays, categorized_traits)
+        
+        embed = discord.Embed(
+            title="➖ Supprimer un Trait",
+            description=f"**Général :** {self.selected_general['nom']}\n"
+                       f"**Pays :** {self.pays}\n\n"
+                       f"Sélectionnez le trait à supprimer :",
+            color=0xff4444
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+class TraitCategorySelectionView(discord.ui.View):
+    """Vue pour sélectionner la catégorie de trait à ajouter."""
+    
+    def __init__(self, selected_general, pays):
+        super().__init__(timeout=300)
+        self.selected_general = selected_general
+        self.pays = pays
+        
+        # Récupérer le domaine du général
         generaux_data = load_generaux()
         user_id = selected_general["user_id"]
         nom_general = selected_general["nom"]
+        general_info = generaux_data[user_id]["generaux"][nom_general]
+        self.domaine = general_info.get("domaine", "terrestre")
         
-        # Ajouter le trait (selon le type de trait)
-        if "traits_positifs" not in generaux_data[user_id]["generaux"][nom_general]:
-            generaux_data[user_id]["generaux"][nom_general]["traits_positifs"] = []
+        # Créer les options de catégorie
+        options = [
+            discord.SelectOption(
+                label="Traits de Personnalité Positifs",
+                value="positifs",
+                description="Courageux, Personnalité publique, Stratège de génie, etc.",
+                emoji="✨"
+            ),
+            discord.SelectOption(
+                label="Traits de Personnalité Négatifs",
+                value="negatifs",
+                description="Alcoolique, Lâche, Incompétent, etc.",
+                emoji="💀"
+            ),
+            discord.SelectOption(
+                label=f"Traits de Commandement ({self.domaine.capitalize()})",
+                value="commandement",
+                description=f"Traits spécialisés pour le domaine {self.domaine}",
+                emoji="⚔️"
+            )
+        ]
         
-        # Ajouter le trait aux traits positifs (peut être modifié selon le type)
-        if self.trait not in generaux_data[user_id]["generaux"][nom_general]["traits_positifs"]:
-            generaux_data[user_id]["generaux"][nom_general]["traits_positifs"].append(self.trait)
+        # Ajouter les traits d'amélioration seulement si c'est un général terrestre
+        if self.domaine == "terrestre":
+            options.append(discord.SelectOption(
+                label="Traits d'Amélioration (Terrestre)",
+                value="amelioration",
+                description="Expert de la cavalerie, Expert des chars, etc.",
+                emoji="🔧"
+            ))
+        
+        # Ajouter les traits de maréchal seulement si c'est un général terrestre 3⭐
+        if self.domaine == "terrestre" and selected_general["stars"] >= 3:
+            options.append(discord.SelectOption(
+                label="Traits de Maréchal (3⭐ Terrestre)",
+                value="marechaux",
+                description="Magicien de la logistique, Attaquant agressif, etc.",
+                emoji="👑"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez une catégorie de trait...",
+            options=options
+        )
+        select.callback = self.category_selected_callback
+        self.add_item(select)
+    
+    async def category_selected_callback(self, interaction: discord.Interaction):
+        category = interaction.data["values"][0]
+        
+        # Créer la vue pour sélectionner le trait spécifique
+        view = AddTraitSelectionView(self.selected_general, self.pays, category, self.domaine)
+        
+        category_names = {
+            "positifs": "Traits de Personnalité Positifs",
+            "negatifs": "Traits de Personnalité Négatifs", 
+            "commandement": f"Traits de Commandement ({self.domaine.capitalize()})",
+            "amelioration": "Traits d'Amélioration",
+            "marechaux": "Traits de Maréchal"
+        }
+        
+        embed = discord.Embed(
+            title="➕ Ajouter un Trait",
+            description=f"**Général :** {self.selected_general['nom']}\n"
+                       f"**Pays :** {self.pays}\n"
+                       f"**Catégorie :** {category_names[category]}\n\n"
+                       f"Sélectionnez le trait à ajouter :",
+            color=0x00ff88
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+class AddTraitSelectionView(discord.ui.View):
+    """Vue pour sélectionner le trait à ajouter selon la catégorie."""
+    
+    def __init__(self, selected_general, pays, category, domaine):
+        super().__init__(timeout=300)
+        self.selected_general = selected_general
+        self.pays = pays
+        self.category = category
+        self.domaine = domaine
+        
+        # Définir les traits selon la catégorie sélectionnée
+        traits_by_category = self.get_traits_by_category()
+        
+        # Créer le menu déroulant avec les traits de la catégorie
+        options = []
+        for i, trait in enumerate(traits_by_category[:25]):  # Limite Discord
+            options.append(discord.SelectOption(
+                label=trait,
+                value=str(i),
+                description=f"Trait de {self.get_category_display_name()}"
+            ))
+        
+        if not options:
+            # Si pas de traits disponibles, ajouter une option vide
+            options.append(discord.SelectOption(
+                label="Aucun trait disponible",
+                value="none",
+                description="Cette catégorie n'a pas de traits disponibles"
+            ))
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez le trait à ajouter...",
+            options=options
+        )
+        select.callback = self.add_trait_callback
+        self.add_item(select)
+    
+    def get_category_display_name(self):
+        names = {
+            "positifs": "personnalité positive",
+            "negatifs": "personnalité négative",
+            "commandement": f"commandement {self.domaine}",
+            "amelioration": "amélioration",
+            "marechaux": "maréchal"
+        }
+        return names.get(self.category, "trait")
+    
+    def get_traits_by_category(self):
+        """Retourne la liste des traits selon la catégorie sélectionnée."""
+        if self.category == "positifs":
+            return [
+                "Personnalité publique", "Courageux", "Inflexible", "Stratège de génie", 
+                "Officier de carrière", "Héros de guerre"
+            ]
+        elif self.category == "negatifs":
+            return [
+                "Alcoolique", "Drogué", "Lâche", "Connexion politique", "Vieux jeu", 
+                "Paranoïaque", "Colérique", "Incompétent"
+            ]
+        elif self.category == "commandement":
+            # Traits de commandement selon le domaine
+            if self.domaine == "terrestre":
+                return [
+                    "Planificateur", "Officier de cavalerie", "Officier d'infanterie", "Officier des blindés",
+                    "Officier du génie", "Officier de reconnaissance", "Officier des opérations spéciales",
+                    "Conquérant", "Ours polaire", "Montagnard", "Renard du désert", "Renard des marais",
+                    "Combattant des plaines", "Rat de la jungle", "Éclaireur", "Spécialiste du combat urbain",
+                    "Major de promotion"
+                ]
+            elif self.domaine == "marine":
+                return [
+                    "Créateur de blocus", "Loup de mer", "Observateur", "Protecteur de la flotte",
+                    "Maître tacticien", "Cœur de fer", "Contrôleur aérien", "Loup des mers glacées",
+                    "Combattant côtier", "Expert de haute mer", "Expert de basse mer", "Major de promotion"
+                ]
+            elif self.domaine == "aerien":
+                return [
+                    "Aigle des cieux", "Protecteur du ciel", "Destructeur méticuleux",
+                    "Théoricien du support rapproché", "Poséidon"
+                ]
+        elif self.category == "amelioration":
+            # Traits d'amélioration (seulement terrestre)
+            return list(TRAITS_AMELIORATION.keys())
+        elif self.category == "marechaux":
+            # Traits de maréchal (seulement terrestre 3⭐)
+            return list(TRAITS_MARECHAUX.keys())
+        
+        return []
+    
+    async def add_trait_callback(self, interaction: discord.Interaction):
+        selected_value = interaction.data["values"][0]
+        
+        if selected_value == "none":
+            embed = discord.Embed(
+                title="❌ Aucun trait disponible",
+                description="Cette catégorie n'a pas de traits disponibles.",
+                color=0xff4444
+            )
+            await interaction.response.edit_message(embed=embed, view=None)
+            return
+        
+        trait_index = int(selected_value)
+        traits_list = self.get_traits_by_category()
+        selected_trait = traits_list[trait_index]
+        
+        # Charger les données actuelles
+        generaux_data = load_generaux()
+        user_id = self.selected_general["user_id"]
+        nom_general = self.selected_general["nom"]
+        
+        # Déterminer dans quelle liste ajouter le trait
+        trait_list_mapping = {
+            "positifs": "traits_positifs",
+            "negatifs": "traits_negatifs",
+            "commandement": "traits_commandement",
+            "amelioration": "traits_amelioration",
+            "marechaux": "traits_marechaux"
+        }
+        
+        trait_list = trait_list_mapping[self.category]
+        
+        # Ajouter le trait
+        if trait_list not in generaux_data[user_id]["generaux"][nom_general]:
+            generaux_data[user_id]["generaux"][nom_general][trait_list] = []
+        
+        if selected_trait not in generaux_data[user_id]["generaux"][nom_general][trait_list]:
+            generaux_data[user_id]["generaux"][nom_general][trait_list].append(selected_trait)
             save_generaux(generaux_data)
             
             embed = discord.Embed(
                 title="✅ Trait ajouté",
-                description=f"Le trait **{self.trait}** a été ajouté au général **{nom_general}** de **{self.pays}**.",
+                description=f"Le trait **{selected_trait}** a été ajouté au général **{nom_general}** de **{self.pays}**.",
                 color=0x00ff88
             )
         else:
             embed = discord.Embed(
                 title="⚠️ Trait déjà présent",
-                description=f"Le général **{nom_general}** possède déjà le trait **{self.trait}**.",
+                description=f"Le général **{nom_general}** possède déjà le trait **{selected_trait}**.",
                 color=0xffaa00
             )
         
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.edit_message(embed=embed, view=None)
+
+class RemoveTraitSelectionView(discord.ui.View):
+    """Vue pour sélectionner le trait à supprimer."""
+    
+    def __init__(self, selected_general, pays, categorized_traits):
+        super().__init__(timeout=300)
+        self.selected_general = selected_general
+        self.pays = pays
+        self.categorized_traits = categorized_traits
+        
+        # Créer le menu déroulant avec les traits organisés par catégorie
+        options = []
+        trait_mapping = {}  # Pour mapper les valeurs aux traits et catégories
+        option_index = 0
+        
+        for category, traits in categorized_traits.items():
+            for trait in traits:
+                # Raccourcir les noms de catégorie pour l'affichage
+                category_short = category.replace("Traits de ", "").replace("Personnalité ", "")
+                options.append(discord.SelectOption(
+                    label=trait,
+                    value=str(option_index),
+                    description=f"Catégorie: {category_short}"
+                ))
+                trait_mapping[str(option_index)] = {"trait": trait, "category": category}
+                option_index += 1
+                
+                if len(options) >= 25:  # Limite Discord
+                    break
+            if len(options) >= 25:
+                break
+        
+        self.trait_mapping = trait_mapping
+        
+        select = discord.ui.Select(
+            placeholder="Choisissez le trait à supprimer...",
+            options=options
+        )
+        select.callback = self.remove_trait_callback
+        self.add_item(select)
+    
+    async def remove_trait_callback(self, interaction: discord.Interaction):
+        selected_value = interaction.data["values"][0]
+        trait_info = self.trait_mapping[selected_value]
+        selected_trait = trait_info["trait"]
+        
+        # Charger les données actuelles
+        generaux_data = load_generaux()
+        user_id = self.selected_general["user_id"]
+        nom_general = self.selected_general["nom"]
+        general_info = generaux_data[user_id]["generaux"][nom_general]
+        
+        # Trouver et supprimer le trait
+        trait_removed = False
+        for trait_list in ["traits_positifs", "traits_negatifs", "traits_commandement", "traits_amelioration", "traits_marechaux"]:
+            if trait_list in general_info and selected_trait in general_info[trait_list]:
+                general_info[trait_list].remove(selected_trait)
+                trait_removed = True
+                break
+        
+        if trait_removed:
+            save_generaux(generaux_data)
+            embed = discord.Embed(
+                title="✅ Trait supprimé",
+                description=f"Le trait **{selected_trait}** a été supprimé du général **{nom_general}** de **{self.pays}**.",
+                color=0x00ff88
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ Erreur",
+                description=f"Impossible de supprimer le trait **{selected_trait}**.",
+                color=0xff4444
+            )
+        
+        await interaction.response.edit_message(embed=embed, view=None)
 
 @bot.tree.command(name="general_experience", description="[ADMIN] Ajouter de l'expérience à un général")
 @app_commands.describe(
