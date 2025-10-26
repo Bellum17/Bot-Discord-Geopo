@@ -9278,12 +9278,36 @@ async def mes_generaux(interaction: discord.Interaction):
     if user_id in generaux_data and "generaux" in generaux_data[user_id]:
         for nom, data in generaux_data[user_id]["generaux"].items():
             # Vérifier que le général appartient au pays de l'utilisateur
-            if data.get("pays", "").lower() == user_country:
+            # Comparaison flexible : nom du rôle vs pays stocké (insensible à la casse)
+            pays_general = data.get("pays", "").lower()
+            
+            # Vérification directe
+            if pays_general == user_country:
                 user_generaux.append({
                     "nom": nom,
                     "data": data,
                     "domaine": data.get("domaine", "").lower()
                 })
+            # Vérification alternative : si le nom du pays est contenu dans le nom du rôle ou vice versa
+            elif pays_general in user_country or user_country in pays_general:
+                user_generaux.append({
+                    "nom": nom,
+                    "data": data,
+                    "domaine": data.get("domaine", "").lower()
+                })
+            # Vérification alternative 2 : comparer en retirant les emojis et caractères spéciaux
+            else:
+                import re
+                # Nettoyer les noms en gardant seulement les lettres, chiffres et espaces
+                pays_clean = re.sub(r'[^\w\s]', '', pays_general).strip()
+                role_clean = re.sub(r'[^\w\s]', '', user_country).strip()
+                
+                if pays_clean and role_clean and (pays_clean == role_clean or pays_clean in role_clean or role_clean in pays_clean):
+                    user_generaux.append({
+                        "nom": nom,
+                        "data": data,
+                        "domaine": data.get("domaine", "").lower()
+                    })
     
     if not user_generaux:
         embed = discord.Embed(
@@ -9608,6 +9632,146 @@ class GenerauxDomaineView(discord.ui.View):
                 )
         
         await interaction.response.edit_message(embed=embed, view=self.parent_view)
+
+# === COMMANDE DE DEBUG POUR LES GÉNÉRAUX ===
+
+@bot.tree.command(name="debug_generaux", description="[DEBUG] Diagnostic des généraux et rôles de pays")
+async def debug_generaux(interaction: discord.Interaction):
+    """Commande de diagnostic pour vérifier les correspondances entre rôles et généraux."""
+    
+    # Vérifier si c'est un admin
+    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
+        embed = discord.Embed(
+            title="❌ Permission refusée",
+            description="Cette commande est réservée aux administrateurs.",
+            color=0xff4444
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    user_id = str(interaction.user.id)
+    generaux_data = load_generaux()
+    
+    # Fonction pour vérifier les rôles de pays
+    def get_user_country_roles(user):
+        """Retourne tous les rôles de pays de l'utilisateur."""
+        pays_images_data = load_pays_images()
+        country_roles = []
+        
+        for role in user.roles:
+            role_id = str(role.id)
+            if role_id in balances or role_id in pays_images_data:
+                country_roles.append(role)
+        return country_roles
+    
+    # Fonction de correspondance améliorée
+    def test_country_match(role_name, stored_pays):
+        """Teste si un rôle correspond à un pays stocké."""
+        import re
+        
+        user_country = role_name.lower()
+        pays_general = stored_pays.lower()
+        
+        # Vérification directe
+        if pays_general == user_country:
+            return True, "Correspondance exacte"
+        
+        # Vérification par inclusion
+        if pays_general in user_country or user_country in pays_general:
+            return True, "Correspondance par inclusion"
+        
+        # Vérification après nettoyage
+        pays_clean = re.sub(r'[^\w\s]', '', pays_general).strip()
+        role_clean = re.sub(r'[^\w\s]', '', user_country).strip()
+        
+        if pays_clean and role_clean and (pays_clean == role_clean or pays_clean in role_clean or role_clean in pays_clean):
+            return True, "Correspondance après nettoyage"
+        
+        return False, "Aucune correspondance"
+    
+    # Obtenir les rôles de pays de l'utilisateur
+    user_country_roles = get_user_country_roles(interaction.user)
+    
+    embed = discord.Embed(
+        title="🔍 Diagnostic Généraux",
+        description=f"Diagnostic pour {interaction.user.mention}",
+        color=EMBED_COLOR
+    )
+    
+    # Afficher les rôles de pays
+    if user_country_roles:
+        roles_text = "\n".join([f"• {role.name}" for role in user_country_roles[:5]])
+        if len(user_country_roles) > 5:
+            roles_text += f"\n... et {len(user_country_roles) - 5} autres"
+        
+        embed.add_field(
+            name=f"🏛️ Vos rôles de pays ({len(user_country_roles)})",
+            value=roles_text,
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🏛️ Vos rôles de pays",
+            value="❌ Aucun rôle de pays détecté",
+            inline=False
+        )
+    
+    # Afficher les généraux de l'utilisateur
+    if user_id in generaux_data and "generaux" in generaux_data[user_id]:
+        generaux_info = []
+        correspondances_info = []
+        
+        for nom, data in generaux_data[user_id]["generaux"].items():
+            pays_general = data.get("pays", "INCONNU")
+            domaine = data.get("domaine", "INCONNU")
+            
+            generaux_info.append(f"• **{nom}**\n  Pays: `{pays_general}`\n  Domaine: {domaine}")
+            
+            # Tester la correspondance avec chaque rôle
+            for role in user_country_roles:
+                match, reason = test_country_match(role.name, pays_general)
+                if match:
+                    correspondances_info.append(f"✅ {nom} ↔ {role.name}\n   ({reason})")
+                    break
+            else:
+                correspondances_info.append(f"❌ {nom} - Aucune correspondance trouvée")
+        
+        embed.add_field(
+            name=f"⚔️ Vos généraux ({len(generaux_info)})",
+            value="\n\n".join(generaux_info[:3]),  # Limiter à 3 pour éviter les embeds trop longs
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🔄 Correspondances",
+            value="\n".join(correspondances_info[:5]),  # Limiter à 5
+            inline=False
+        )
+        
+        if len(generaux_info) > 3:
+            embed.add_field(
+                name="ℹ️ Note",
+                value=f"Seuls les 3 premiers généraux sont affichés. Total: {len(generaux_info)}",
+                inline=False
+            )
+    else:
+        embed.add_field(
+            name="⚔️ Vos généraux",
+            value="❌ Aucun général trouvé",
+            inline=False
+        )
+    
+    # Instructions
+    embed.add_field(
+        name="💡 Instructions",
+        value="Si vos généraux ne s'affichent pas dans `/mes_generaux`, "
+              "vérifiez que les noms des pays correspondent entre vos rôles et vos généraux.",
+        inline=False
+    )
+    
+    await interaction.followup.send(embed=embed)
 
 # === COMMANDES ADMIN POUR LES GÉNÉRAUX ===
 
