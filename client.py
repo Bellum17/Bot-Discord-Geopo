@@ -9241,7 +9241,7 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
 
 # === NOUVELLE COMMANDE MES GÉNÉRAUX ===
 
-@bot.tree.command(name="mes_generaux", description="Affiche vos généraux par domaine avec menu de sélection")
+@bot.tree.command(name="mes_generaux", description="Affiche vos généraux, amiraux et généraux aériens par domaine")
 async def mes_generaux(interaction: discord.Interaction):
     """Affiche vos généraux organisés par domaine (terrestre, aérien, maritime)."""
     
@@ -9303,14 +9303,23 @@ async def mes_generaux(interaction: discord.Interaction):
     }
     
     for general in user_generaux:
-        domaine = general["domaine"]
+        domaine_brut = general["domaine"]
+        # Mapper les domaines du système vers l'affichage
+        # Le système utilise "aerien" et "marine", l'affichage utilise "aérien" et "maritime"
+        if domaine_brut == "aerien":
+            domaine = "aérien"
+        elif domaine_brut == "marine":
+            domaine = "maritime"
+        else:
+            domaine = domaine_brut.lower()
+        
         if domaine in generaux_par_domaine:
             generaux_par_domaine[domaine].append(general)
     
     # Créer l'embed principal
     embed = discord.Embed(
-        title=f"🏛️ Vos Généraux - {user_country_role.name}",
-        description="Choisissez un domaine pour voir vos généraux :",
+        title=f"🏛️ Vos Officiers - {user_country_role.name}",
+        description="Choisissez un domaine pour voir vos officiers :",
         color=EMBED_COLOR
     )
     
@@ -9319,9 +9328,18 @@ async def mes_generaux(interaction: discord.Interaction):
         if generaux:
             total_stars = sum(g["data"].get("stars", 0) for g in generaux)
             emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+            
+            # Déterminer le nom approprié selon le domaine
+            if domaine == "maritime":
+                nom_domaine = "Amiraux"
+            elif domaine == "aérien":
+                nom_domaine = "Généraux aériens"
+            else:
+                nom_domaine = "Généraux terrestres"
+                
             embed.add_field(
-                name=f"{emoji} {domaine.capitalize()}",
-                value=f"{len(generaux)} généraux • {total_stars} étoiles",
+                name=f"{emoji} {nom_domaine}",
+                value=f"{len(generaux)} officiers • {total_stars} étoiles",
                 inline=True
             )
     
@@ -9341,16 +9359,16 @@ class MesGenerauxView(discord.ui.View):
         
         # Ajouter les boutons pour chaque domaine qui a des généraux
         domaines_info = {
-            "terrestre": {"emoji": "🏔️", "style": discord.ButtonStyle.primary},
-            "aérien": {"emoji": "✈️", "style": discord.ButtonStyle.secondary},
-            "maritime": {"emoji": "🌊", "style": discord.ButtonStyle.success}
+            "terrestre": {"emoji": "🏔️", "style": discord.ButtonStyle.primary, "label": "Généraux terrestres"},
+            "aérien": {"emoji": "✈️", "style": discord.ButtonStyle.secondary, "label": "Généraux aériens"},
+            "maritime": {"emoji": "🌊", "style": discord.ButtonStyle.success, "label": "Amiraux"}
         }
         
         for domaine, info in domaines_info.items():
             if self.generaux_par_domaine[domaine]:  # Seulement si on a des généraux dans ce domaine
                 count = len(self.generaux_par_domaine[domaine])
                 button = discord.ui.Button(
-                    label=f"{domaine.capitalize()} ({count})",
+                    label=f"{info['label']} ({count})",
                     emoji=info["emoji"],
                     style=info["style"],
                     custom_id=f"domaine_{domaine}"
@@ -9364,19 +9382,34 @@ class MesGenerauxView(discord.ui.View):
             generaux = self.generaux_par_domaine[domaine]
             
             if not generaux:
+                # Déterminer le type d'officier selon le domaine
+                if domaine == "maritime":
+                    type_officier = "amiral"
+                elif domaine == "aérien":
+                    type_officier = "général aérien"
+                else:
+                    type_officier = "général terrestre"
+                    
                 embed = discord.Embed(
-                    title=f"❌ Aucun général {domaine}",
-                    description=f"Vous n'avez aucun général dans le domaine {domaine}.",
+                    title=f"❌ Aucun {type_officier}",
+                    description=f"Vous n'avez aucun {type_officier} dans votre armée.",
                     color=0xff4444
                 )
                 await interaction.response.edit_message(embed=embed, view=self)
                 return
             
-            # Créer l'embed pour le domaine sélectionné
+            # Créer l'embed pour le domaine sélectionné avec le bon titre
             emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+            if domaine == "maritime":
+                titre_domaine = "Amiraux"
+            elif domaine == "aérien":
+                titre_domaine = "Généraux aériens"
+            else:
+                titre_domaine = "Généraux terrestres"
+                
             embed = discord.Embed(
-                title=f"{emoji} Généraux {domaine.capitalize()} - {self.pays_name}",
-                description="Sélectionnez un général pour voir ses détails :",
+                title=f"{emoji} {titre_domaine} - {self.pays_name}",
+                description="Sélectionnez un officier pour voir ses détails :",
                 color=EMBED_COLOR
             )
             
@@ -9403,14 +9436,31 @@ class GenerauxDomaineView(discord.ui.View):
         for i, general in enumerate(generaux[:25]):  # Limite Discord
             stars_display = format_stars(general["data"].get("stars", 0))
             type_general = general["data"].get("type", "Général")
+            
+            # Adapter le type selon le domaine si c'est un type générique
+            if type_general.startswith("Général") and self.domaine == "maritime":
+                type_display = type_general.replace("Général", "Amiral")
+            elif type_general.startswith("Général") and self.domaine == "aérien":
+                type_display = type_general.replace("Général", "Général aérien")
+            else:
+                type_display = type_general
+                
             options.append(discord.SelectOption(
                 label=f"{general['nom']} ({stars_display})",
                 value=str(i),
-                description=f"{type_general} • {self.pays_name}"
+                description=f"{type_display} • {self.pays_name}"
             ))
         
+        # Placeholder adapté selon le domaine
+        if self.domaine == "maritime":
+            placeholder = "Choisissez un amiral pour voir ses détails..."
+        elif self.domaine == "aérien":
+            placeholder = "Choisissez un général aérien pour voir ses détails..."
+        else:
+            placeholder = "Choisissez un général pour voir ses détails..."
+        
         select = discord.ui.Select(
-            placeholder="Choisissez un général pour voir ses détails...",
+            placeholder=placeholder,
             options=options
         )
         select.callback = self.general_selected_callback
@@ -9429,20 +9479,41 @@ class GenerauxDomaineView(discord.ui.View):
         selected_index = int(interaction.data["values"][0])
         selected_general = self.generaux[selected_index]
         
+        # Déterminer le titre et l'emoji selon le domaine
+        data = selected_general["data"]
+        domaine_brut = data.get("domaine", "terrestre")
+        
+        if domaine_brut == "marine" or self.domaine == "maritime":
+            emoji_titre = "⚓"
+            titre_generique = "Amiral"
+        elif domaine_brut == "aerien" or self.domaine == "aérien":
+            emoji_titre = "✈️"
+            titre_generique = "Général aérien"
+        else:
+            emoji_titre = "👨‍💼"
+            titre_generique = "Général"
+        
         # Créer l'embed détaillé du général
         embed = discord.Embed(
-            title=f"👨‍💼 {selected_general['nom']}",
+            title=f"{emoji_titre} {selected_general['nom']}",
             color=EMBED_COLOR
         )
         
         # Informations de base
-        data = selected_general["data"]
         stars_display = format_stars(data.get("stars", 0))
+        type_display = data.get('type', titre_generique)
+        
+        # Adapter le type selon le domaine si c'est un type générique
+        if type_display.startswith("Général") and self.domaine == "maritime":
+            type_display = type_display.replace("Général", "Amiral")
+        elif type_display.startswith("Général") and self.domaine == "aérien":
+            type_display = type_display.replace("Général", "Général aérien")
+        
         embed.add_field(
             name="📋 Informations de base",
             value=f"**Pays :** {self.pays_name}\n"
                   f"**Domaine :** {self.domaine.capitalize()}\n"
-                  f"**Type :** {data.get('type', 'Général')}\n"
+                  f"**Type :** {type_display}\n"
                   f"**Étoiles :** {stars_display}",
             inline=False
         )
@@ -9511,8 +9582,8 @@ class GenerauxDomaineView(discord.ui.View):
     async def back_callback(self, interaction: discord.Interaction):
         # Retourner à la vue principale
         embed = discord.Embed(
-            title=f"🏛️ Vos Généraux - {self.pays_name}",
-            description="Choisissez un domaine pour voir vos généraux :",
+            title=f"🏛️ Vos Officiers - {self.pays_name}",
+            description="Choisissez un domaine pour voir vos officiers :",
             color=EMBED_COLOR
         )
         
@@ -9521,9 +9592,18 @@ class GenerauxDomaineView(discord.ui.View):
             if generaux:
                 total_stars = sum(g["data"].get("stars", 0) for g in generaux)
                 emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+                
+                # Déterminer le nom approprié selon le domaine
+                if domaine == "maritime":
+                    nom_domaine = "Amiraux"
+                elif domaine == "aérien":
+                    nom_domaine = "Généraux aériens"
+                else:
+                    nom_domaine = "Généraux terrestres"
+                    
                 embed.add_field(
-                    name=f"{emoji} {domaine.capitalize()}",
-                    value=f"{len(generaux)} généraux • {total_stars} étoiles",
+                    name=f"{emoji} {nom_domaine}",
+                    value=f"{len(generaux)} officiers • {total_stars} étoiles",
                     inline=True
                 )
         
