@@ -9239,148 +9239,174 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
     
     await interaction.response.send_message(embed=embed)
 
-# === SYSTÈME D'AMÉLIORATION DES GÉNÉRAUX ===
+# === NOUVELLE COMMANDE MES GÉNÉRAUX ===
 
-@bot.tree.command(name="mes_generaux", description="Affiche vos généraux et leurs niveaux d'étoiles")
+@bot.tree.command(name="mes_generaux", description="Affiche vos généraux par domaine avec menu de sélection")
 async def mes_generaux(interaction: discord.Interaction):
-    """Affiche la liste des généraux de l'utilisateur et permet de les améliorer."""
+    """Affiche vos généraux organisés par domaine (terrestre, aérien, maritime)."""
     
     user_id = str(interaction.user.id)
     generaux_data = load_generaux()
     
-    # Vérifier si l'utilisateur a des généraux
-    if user_id not in generaux_data or "generaux" not in generaux_data[user_id] or not generaux_data[user_id]["generaux"]:
+    # Vérifier si l'utilisateur a un rôle de pays
+    def get_user_country_role(user):
+        """Retourne le rôle de pays de l'utilisateur."""
+        pays_images_data = load_pays_images()
+        
+        for role in user.roles:
+            role_id = str(role.id)
+            # Un rôle est considéré comme un pays s'il existe dans le système de balances
+            # ou s'il existe dans pays_images (rôles pays créés)
+            if role_id in balances or role_id in pays_images_data:
+                return role
+        return None
+    
+    user_country_role = get_user_country_role(interaction.user)
+    if not user_country_role:
         embed = discord.Embed(
-            title="📋 Vos Généraux",
-            description="Vous n'avez encore aucun général enregistré.\n\n"
-                       "Utilisez `/roll_general` pour créer des généraux, puis revenez ici pour les améliorer !",
-            color=EMBED_COLOR
+            title="❌ Aucun pays détecté",
+            description="Vous devez avoir un rôle de pays pour utiliser cette commande.",
+            color=0xff4444
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Construire la liste des généraux
-    generaux_list = []
-    total_stars = 0
+    user_country = user_country_role.name.lower()
     
-    for nom, data in generaux_data[user_id]["generaux"].items():
-        stars = data.get("stars", 0)
-        total_stars += stars
-        generaux_list.append(f"**{nom}** : {format_stars(stars)} ({stars}/5)")
+    # Vérifier si l'utilisateur a des généraux de son pays
+    user_generaux = []
+    if user_id in generaux_data and "generaux" in generaux_data[user_id]:
+        for nom, data in generaux_data[user_id]["generaux"].items():
+            # Vérifier que le général appartient au pays de l'utilisateur
+            if data.get("pays", "").lower() == user_country:
+                user_generaux.append({
+                    "nom": nom,
+                    "data": data,
+                    "domaine": data.get("domaine", "").lower()
+                })
     
-    embed = discord.Embed(
-        title="⭐ Vos Généraux",
-        description="\n".join(generaux_list),
-        color=EMBED_COLOR
-    )
-    
-    embed.add_field(
-        name="📊 Statistiques",
-        value=f"**Nombre de généraux :** {len(generaux_list)}\n"
-              f"**Total d'étoiles :** {total_stars}",
-        inline=False
-    )
-    
-    embed.add_field(
-        name="ℹ️ Évolution des généraux",
-        value="Les généraux évoluent maintenant par un système de pourcentage de progression.\n"
-              "Contactez le staff pour améliorer vos généraux.",
-        inline=False
-    )
-    
-    await interaction.response.send_message(embed=embed)
-
-# === NOUVELLE COMMANDE GÉNÉRAUX ===
-
-@bot.tree.command(name="generaux", description="Affiche la liste de vos généraux avec menu de sélection")
-async def generaux(interaction: discord.Interaction):
-    """Affiche la liste de tous vos généraux avec un menu pour voir les détails."""
-    
-    user_id = str(interaction.user.id)
-    generaux_data = load_generaux()
-    
-    # Vérifier si l'utilisateur a des généraux
-    if user_id not in generaux_data or "generaux" not in generaux_data[user_id] or not generaux_data[user_id]["generaux"]:
+    if not user_generaux:
         embed = discord.Embed(
             title="📋 Vos Généraux",
-            description="Vous n'avez encore aucun général enregistré.\n\n"
+            description=f"Vous n'avez encore aucun général pour **{user_country_role.name}**.\n\n"
                        "Utilisez `/roll_general` pour créer des généraux !",
             color=EMBED_COLOR
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     
-    # Créer la liste de généraux pour le menu
-    generaux_list = []
-    total_generaux = 0
-    total_stars = 0
+    # Organiser les généraux par domaine
+    generaux_par_domaine = {
+        "terrestre": [],
+        "aérien": [],
+        "maritime": []
+    }
     
-    for nom, data in generaux_data[user_id]["generaux"].items():
-        pays = data.get("pays", "Inconnu")
-        stars = data.get("stars", 0)
-        type_general = data.get("type", "Inconnu")
-        domaine = data.get("domaine", "").capitalize()
-        
-        generaux_list.append({
-            "nom": nom,
-            "stars": stars,
-            "type": type_general,
-            "domaine": domaine,
-            "pays": pays,
-            "data": data
-        })
-        
-        total_generaux += 1
-        total_stars += stars
+    for general in user_generaux:
+        domaine = general["domaine"]
+        if domaine in generaux_par_domaine:
+            generaux_par_domaine[domaine].append(general)
     
-    # Créer l'embed principal avec le menu
+    # Créer l'embed principal
     embed = discord.Embed(
-        title="🏛️ Vos Généraux",
-        description=f"**Total :** {total_generaux} généraux • {total_stars} étoiles\n\n"
-                   f"Sélectionnez un général dans le menu ci-dessous pour voir ses détails :",
+        title=f"🏛️ Vos Généraux - {user_country_role.name}",
+        description="Choisissez un domaine pour voir vos généraux :",
         color=EMBED_COLOR
     )
     
-    # Ajouter un aperçu rapide par pays
-    generaux_par_pays = {}
-    for general in generaux_list:
-        pays = general["pays"]
-        if pays not in generaux_par_pays:
-            generaux_par_pays[pays] = []
-        generaux_par_pays[pays].append(general)
+    # Ajouter un résumé par domaine
+    for domaine, generaux in generaux_par_domaine.items():
+        if generaux:
+            total_stars = sum(g["data"].get("stars", 0) for g in generaux)
+            emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+            embed.add_field(
+                name=f"{emoji} {domaine.capitalize()}",
+                value=f"{len(generaux)} généraux • {total_stars} étoiles",
+                inline=True
+            )
     
-    apercu_text = []
-    for pays, generaux in generaux_par_pays.items():
-        total_stars_pays = sum(g["stars"] for g in generaux)
-        apercu_text.append(f"🏴 **{pays}** : {len(generaux)} généraux ({total_stars_pays}⭐)")
-    
-    embed.add_field(
-        name="📊 Aperçu par pays",
-        value="\n".join(apercu_text) if apercu_text else "Aucun général",
-        inline=False
-    )
-    
-    # Créer la vue avec le menu déroulant
-    view = GenerauxSelectionView(generaux_list, user_id)
+    # Créer la vue avec les boutons de domaine
+    view = MesGenerauxView(generaux_par_domaine, user_id, user_country_role.name)
     
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-class GenerauxSelectionView(discord.ui.View):
-    """Vue pour sélectionner un général et voir ses détails."""
+class MesGenerauxView(discord.ui.View):
+    """Vue pour afficher les généraux par domaine."""
     
-    def __init__(self, generaux_list, user_id):
+    def __init__(self, generaux_par_domaine, user_id, pays_name):
         super().__init__(timeout=300)
-        self.generaux_list = generaux_list
+        self.generaux_par_domaine = generaux_par_domaine
         self.user_id = user_id
+        self.pays_name = pays_name
         
-        # Créer le menu déroulant avec tous les généraux
+        # Ajouter les boutons pour chaque domaine qui a des généraux
+        domaines_info = {
+            "terrestre": {"emoji": "🏔️", "style": discord.ButtonStyle.primary},
+            "aérien": {"emoji": "✈️", "style": discord.ButtonStyle.secondary},
+            "maritime": {"emoji": "🌊", "style": discord.ButtonStyle.success}
+        }
+        
+        for domaine, info in domaines_info.items():
+            if self.generaux_par_domaine[domaine]:  # Seulement si on a des généraux dans ce domaine
+                count = len(self.generaux_par_domaine[domaine])
+                button = discord.ui.Button(
+                    label=f"{domaine.capitalize()} ({count})",
+                    emoji=info["emoji"],
+                    style=info["style"],
+                    custom_id=f"domaine_{domaine}"
+                )
+                button.callback = self.create_domaine_callback(domaine)
+                self.add_item(button)
+    
+    def create_domaine_callback(self, domaine):
+        """Crée le callback pour un bouton de domaine."""
+        async def domaine_callback(interaction: discord.Interaction):
+            generaux = self.generaux_par_domaine[domaine]
+            
+            if not generaux:
+                embed = discord.Embed(
+                    title=f"❌ Aucun général {domaine}",
+                    description=f"Vous n'avez aucun général dans le domaine {domaine}.",
+                    color=0xff4444
+                )
+                await interaction.response.edit_message(embed=embed, view=self)
+                return
+            
+            # Créer l'embed pour le domaine sélectionné
+            emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+            embed = discord.Embed(
+                title=f"{emoji} Généraux {domaine.capitalize()} - {self.pays_name}",
+                description="Sélectionnez un général pour voir ses détails :",
+                color=EMBED_COLOR
+            )
+            
+            # Créer la vue avec le menu déroulant pour ce domaine
+            view = GenerauxDomaineView(generaux, self.user_id, self.pays_name, domaine, self)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+        
+        return domaine_callback
+
+class GenerauxDomaineView(discord.ui.View):
+    """Vue pour sélectionner un général dans un domaine spécifique."""
+    
+    def __init__(self, generaux, user_id, pays_name, domaine, parent_view):
+        super().__init__(timeout=300)
+        self.generaux = generaux
+        self.user_id = user_id
+        self.pays_name = pays_name
+        self.domaine = domaine
+        self.parent_view = parent_view
+        
+        # Créer le menu déroulant avec les généraux du domaine
         options = []
-        for i, general in enumerate(generaux_list[:25]):  # Limite Discord
-            stars_display = format_stars(general["stars"])
+        for i, general in enumerate(generaux[:25]):  # Limite Discord
+            stars_display = format_stars(general["data"].get("stars", 0))
+            type_general = general["data"].get("type", "Général")
             options.append(discord.SelectOption(
                 label=f"{general['nom']} ({stars_display})",
                 value=str(i),
-                description=f"{general['pays']} • {general['domaine']} • {general['type']}"
+                description=f"{type_general} • {self.pays_name}"
             ))
         
         select = discord.ui.Select(
@@ -9389,10 +9415,19 @@ class GenerauxSelectionView(discord.ui.View):
         )
         select.callback = self.general_selected_callback
         self.add_item(select)
+        
+        # Bouton de retour
+        back_button = discord.ui.Button(
+            label="Retour",
+            emoji="↩️",
+            style=discord.ButtonStyle.gray
+        )
+        back_button.callback = self.back_callback
+        self.add_item(back_button)
     
     async def general_selected_callback(self, interaction: discord.Interaction):
         selected_index = int(interaction.data["values"][0])
-        selected_general = self.generaux_list[selected_index]
+        selected_general = self.generaux[selected_index]
         
         # Créer l'embed détaillé du général
         embed = discord.Embed(
@@ -9401,18 +9436,18 @@ class GenerauxSelectionView(discord.ui.View):
         )
         
         # Informations de base
-        stars_display = format_stars(selected_general["stars"])
+        data = selected_general["data"]
+        stars_display = format_stars(data.get("stars", 0))
         embed.add_field(
             name="📋 Informations de base",
-            value=f"**Pays :** {selected_general['pays']}\n"
-                  f"**Domaine :** {selected_general['domaine']}\n"
-                  f"**Type :** {selected_general['type']}\n"
+            value=f"**Pays :** {self.pays_name}\n"
+                  f"**Domaine :** {self.domaine.capitalize()}\n"
+                  f"**Type :** {data.get('type', 'Général')}\n"
                   f"**Étoiles :** {stars_display}",
             inline=False
         )
         
         # Traits
-        data = selected_general["data"]
         traits_sections = []
         
         # Traits positifs
@@ -9472,6 +9507,27 @@ class GenerauxSelectionView(discord.ui.View):
             )
         
         await interaction.response.edit_message(embed=embed, view=self)
+    
+    async def back_callback(self, interaction: discord.Interaction):
+        # Retourner à la vue principale
+        embed = discord.Embed(
+            title=f"🏛️ Vos Généraux - {self.pays_name}",
+            description="Choisissez un domaine pour voir vos généraux :",
+            color=EMBED_COLOR
+        )
+        
+        # Ajouter un résumé par domaine
+        for domaine, generaux in self.parent_view.generaux_par_domaine.items():
+            if generaux:
+                total_stars = sum(g["data"].get("stars", 0) for g in generaux)
+                emoji = {"terrestre": "🏔️", "aérien": "✈️", "maritime": "🌊"}[domaine]
+                embed.add_field(
+                    name=f"{emoji} {domaine.capitalize()}",
+                    value=f"{len(generaux)} généraux • {total_stars} étoiles",
+                    inline=True
+                )
+        
+        await interaction.response.edit_message(embed=embed, view=self.parent_view)
 
 # === COMMANDES ADMIN POUR LES GÉNÉRAUX ===
 
