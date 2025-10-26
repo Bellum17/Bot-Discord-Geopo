@@ -8984,16 +8984,10 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     
     # Fonction pour vérifier si un rôle est un rôle de pays
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     # Obtenir les rôles de pays de l'utilisateur
     user_country_roles = []
@@ -9250,14 +9244,11 @@ async def mes_generaux(interaction: discord.Interaction):
     
     # Vérifier si l'utilisateur a un rôle de pays
     def get_user_country_role(user):
-        """Retourne le rôle de pays de l'utilisateur."""
-        pays_images_data = load_pays_images()
-        
+        """Retourne le rôle de pays de l'utilisateur en se basant uniquement sur les balances."""
         for role in user.roles:
             role_id = str(role.id)
             # Un rôle est considéré comme un pays s'il existe dans le système de balances
-            # ou s'il existe dans pays_images (rôles pays créés)
-            if role_id in balances or role_id in pays_images_data:
+            if role_id in balances:
                 return role
         return None
     
@@ -9646,13 +9637,12 @@ async def debug_generaux(interaction: discord.Interaction):
     
     # Fonction pour vérifier les rôles de pays
     def get_user_country_roles(user):
-        """Retourne tous les rôles de pays de l'utilisateur."""
-        pays_images_data = load_pays_images()
+        """Retourne tous les rôles de pays de l'utilisateur en se basant uniquement sur les balances."""
         country_roles = []
         
         for role in user.roles:
             role_id = str(role.id)
-            if role_id in balances or role_id in pays_images_data:
+            if role_id in balances:
                 country_roles.append(role)
         return country_roles
     
@@ -9696,8 +9686,7 @@ async def debug_generaux(interaction: discord.Interaction):
         for role in user_country_roles:
             role_id = str(role.id)
             in_balances = "✅" if role_id in balances else "❌"
-            in_pays_images = "✅" if role_id in load_pays_images() else "❌"
-            roles_info.append(f"• **{role.name}**\n  ID: `{role_id}`\n  Balances: {in_balances} | Images: {in_pays_images}")
+            roles_info.append(f"• **{role.name}**\n  ID: `{role_id}`\n  Balances: {in_balances}")
         
         embed.add_field(
             name=f"🏛️ Vos rôles de pays ({len(user_country_roles)})",
@@ -9902,11 +9891,10 @@ async def test_correspondance(interaction: discord.Interaction, role_name: str =
     else:
         # Obtenir les rôles de pays de l'utilisateur
         def get_user_country_roles(user):
-            pays_images_data = load_pays_images()
             country_roles = []
             for role in user.roles:
                 role_id = str(role.id)
-                if role_id in balances or role_id in pays_images_data:
+                if role_id in balances:
                     country_roles.append(role)
             return country_roles
         
@@ -9978,16 +9966,10 @@ async def manage_trait(interaction: discord.Interaction, pays: discord.Role):
     
     # Vérifier que le rôle est bien un rôle de pays
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     if not is_country_role(pays):
         embed = discord.Embed(
@@ -10498,16 +10480,10 @@ async def add_experience(interaction: discord.Interaction, pourcentage: int, pay
     
     # Vérifier que le rôle est bien un rôle de pays
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     if not is_country_role(pays):
         embed = discord.Embed(
@@ -10626,16 +10602,10 @@ async def manage_general(interaction: discord.Interaction, pays: discord.Role, a
     
     # Vérifier que le rôle est bien un rôle de pays
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     if not is_country_role(pays):
         embed = discord.Embed(
@@ -10884,16 +10854,10 @@ async def reset_roll(interaction: discord.Interaction, pays: discord.Role, suppr
     
     # Vérifier que le rôle est bien un rôle de pays
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
+        return role_id in balances
     
     if not is_country_role(pays):
         embed = discord.Embed(
@@ -11096,136 +11060,16 @@ TRAITS_AMELIORATION = {
 # === COMMANDES DE PROMOTION ET D'AMÉLIORATION ===
 
 @bot.tree.command(name="promouvoir", description="Promouvoir un général terrestre en maréchal")
-async def promouvoir_marechal(interaction: discord.Interaction):
+@app_commands.describe(pays="Rôle du pays")
+async def promouvoir_marechal(interaction: discord.Interaction, pays: discord.Role):
     """Permet de promouvoir un général terrestre éligible en maréchal."""
     
     # Obtenir les rôles de pays de l'utilisateur en vérifiant s'ils ont de l'argent
     def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
+        """Vérifie si un rôle est un rôle de pays en regardant s'il existe dans le système de balances."""
         role_id = str(role.id)
         # Un rôle est considéré comme un pays s'il existe dans le système de balances
         return role_id in balances
-    
-    user_country_roles = []
-    for role in interaction.user.roles:
-        if is_country_role(role):
-            user_country_roles.append(role)
-    
-    if not user_country_roles:
-        embed = discord.Embed(
-            title="❌ Aucun rôle de pays",
-            description="Vous n'avez aucun rôle de pays. Vous devez avoir un rôle de pays pour promouvoir ses généraux.",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Charger tous les généraux pour trouver ceux éligibles
-    generaux_data = load_generaux()
-    
-    # Trouver tous les généraux terrestres éligibles pour tous les pays de l'utilisateur
-    generaux_eligibles = []
-    for user_id, user_data in generaux_data.items():
-        if "generaux" in user_data:
-            for nom_general, general_info in user_data["generaux"].items():
-                # Vérifier si le général appartient à un des pays de l'utilisateur
-                general_pays = general_info.get("pays", "").lower()
-                for role in user_country_roles:
-                    if (role.name.lower() == general_pays and 
-                        general_info.get("domaine", "") == "terrestre" and
-                        not general_info.get("est_marechal", False)):
-                        
-                        # Vérifier les critères d'éligibilité
-                        stars = general_info.get("stars", 0)
-                        traits = general_info.get("traits", [])
-                        
-                        # Éligible si 3⭐ ou plus, OU si 2⭐ avec "Officier de carrière"
-                        if (stars >= 3 or (stars == 2 and "Officier de carrière" in traits)):
-                            generaux_eligibles.append({
-                                "user_id": user_id,
-                                "nom": nom_general,
-                                "stars": stars,
-                                "pays": role.name,
-                                "info": general_info
-                            })
-                        break
-    
-    if not generaux_eligibles:
-        # Lister les pays de l'utilisateur pour le message d'erreur
-        pays_list = [role.name for role in user_country_roles]
-        pays_str = ", ".join(pays_list)
-        
-        embed = discord.Embed(
-            title="❌ Aucun général éligible",
-            description=f"Aucun général terrestre éligible n'a été trouvé pour vos pays : **{pays_str}**.\n\n"
-                       f"**Critères requis :**\n"
-                       f"• Minimum 3⭐ (ou 2⭐ avec trait 'Officier de carrière')\n"
-                       f"• Domaine terrestre\n"
-                       f"• Pas encore maréchal",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Créer la vue de sélection pour la promotion
-    view = PromotionMarshalView(interaction.user.id, generaux_eligibles, None)
-    
-    embed = discord.Embed(
-        title="🎖️ Promotion en Maréchal",
-        description="Sélectionnez le général à promouvoir en maréchal :",
-        color=EMBED_COLOR
-    )
-    
-    # Ajouter la liste des généraux éligibles avec leur pays
-    generaux_list = []
-    for general in generaux_eligibles:
-        generaux_list.append(f"⭐" * general["stars"] + f" **{general['nom']}** ({general['pays']})")
-    
-    embed.add_field(
-        name="Généraux éligibles",
-        value="\n".join(generaux_list),
-        inline=False
-    )
-    
-    embed.add_field(
-        name="ℹ️ Promotion en maréchal",
-        value="• Le général recevra un trait de maréchal\n"
-              "• Ses traits de général seront réduits au minimum\n"
-              "• Le trait de maréchal s'appliquera à toute l'armée/théâtre",
-        inline=False
-    )
-    
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-@bot.tree.command(name="amelioration_general", description="[ADMIN] Améliorer un trait de commandement d'un général")
-@app_commands.describe(
-    pays="Rôle du pays dont le général doit être amélioré"
-)
-async def amelioration_general(interaction: discord.Interaction, pays: discord.Role):
-    """Permet aux admins d'améliorer un trait de commandement d'un général."""
-    
-    # Vérifier les permissions admin
-    if not interaction.user.guild_permissions.administrator and interaction.user.id not in ADMIN_IDS:
-        embed = discord.Embed(
-            title="❌ Permission refusée",
-            description="Cette commande est réservée aux administrateurs.",
-            color=0xff4444
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-    
-    # Vérifier que le rôle est bien un rôle de pays
-    def is_country_role(role):
-        """Vérifie si un rôle est un rôle de pays en regardant s'il a de l'argent dans le système économique."""
-        role_id = str(role.id)
-        # Un rôle est considéré comme un pays s'il existe dans le système de balances
-        # ou s'il existe dans pays_images (rôles pays créés)
-        if role_id in balances:
-            return True
-        
-        # Vérifier aussi dans pays_images pour les rôles pays récemment créés
-        pays_images_data = load_pays_images()
-        return role_id in pays_images_data
     
     if not is_country_role(pays):
         embed = discord.Embed(
