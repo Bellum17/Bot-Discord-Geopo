@@ -7873,9 +7873,9 @@ class TechnoConfirmView(discord.ui.View):
             calendrier_data = load_calendrier()
             annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
             
-            # Le mois fourni est maintenant le DÉBUT, calculer la fin
-            mois_fin_index = (mois_debut_index + duree_finale) % 12
-            annee_fin = annee_courante + ((mois_debut_index + duree_finale) // 12)
+            # Le mois fourni est maintenant le DÉBUT, calculer la fin (corrigé)
+            mois_fin_index = (mois_debut_index + duree_finale - 1) % 12
+            annee_fin = annee_courante + ((mois_debut_index + duree_finale - 1) // 12)
             
             # Calculer le timestamp pour ce mois RP (par défaut 1/2)
             fin_timestamp = calculate_real_timestamp_from_calendar(mois_fin_index, annee_fin)
@@ -11145,9 +11145,9 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         # Le paramètre "mois" est maintenant la date de DÉBUT
         mois_debut = CALENDRIER_MONTHS[mois_index]
         
-        # Calculer la date de fin en ajoutant la durée de développement
-        mois_fin_index = (mois_index + mois_duree) % 12
-        annee_fin = annee_courante + ((mois_index + mois_duree) // 12)
+        # Calculer la date de fin en ajoutant la durée de développement (corrigé)
+        mois_fin_index = (mois_index + mois_duree - 1) % 12
+        annee_fin = annee_courante + ((mois_index + mois_duree - 1) // 12)
         mois_fin = CALENDRIER_MONTHS[mois_fin_index]
         
         # Déterminer si c'est 1/2 ou 2/2 (par défaut 1/2)
