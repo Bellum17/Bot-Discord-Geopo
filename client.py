@@ -5030,66 +5030,6 @@ def format_development_end_info(dev):
     heures = int((temps_restant % 86400) // 3600)
     return f"⏳ **EN COURS**\n⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
 
-from discord.ext.tasks import loop
-import datetime
-
-@bot.tree.command(name="calendrier", description="Lance le calendrier RP pour une année donnée")
-@app_commands.describe(annee="Année RP à lancer (ex: 2025)")
-@app_commands.checks.has_permissions(administrator=True)
-async def calendrier(interaction: discord.Interaction, annee: int):
-    # Initialisation ou reprise
-    calendrier_data = load_calendrier()
-    if calendrier_data:
-        await interaction.response.send_message(f"> Un calendrier est déjà en cours pour l'année {calendrier_data['annee']} ! Utilisez /reset-calendrier pour recommencer.", ephemeral=True)
-        return
-    
-    # Créer les données du calendrier
-    calendrier_data = {
-        "annee": annee,
-        "mois_index": 0,
-        "jour_index": 0, # 0 = 1/2, 1 = 2/2
-        "last_update": None,
-        "messages": [],
-        "skip_first_midnight": False,  # Ne plus ignorer le premier passage
-        "jours_irl_actuel": 0  # Compteur pour alterner 2j/1j
-    }
-    save_calendrier(calendrier_data)
-    save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
-    
-    # Envoyer immédiatement le premier message du calendrier
-    channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-    if channel:
-        mois_nom = CALENDRIER_MONTHS[0]  # Janvier
-        
-        embed = discord.Embed(
-            title=f"{CALENDRIER_EMOJI} Calendrier RP - {mois_nom} {annee}",
-            description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - 1/2\n\n"
-                       f"Le calendrier RP a commencé !\n"
-                       f"Nous sommes maintenant en {mois_nom} {annee}.",
-            color=CALENDRIER_COLOR
-        )
-        
-        embed.set_image(url=CALENDRIER_IMAGE_URL)
-        embed.set_footer(text="Calendrier RP • Alternance 2j/1j IRL")
-        
-        try:
-            message = await channel.send(embed=embed)
-            calendrier_data["messages"] = [str(message.id)]
-            
-            # Marquer la première mise à jour comme faite
-            now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-            calendrier_data["last_update"] = now.isoformat()
-            save_calendrier(calendrier_data)
-            save_all_json_to_postgres()
-            
-        except Exception as e:
-            print(f"Erreur lors de l'envoi du premier message calendrier: {e}")
-    
-    # Démarrer la tâche pour les mises à jour futures
-    calendrier_automatique.start()
-    
-    await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Le premier message a été envoyé et les mises à jour se feront chaque jour à minuit (heure Paris).", ephemeral=True)
-
 async def generate_help_banner(
     sections: typing.List[typing.Tuple[str, typing.List[typing.Tuple[str, str]]]]
 ) -> typing.Optional[io.BytesIO]:
