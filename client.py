@@ -4312,17 +4312,12 @@ async def on_ready():
 
     calendrier_data = load_calendrier()
     if calendrier_data and calendrier_data["mois_index"] < len(CALENDRIER_MONTHS):
-        # Vérifier et rattraper le calendrier si nécessaire
-        print("📅 Vérification du calendrier au démarrage...")
-        calendrier_rattrape = await check_and_catchup_calendrier()
-        if calendrier_rattrape:
-            print("✅ Calendrier rattrapé automatiquement")
-        else:
-            print("✅ Calendrier déjà à jour")
+        # Démarrer la tâche de mise à jour automatique du calendrier
+        print("📅 Calendrier actif détecté au démarrage...")
         
         # Démarrer la tâche de mise à jour si pas déjà en cours
-        if not calendrier_update_task.is_running():
-            calendrier_update_task.start()
+        if not calendrier_automatique.is_running():
+            calendrier_automatique.start()
             print("🔄 Tâche de mise à jour du calendrier démarrée")
     else:
         print("📅 Aucun calendrier actif ou calendrier terminé")
@@ -4441,271 +4436,525 @@ async def guide(interaction: discord.Interaction):
 # === CALENDRIER RP ===
 CALENDRIER_FILE = os.path.join(DATA_DIR, "calendrier.json")
 CALENDRIER_CHANNEL_ID = 1419301872996712458
-CALENDRIER_IMAGE_URL = "https://cdn.discordapp.com/attachments/1393317478133661746/1431389849864245298/balance_1.png?ex=68fd3d2e&is=68fbebae&hm=015733b6848f31b9ba2b922cd570066fab64fcf2a0f7ba953363cd876f18b7a1&"
+CALENDRIER_IMAGE_URL = "https://cdn.discordapp.com/attachments/1393317478133661746/1431389849864245298/balance_1.png?ex=68ffe02e&is=68fe8eae&hm=43cc2c0f5206ffe07e9da587fb24901ebc1dac3da3f8348265d180217131e46e&"
 CALENDRIER_COLOR = 0x162e50
 CALENDRIER_EMOJI = "<:PX_Calendrier:1417607613587259505>"
 CALENDRIER_MONTHS = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
 ]
 
+# Durées IRL pour chaque mois (en jours)
+CALENDRIER_DUREES = {
+    "Janvier": 2,   # 2 jours IRL
+    "Février": 1,   # 1 jour IRL 
+    "Mars": 2,      # 2 jours IRL
+    "Avril": 1,     # 1 jour IRL
+    "Mai": 2,       # 2 jours IRL
+    "Juin": 1,      # 1 jour IRL
+    "Juillet": 2,   # 2 jours IRL
+    "Août": 1,      # 1 jour IRL
+    "Septembre": 2, # 2 jours IRL
+    "Octobre": 1,   # 1 jour IRL
+    "Novembre": 2,  # 2 jours IRL
+    "Décembre": 1   # 1 jour IRL
+}
+
 def load_calendrier():
-    if os.path.exists(CALENDRIER_FILE):
-        with open(CALENDRIER_FILE, "r") as f:
+    """Charge les données du calendrier RP depuis le fichier JSON."""
+    if not os.path.exists(CALENDRIER_FILE):
+        return None
+    try:
+        with open(CALENDRIER_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return None
+    except Exception as e:
+        print(f"Erreur lors du chargement du calendrier: {e}")
+        return None
 
 def save_calendrier(data):
-    with open(CALENDRIER_FILE, "w") as f:
-        json.dump(data, f)
+    """Sauvegarde les données du calendrier RP dans le fichier JSON."""
+    try:
+        with open(CALENDRIER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du calendrier: {e}")
 
 def reset_calendrier():
+    """Supprime le fichier du calendrier RP."""
     if os.path.exists(CALENDRIER_FILE):
         os.remove(CALENDRIER_FILE)
+        print("📅 Fichier calendrier.json supprimé")
 
-async def check_and_catchup_calendrier():
-    """
-    Vérifie si le calendrier a pris du retard et le rattrape automatiquement.
-    Appelé lors de la reconnexion du bot.
-    """
-    try:
-        # Restaurer depuis PostgreSQL d'abord pour avoir les données les plus récentes
-        restore_all_json_from_postgres()
-        print("📥 Données restaurées depuis PostgreSQL")
-        
-        calendrier_data = load_calendrier()
-        if not calendrier_data:
-            print("📅 Aucun calendrier actif à vérifier")
-            return False
-        
-        # Heure actuelle Paris
-        now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-        last_update = calendrier_data.get("last_update")
-        
-        if not last_update:
-            print("📅 Aucune dernière mise à jour trouvée dans le calendrier")
-            return False
-        
-        # Parser la dernière mise à jour
-        last_update_dt = datetime.datetime.fromisoformat(last_update)
-        if last_update_dt.tzinfo is None:
-            last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
-        else:
-            last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
-        
-        # Calculer les jours écoulés
-        delta = now - last_update_dt
-        jours_ecoules = delta.days
-        
-        print(f"📅 Dernière MAJ calendrier: {last_update_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        print(f"📅 Heure actuelle: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        print(f"📅 Jours écoulés: {jours_ecoules}")
-        
-        if jours_ecoules <= 0:
-            print("📅 Calendrier à jour, aucun rattrapage nécessaire")
-            return False
-        
-        # Variables de l'état actuel
-        mois_index = calendrier_data["mois_index"]
-        jour_index = calendrier_data["jour_index"]
-        jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
-        
-        print(f"📅 État avant rattrapage: Mois {mois_index}, Jour {jour_index}, Jours IRL: {jours_irl_actuel}")
-        
-        # Simuler les jours écoulés
-        jours_a_simuler = jours_ecoules
-        avancements = 0
-        
-        channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-        
-        while jours_a_simuler > 0 and mois_index < len(CALENDRIER_MONTHS):
-            # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
-            if mois_index % 2 == 0:  # Mois pairs : 2 jours IRL
-                jours_requis = 2
-            else:  # Mois impairs : 1 jour IRL
-                jours_requis = 1
-            
-            # Incrémenter le compteur de jours IRL
-            jours_irl_actuel += 1
-            jours_a_simuler -= 1
-            
-            # Avancer le jour uniquement si on a atteint le nombre de jours requis
-            if jours_irl_actuel >= jours_requis:
-                if jour_index == 0:
-                    jour_index = 1
-                    print(f"📅 Avancement: {CALENDRIER_MONTHS[mois_index]} 1/2 → 2/2")
-                else:
-                    jour_index = 0
-                    mois_index += 1
-                    if mois_index < len(CALENDRIER_MONTHS):
-                        print(f"📅 Avancement: {CALENDRIER_MONTHS[mois_index-1]} 2/2 → {CALENDRIER_MONTHS[mois_index]} 1/2")
-                    else:
-                        print(f"📅 Calendrier terminé après {CALENDRIER_MONTHS[mois_index-1]} 2/2")
-                        break
-                
-                # Reset le compteur pour le prochain mois
-                jours_irl_actuel = 0
-                avancements += 1
-                
-                # Poster le message dans le canal calendrier si disponible
-                if channel and mois_index < len(CALENDRIER_MONTHS):
-                    mois = CALENDRIER_MONTHS[mois_index]
-                    jour_str = "1/2" if jour_index == 0 else "2/2"
-                    
-                    embed = discord.Embed(
-                        description=f"{CALENDRIER_EMOJI} {mois} {calendrier_data['annee']} - {jour_str}\n\n"
-                                   f"⚡ Rattrapage automatique du calendrier !\n"
-                                   f"Le calendrier a été mis à jour automatiquement.",
-                        color=CALENDRIER_COLOR
-                    )
-                    embed.set_image(url=CALENDRIER_IMAGE_URL)
-                    
-                    try:
-                        message = await channel.send(embed=embed)
-                        calendrier_data.setdefault("messages", [])
-                        calendrier_data["messages"].append(str(message.id))
-                    except Exception as e:
-                        print(f"❌ Erreur lors de l'envoi du message de rattrapage: {e}")
-        
-        # Mettre à jour les données
-        calendrier_data["mois_index"] = mois_index
-        calendrier_data["jour_index"] = jour_index
-        calendrier_data["jours_irl_actuel"] = jours_irl_actuel
-        calendrier_data["last_update"] = now.isoformat()
-        
-        save_calendrier(calendrier_data)
-        save_all_json_to_postgres()
-        
-        print(f"📅 État après rattrapage: Mois {mois_index}, Jour {jour_index}, Jours IRL: {jours_irl_actuel}")
-        print(f"✅ Calendrier rattrapé avec {avancements} avancement(s)")
-        
-        # Vérifier et terminer automatiquement les développements dans tous les serveurs
-        if avancements > 0:
-            total_completed = 0
-            for guild in bot.guilds:
-                guild_id = str(guild.id)
-                developments_completed = check_and_complete_developments(guild_id)
-                total_completed += developments_completed
-                if developments_completed > 0:
-                    print(f"📅 Rattrapage automatique: {developments_completed} développements terminés dans {guild.name}")
-            
-            if total_completed > 0:
-                print(f"📅 Total développements terminés lors du rattrapage: {total_completed}")
-        
-        # Arrêter la tâche si calendrier terminé
-        if mois_index >= len(CALENDRIER_MONTHS):
-            if calendrier_update_task.is_running():
-                calendrier_update_task.stop()
-                print("📅 Calendrier terminé, tâche automatique arrêtée")
-        
-        return avancements > 0
-        
-    except Exception as e:
-        print(f"❌ Erreur lors du rattrapage du calendrier: {e}")
-        return False
+def get_duree_mois(mois_nom):
+    """Retourne la durée en jours IRL d'un mois RP."""
+    return CALENDRIER_DUREES.get(mois_nom, 1)
 
-def calculate_fin_with_calendar(duree_mois):
-    """
-    Calcule la date de fin d'un développement en tenant compte du calendrier RP
-    
-    NOUVELLE LOGIQUE : Alternance 2 jours IRL (mois pairs) / 1 jour IRL (mois impairs)
-    """
+def avancer_calendrier_un_jour():
+    """Avance le calendrier d'un jour RP et retourne les nouvelles données."""
     calendrier_data = load_calendrier()
     if not calendrier_data:
-        # Si pas de calendrier, utilise l'ancien système (approximation)
-        return time.time() + (duree_mois * 1.5 * 24 * 3600)  # 1.5 jour moyen par mois
+        return None
+    
+    mois_index = calendrier_data["mois_index"]
+    jour_index = calendrier_data["jour_index"]
+    jours_irl_ecoules = calendrier_data.get("jours_irl_ecoules", 0)
+    
+    # Nom du mois actuel
+    mois_nom = CALENDRIER_MONTHS[mois_index]
+    duree_mois = get_duree_mois(mois_nom)
+    
+    # Incrémenter les jours IRL écoulés
+    jours_irl_ecoules += 1
+    
+    # Vérifier si on doit avancer le jour RP
+    if jours_irl_ecoules >= duree_mois:
+        if jour_index == 0:  # 1/2 -> 2/2
+            jour_index = 1
+        else:  # 2/2 -> 1/2 du mois suivant
+            jour_index = 0
+            mois_index += 1
+        
+        # Reset du compteur de jours IRL
+        jours_irl_ecoules = 0
+    
+    # Mettre à jour les données
+    now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+    calendrier_data.update({
+        "mois_index": mois_index,
+        "jour_index": jour_index,
+        "jours_irl_ecoules": jours_irl_ecoules,
+        "last_update": now.isoformat()
+    })
+    
+    save_calendrier(calendrier_data)
+    return calendrier_data
+
+def reculer_calendrier_un_jour():
+    """Recule le calendrier d'un jour RP et retourne les nouvelles données."""
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        return None
+    
+    mois_index = calendrier_data["mois_index"]
+    jour_index = calendrier_data["jour_index"]
+    jours_irl_ecoules = calendrier_data.get("jours_irl_ecoules", 0)
+    
+    # Si on peut reculer dans les jours IRL du mois actuel
+    if jours_irl_ecoules > 0:
+        jours_irl_ecoules -= 1
+    else:
+        # Il faut reculer d'un jour RP
+        if jour_index == 1:  # 2/2 -> 1/2
+            jour_index = 0
+            # Remettre le bon nombre de jours IRL pour ce "1/2"
+            mois_nom = CALENDRIER_MONTHS[mois_index]
+            duree_mois = get_duree_mois(mois_nom)
+            jours_irl_ecoules = duree_mois - 1
+        elif jour_index == 0:  # 1/2 -> 2/2 du mois précédent
+            if mois_index > 0:
+                mois_index -= 1
+                jour_index = 1
+                # Remettre le bon nombre de jours IRL pour ce "2/2"
+                mois_nom_precedent = CALENDRIER_MONTHS[mois_index]
+                duree_mois_precedent = get_duree_mois(mois_nom_precedent)
+                jours_irl_ecoules = duree_mois_precedent - 1
+            else:
+                # On ne peut pas reculer plus loin
+                return None
+    
+    # Mettre à jour les données
+    now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+    calendrier_data.update({
+        "mois_index": mois_index,
+        "jour_index": jour_index,
+        "jours_irl_ecoules": jours_irl_ecoules,
+        "last_update": now.isoformat()
+    })
+    
+    save_calendrier(calendrier_data)
+    return calendrier_data
+
+async def envoyer_message_calendrier(calendrier_data, raison="Mise à jour automatique"):
+    """Envoie un message de calendrier dans le salon dédié."""
+    channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+    if not channel or not calendrier_data:
+        return None
+    
+    mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
+    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    annee = calendrier_data["annee"]
+    
+    embed = discord.Embed(
+        description=f"### {CALENDRIER_EMOJI} | {mois_nom} {annee} {jour_str}",
+        color=CALENDRIER_COLOR
+    )
+    embed.set_image(url=CALENDRIER_IMAGE_URL)
+    
+    try:
+        message = await channel.send(embed=embed)
+        
+        # Sauvegarder l'ID du message
+        calendrier_data.setdefault("messages", [])
+        calendrier_data["messages"].append(str(message.id))
+        save_calendrier(calendrier_data)
+        
+        print(f"📅 Message calendrier envoyé: {mois_nom} {annee} {jour_str} - {raison}")
+        return message
+    except Exception as e:
+        print(f"❌ Erreur lors de l'envoi du message calendrier: {e}")
+        return None
+
+def calculate_fin_with_calendar(duree_mois):
+    """Calcule la date de fin d'un développement basé sur le calendrier RP."""
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        # Si pas de calendrier, estimation approximative
+        return time.time() + (duree_mois * 1.5 * 24 * 3600)
     
     mois_actuel = calendrier_data.get("mois_index", 0)
-    annee_actuelle = calendrier_data.get("annee", 2025)
+    annee_actuelle = calendrier_data.get("annee", 2072)
     
     # Calcule le mois de fin RP
     mois_fin = (mois_actuel + duree_mois) % 12
     annee_fin = annee_actuelle + ((mois_actuel + duree_mois) // 12)
     
-    # Utilise la fonction de conversion pour avoir le timestamp IRL exact
     return calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
 
 def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
-    """
-    Convertit une date RP (mois, année) en timestamp réel IRL
-    basé sur l'avancement du calendrier qui se met à jour à minuit heure Paris
-    
-    NOUVELLE LOGIQUE : Alternance 2 jours IRL (mois pairs) / 1 jour IRL (mois impairs)
-    Chaque mois RP a 2 demi-mois (1/2 et 2/2)
-    Le calendrier avance chaque nuit à minuit heure Paris
-    """
+    """Convertit une date RP en timestamp réel IRL."""
     calendrier_data = load_calendrier()
     if not calendrier_data:
-        # Fallback si pas de calendrier
-        return int(time.time() + (30 * 24 * 3600))  # Dans 30 jours
+        return int(time.time() + (30 * 24 * 3600))
     
     mois_actuel_rp = calendrier_data.get("mois_index", 0)
-    annee_actuelle_rp = calendrier_data.get("annee", 2025)
-    jour_actuel = calendrier_data.get("jour_index", 0)  # 0 = 1/2, 1 = 2/2
+    annee_actuelle_rp = calendrier_data.get("annee", 2072)
+    jour_actuel = calendrier_data.get("jour_index", 0)
     
     # Calculer la différence en mois RP
     mois_total_actuel = annee_actuelle_rp * 12 + mois_actuel_rp
     mois_total_fin = annee_fin_rp * 12 + mois_fin_rp
-    
     mois_difference = mois_total_fin - mois_total_actuel
     
-    # Le calendrier se met à jour à minuit heure Paris (CET/CEST selon la saison)
-    # 1 mois RP = 2 jours IRL (1/2 puis 2/2)
-    # Utiliser ZoneInfo pour gérer automatiquement CET/CEST
+    if mois_difference <= 0:
+        return int(time.time())
     
-    # Obtenir l'heure actuelle à Paris (gère automatiquement CET/CEST)
-    now_paris = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-    
-    # Calculer le prochain minuit à Paris
-    demain = now_paris.date() + datetime.timedelta(days=1)
-    next_midnight_paris = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=ZoneInfo("Europe/Paris"))
-    
-    # CORRECTION : Ajouter 1 heure pour compenser le décalage d'affichage Discord
-    # Discord affiche 23h00 au lieu de 00h00 à cause du fuseau horaire local
-    next_midnight_paris = next_midnight_paris + datetime.timedelta(hours=1)
-    
-    # NOUVELLE LOGIQUE : Calculer combien de jours IRL selon l'alternance 2j/1j
+    # Calculer les jours IRL nécessaires selon l'alternance
     jours_irl_necessaires = 0
     
-    if mois_difference > 0:
-        # Finir le mois actuel si on est sur 1/2
-        if jour_actuel == 0:  # Actuellement 1/2
-            # Déterminer les jours restants pour ce mois selon son type
-            mois_type = mois_actuel_rp % 2  # 0 = pair (2j), 1 = impair (1j)
-            if mois_type == 0:  # Mois pair = 2 jours IRL
-                jours_irl_necessaires += 1  # 1 jour pour finir (passer à 2/2)
-            else:  # Mois impair = 1 jour IRL (déjà fini après 1/2)
-                jours_irl_necessaires += 0  # Déjà terminé
+    # Finir le mois actuel si on est sur 1/2
+    if jour_actuel == 0:
+        mois_nom = CALENDRIER_MONTHS[mois_actuel_rp]
+        duree_mois_actuel = get_duree_mois(mois_nom)
+        jours_irl_necessaires += duree_mois_actuel - calendrier_data.get("jours_irl_ecoules", 0)
+        mois_difference -= 1
+    
+    # Calculer les mois suivants
+    for i in range(mois_difference):
+        mois_futur = (mois_actuel_rp + i + 1) % 12
+        mois_nom_futur = CALENDRIER_MONTHS[mois_futur]
+        jours_irl_necessaires += get_duree_mois(mois_nom_futur)
+    
+    # Conversion en timestamp
+    now_paris = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+    demain = now_paris.date() + datetime.timedelta(days=1)
+    next_midnight = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=ZoneInfo("Europe/Paris"))
+    
+    target_date = next_midnight + datetime.timedelta(days=jours_irl_necessaires - 1)
+    return int(target_date.timestamp())
+
+def get_rp_date_from_timestamp(timestamp):
+    """Retourne la date RP correspondant à un timestamp."""
+    # Fonction simplifiée pour compatibilité
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        return "Date inconnue"
+    
+    mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
+    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    annee = calendrier_data["annee"]
+    
+    return f"{mois_nom} {annee} {jour_str}"
+
+def format_discord_timestamp(timestamp):
+    """Formate un timestamp pour Discord."""
+    return f"<t:{int(timestamp)}:f>"
+
+def format_development_end_info(dev):
+    """Formate les informations de fin d'un développement."""
+    fin_timestamp = dev.get("fin_timestamp")
+    if not fin_timestamp:
+        return "Date de fin inconnue"
+    
+    discord_time = format_discord_timestamp(fin_timestamp)
+    rp_date = get_rp_date_from_timestamp(fin_timestamp)
+    
+    return f"{discord_time} ({rp_date})"
+
+from discord.ext.tasks import loop
+import datetime
+
+# Tâche planifiée pour la mise à jour automatique du calendrier
+@loop(minutes=1)
+async def calendrier_automatique():
+    """Tâche qui vérifie chaque minute si il faut mettre à jour le calendrier à minuit."""
+    try:
+        calendrier_data = load_calendrier()
+        if not calendrier_data:
+            return
+        
+        # Vérifier si c'est minuit heure de Paris
+        now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+        if now.hour != 0 or now.minute != 0:
+            return
+        
+        # Vérifier si on a déjà mis à jour aujourd'hui
+        last_update = calendrier_data.get("last_update")
+        if last_update:
+            last_update_dt = datetime.datetime.fromisoformat(last_update)
+            if last_update_dt.tzinfo is None:
+                last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
+            else:
+                last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
             
-            # Calculer les mois suivants
-            for i in range(1, mois_difference):
-                mois_futur = (mois_actuel_rp + i) % 12
-                if mois_futur % 2 == 0:  # Mois pair
-                    jours_irl_necessaires += 2
-                else:  # Mois impair
-                    jours_irl_necessaires += 1
-        else:  # Actuellement 2/2, commencer par les mois complets suivants
-            for i in range(mois_difference):
-                mois_futur = (mois_actuel_rp + i + 1) % 12
-                if mois_futur % 2 == 0:  # Mois pair
-                    jours_irl_necessaires += 2
-                else:  # Mois impair
-                    jours_irl_necessaires += 1
-    elif mois_difference == 0:
-        # Même mois RP
-        if jour_actuel == 0:  # Actuellement 1/2
-            mois_type = mois_actuel_rp % 2
-            if mois_type == 0:  # Mois pair = 2 jours, développement finit à 2/2
-                jours_irl_necessaires = 1
-            else:  # Mois impair = 1 jour, développement déjà fini
-                jours_irl_necessaires = 0
-        else:  # Actuellement 2/2, développement fini
-            jours_irl_necessaires = 0
+            if last_update_dt.date() == now.date():
+                return  # Déjà mis à jour aujourd'hui
+        
+        # Avancer le calendrier d'un jour
+        nouvelles_donnees = avancer_calendrier_un_jour()
+        if nouvelles_donnees:
+            # Envoyer le message de mise à jour
+            await envoyer_message_calendrier(nouvelles_donnees, "Mise à jour automatique")
+            
+            # Vérifier les développements terminés
+            for guild in bot.guilds:
+                guild_id = str(guild.id)
+                developments_completed = check_and_complete_developments(guild_id)
+                if developments_completed > 0:
+                    print(f"📅 Mise à jour automatique: {developments_completed} développements terminés dans {guild.name}")
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            print(f"📅 Calendrier mis à jour automatiquement à minuit")
+            
+    except Exception as e:
+        print(f"❌ Erreur dans la tâche automatique du calendrier: {e}")
+        import traceback
+        traceback.print_exc()
+
+@bot.tree.command(name="calendrier", description="Lance le calendrier RP pour l'année 2072")
+@app_commands.checks.has_permissions(administrator=True)
+async def calendrier_cmd(interaction: discord.Interaction):
+    """Lance le calendrier RP pour l'année 2072."""
+    await interaction.response.defer(ephemeral=True)
     
-    # Calculer le timestamp final
-    fin_timestamp = next_midnight_paris + datetime.timedelta(days=jours_irl_necessaires)
+    # Vérifier si un calendrier existe déjà
+    calendrier_data = load_calendrier()
+    if calendrier_data:
+        mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
+        jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+        annee = calendrier_data["annee"]
+        
+        await interaction.followup.send(
+            f"❌ Un calendrier est déjà actif pour l'année {annee}.\n"
+            f"📅 Date actuelle: **{mois_nom} {annee} {jour_str}**\n\n"
+            f"Utilisez `/reset_calendrier` pour en créer un nouveau.",
+            ephemeral=True
+        )
+        return
     
-    # Convertir en timestamp UTC
-    return int(fin_timestamp.timestamp())
+    # Créer un nouveau calendrier pour 2072
+    now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+    calendrier_data = {
+        "annee": 2072,
+        "mois_index": 0,  # Janvier
+        "jour_index": 0,  # 1/2
+        "jours_irl_ecoules": 0,
+        "last_update": now.isoformat(),
+        "messages": []
+    }
+    
+    # Sauvegarder
+    save_calendrier(calendrier_data)
+    
+    # Envoyer le premier message
+    message = await envoyer_message_calendrier(calendrier_data, "Lancement du calendrier 2072")
+    
+    # Démarrer la tâche automatique
+    if not calendrier_automatique.is_running():
+        calendrier_automatique.start()
+        print("🔄 Tâche automatique du calendrier démarrée")
+    
+    # Sauvegarder dans PostgreSQL
+    save_all_json_to_postgres()
+    
+    await interaction.followup.send(
+        f"✅ **Calendrier RP lancé pour l'année 2072 !**\n\n"
+        f"📅 Date de départ: **Janvier 2072 1/2**\n"
+        f"🕐 Le calendrier se mettra à jour automatiquement chaque jour à minuit (heure de Paris)\n"
+        f"⚡ Utilisez `/gestion_date` pour avancer ou reculer manuellement\n\n"
+        f"**Alternance des mois:**\n"
+        f"• Janvier, Mars, Mai, Juillet, Septembre, Novembre: **2 jours IRL**\n"
+        f"• Février, Avril, Juin, Août, Octobre, Décembre: **1 jour IRL**",
+        ephemeral=True
+    )
+
+@bot.tree.command(name="reset_calendrier", description="Réinitialise complètement le calendrier RP")
+@app_commands.checks.has_permissions(administrator=True)
+async def reset_calendrier_cmd(interaction: discord.Interaction):
+    """Réinitialise complètement le calendrier RP."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Arrêter la tâche automatique
+    if calendrier_automatique.is_running():
+        calendrier_automatique.stop()
+        print("⏹️ Tâche automatique du calendrier arrêtée")
+    
+    # Supprimer les anciens messages
+    calendrier_data = load_calendrier()
+    deleted_count = 0
+    
+    if calendrier_data and calendrier_data.get("messages"):
+        channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
+        if channel:
+            for message_id in calendrier_data["messages"]:
+                try:
+                    message = await channel.fetch_message(int(message_id))
+                    await message.delete()
+                    deleted_count += 1
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    pass
+    
+    # Supprimer le fichier calendrier
+    reset_calendrier()
+    
+    # Supprimer aussi dans PostgreSQL
+    try:
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        if DATABASE_URL:
+            import psycopg2
+            with psycopg2.connect(DATABASE_URL) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM json_backups WHERE filename = %s", ("calendrier.json",))
+                    conn.commit()
+            print("🗄️ Calendrier supprimé aussi de PostgreSQL")
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la suppression PostgreSQL: {e}")
+    
+    await interaction.followup.send(
+        f"✅ **Calendrier RP réinitialisé !**\n\n"
+        f"📅 Le calendrier a été complètement supprimé\n"
+        f"🗑️ {deleted_count} message(s) supprimé(s) du salon\n"
+        f"⏹️ Tâche automatique arrêtée\n\n"
+        f"Utilisez `/calendrier` pour en créer un nouveau.",
+        ephemeral=True
+    )
+
+@bot.tree.command(name="gestion_date", description="Avance ou recule le calendrier RP d'un jour")
+@app_commands.checks.has_permissions(administrator=True)
+async def gestion_date_cmd(interaction: discord.Interaction):
+    """Interface pour avancer ou reculer le calendrier RP."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Vérifier qu'un calendrier existe
+    calendrier_data = load_calendrier()
+    if not calendrier_data:
+        await interaction.followup.send(
+            "❌ Aucun calendrier RP n'est actif.\n"
+            "Utilisez `/calendrier` pour en créer un.",
+            ephemeral=True
+        )
+        return
+    
+    # État actuel
+    mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
+    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    annee = calendrier_data["annee"]
+    jours_irl_ecoules = calendrier_data.get("jours_irl_ecoules", 0)
+    duree_mois = get_duree_mois(mois_nom)
+    
+    # Créer l'embed d'information
+    embed = discord.Embed(
+        title="📅 Gestion de la Date RP",
+        description=f"**Date actuelle:** {mois_nom} {annee} {jour_str}\n"
+                   f"**Jours IRL écoulés:** {jours_irl_ecoules}/{duree_mois}\n"
+                   f"**Durée de {mois_nom}:** {duree_mois} jour(s) IRL",
+        color=CALENDRIER_COLOR
+    )
+    embed.set_image(url=CALENDRIER_IMAGE_URL)
+    
+    # Créer les boutons
+    view = discord.ui.View(timeout=60)
+    
+    async def avancer_jour(button_interaction):
+        await button_interaction.response.defer()
+        
+        nouvelles_donnees = avancer_calendrier_un_jour()
+        if nouvelles_donnees:
+            # Envoyer le message dans le salon calendrier
+            await envoyer_message_calendrier(nouvelles_donnees, "Avancement manuel")
+            
+            # Vérifier les développements
+            developments_completed = check_and_complete_developments(str(button_interaction.guild.id))
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            # Message de confirmation
+            nouveau_mois = CALENDRIER_MONTHS[nouvelles_donnees["mois_index"]]
+            nouveau_jour = "1/2" if nouvelles_donnees["jour_index"] == 0 else "2/2"
+            
+            await button_interaction.followup.send(
+                f"✅ **Calendrier avancé d'un jour !**\n\n"
+                f"📅 Nouvelle date: **{nouveau_mois} {nouvelles_donnees['annee']} {nouveau_jour}**\n"
+                f"🔬 Développements terminés: {developments_completed}",
+                ephemeral=True
+            )
+        else:
+            await button_interaction.followup.send(
+                "❌ Impossible d'avancer le calendrier (calendrier terminé ?)",
+                ephemeral=True
+            )
+    
+    async def reculer_jour(button_interaction):
+        await button_interaction.response.defer()
+        
+        nouvelles_donnees = reculer_calendrier_un_jour()
+        if nouvelles_donnees:
+            # Envoyer le message dans le salon calendrier
+            await envoyer_message_calendrier(nouvelles_donnees, "Recul manuel")
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            # Message de confirmation
+            nouveau_mois = CALENDRIER_MONTHS[nouvelles_donnees["mois_index"]]
+            nouveau_jour = "1/2" if nouvelles_donnees["jour_index"] == 0 else "2/2"
+            
+            await button_interaction.followup.send(
+                f"✅ **Calendrier reculé d'un jour !**\n\n"
+                f"📅 Nouvelle date: **{nouveau_mois} {nouvelles_donnees['annee']} {nouveau_jour}**",
+                ephemeral=True
+            )
+        else:
+            await button_interaction.followup.send(
+                "❌ Impossible de reculer le calendrier (déjà au début ?)",
+                ephemeral=True
+            )
+    
+    # Boutons
+    btn_avancer = discord.ui.Button(label="⏩ Avancer d'un jour", style=discord.ButtonStyle.success)
+    btn_reculer = discord.ui.Button(label="⏪ Reculer d'un jour", style=discord.ButtonStyle.danger)
+    
+    btn_avancer.callback = avancer_jour
+    btn_reculer.callback = reculer_jour
+    
+    view.add_item(btn_avancer)
+    view.add_item(btn_reculer)
+    
+    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+
+from discord.ext.tasks import loop
 
 def get_rp_date_from_timestamp(timestamp):
     """
@@ -4837,427 +5086,9 @@ async def calendrier(interaction: discord.Interaction, annee: int):
             print(f"Erreur lors de l'envoi du premier message calendrier: {e}")
     
     # Démarrer la tâche pour les mises à jour futures
-    calendrier_update_task.start()
+    calendrier_automatique.start()
     
     await interaction.response.send_message(f"> Calendrier RP lancé pour l'année {annee}. Le premier message a été envoyé et les mises à jour se feront chaque jour à minuit (heure Paris).", ephemeral=True)
-
-@bot.tree.command(name="reset-calendrier", description="Réinitialise le calendrier RP")
-@app_commands.checks.has_permissions(administrator=True)
-async def reset_calendrier_cmd(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)
-
-    # Arrête la tâche si elle tourne
-    if calendrier_update_task.is_running():
-        calendrier_update_task.stop()
-    # Supprime les messages précédemment envoyés
-    calendrier_data = load_calendrier()
-    deleted_count = 0
-    channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-    message_ids = []
-    if calendrier_data:
-        message_ids = [int(mid) for mid in calendrier_data.get("messages", []) if str(mid).isdigit()]
-
-    # Fallback: si aucun ID stocké, tenter de retrouver les messages récents du bot
-    async def delete_message(message_id: int) -> None:
-        nonlocal deleted_count
-        if not channel:
-            return
-        try:
-            message = await channel.fetch_message(message_id)
-            await message.delete()
-            deleted_count += 1
-        except (discord.NotFound, discord.Forbidden):
-            pass
-        except discord.HTTPException:
-            pass
-
-    if channel:
-        if not message_ids:
-            message_ids = []
-            async for message in channel.history(limit=100):
-                if message.author != bot.user:
-                    continue
-                if not message.embeds:
-                    continue
-                embed = message.embeds[0]
-                embed_desc = embed.description or ""
-                if embed.image and embed.image.url == CALENDRIER_IMAGE_URL:
-                    message_ids.append(message.id)
-                    continue
-                if CALENDRIER_EMOJI in embed_desc:
-                    message_ids.append(message.id)
-        for mid in message_ids:
-            await delete_message(int(mid))
-
-    # Supprime le fichier calendrier.json
-    reset_calendrier()
-
-    # Supprime également la sauvegarde PostgreSQL pour éviter une restauration au redémarrage
-    remote_deleted = False
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    if DATABASE_URL:
-        try:
-            import psycopg2  # type: ignore
-
-            with psycopg2.connect(DATABASE_URL) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("DELETE FROM json_backups WHERE filename = %s", ("calendrier.json",))
-                    remote_deleted = cur.rowcount > 0
-                conn.commit()
-        except Exception as e:
-            print(f"[DEBUG] Échec suppression calendrier.json dans PostgreSQL : {e}")
-
-    await interaction.followup.send(
-        f"> Le calendrier RP a été totalement réinitialisé. Tous les effets de /calendrier sont annulés."
-        + (f" ({deleted_count} message(s) supprimé(s))." if deleted_count else "")
-        + (" Sauvegarde PostgreSQL nettoyée." if remote_deleted else ""),
-        ephemeral=True
-    )
-
-@bot.tree.command(name="pass_mois", description="📅 Fait avancer le calendrier RP jusqu'au mois suivant")
-@app_commands.checks.has_permissions(administrator=True)
-async def pass_mois_cmd(interaction: discord.Interaction):
-    """Fait avancer le calendrier RP jusqu'au mois suivant en respectant la logique d'alternance."""
-    await interaction.response.defer(ephemeral=True)
-    
-    # Vérifier qu'un calendrier est actif
-    calendrier_data = load_calendrier()
-    if not calendrier_data:
-        await interaction.followup.send(
-            "❌ Aucun calendrier RP n'est actuellement actif.\n"
-            "Utilisez `/calendrier` pour en lancer un.",
-            ephemeral=True
-        )
-        return
-    
-    # Vérifier que le calendrier n'est pas terminé
-    if calendrier_data["mois_index"] >= len(CALENDRIER_MONTHS):
-        await interaction.followup.send(
-            "❌ Le calendrier RP est déjà terminé.\n"
-            "Utilisez `/calendrier` pour lancer une nouvelle année.",
-            ephemeral=True
-        )
-        return
-    
-    # État actuel
-    mois_actuel = calendrier_data["mois_index"]
-    jour_actuel = calendrier_data["jour_index"]
-    jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
-    annee = calendrier_data["annee"]
-    
-    # Simuler l'avancement jusqu'au prochain mois
-    sim_mois = mois_actuel
-    sim_jour = jour_actuel
-    sim_jours_irl = jours_irl_actuel
-    jours_simules = 0
-    
-    # Continuer jusqu'à atteindre le prochain mois
-    while sim_mois == mois_actuel and sim_mois < len(CALENDRIER_MONTHS):
-        # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
-        if sim_mois % 2 == 0:  # Mois pairs : 2 jours IRL
-            jours_requis = 2
-        else:  # Mois impairs : 1 jour IRL
-            jours_requis = 1
-        
-        # Incrémenter le compteur de jours IRL
-        sim_jours_irl += 1
-        jours_simules += 1
-        
-        # Avancer le jour uniquement si on a atteint le nombre de jours requis
-        if sim_jours_irl >= jours_requis:
-            if sim_jour == 0:
-                sim_jour = 1  # 1/2 → 2/2
-            else:
-                sim_jour = 0  # 2/2 → 1/2 du mois suivant
-                sim_mois += 1
-            
-            # Reset le compteur pour le prochain cycle
-            sim_jours_irl = 0
-    
-    # Vérifier qu'on n'a pas dépassé la fin du calendrier
-    if sim_mois >= len(CALENDRIER_MONTHS):
-        await interaction.followup.send(
-            f"❌ Impossible d'avancer au mois suivant : le calendrier se terminerait.\n"
-            f"Mois actuel : **{CALENDRIER_MONTHS[mois_actuel]} {annee}**\n"
-            f"Il s'agit du dernier mois de l'année RP.",
-            ephemeral=True
-        )
-        return
-    
-    # Créer l'embed de confirmation
-    embed_confirm = discord.Embed(
-        title="📅 Confirmation d'Avancement",
-        color=0xff6600
-    )
-    
-    mois_actuel_nom = CALENDRIER_MONTHS[mois_actuel]
-    nouveau_mois_nom = CALENDRIER_MONTHS[sim_mois]
-    jour_actuel_str = "1/2" if jour_actuel == 0 else "2/2"
-    nouveau_jour_str = "1/2" if sim_jour == 0 else "2/2"
-    
-    description = f"**Calendrier RP actuel :**\n"
-    description += f"📅 {mois_actuel_nom} {annee} - {jour_actuel_str}\n"
-    description += f"🕐 Jours IRL actuels : {jours_irl_actuel}\n\n"
-    description += f"**Après avancement :**\n"
-    description += f"📅 {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n"
-    description += f"🕐 Jours IRL simulés : {jours_simules}\n\n"
-    description += f"⚡ Cette action va faire avancer le calendrier jour par jour jusqu'au mois suivant.\n"
-    description += f"🔄 La logique d'alternance 2j/1j sera respectée.\n"
-    description += f"🔬 **Tous les développements expirés seront finalisés.**\n\n"
-    description += f"Confirmez-vous cet avancement ?"
-    
-    embed_confirm.description = description
-    
-    # Créer les boutons de confirmation
-    view = discord.ui.View(timeout=60)
-    
-    # Bouton Confirmer
-    async def confirmer_avancement(button_interaction):
-        await button_interaction.response.defer()
-        
-        try:
-            # Recharger les données pour être sûr
-            calendrier_data_fresh = load_calendrier()
-            if not calendrier_data_fresh:
-                await button_interaction.followup.send(
-                    "❌ Le calendrier a été supprimé entre temps.",
-                    ephemeral=True
-                )
-                return
-            
-            # Re-simuler l'avancement pour obtenir l'état final
-            temp_mois = calendrier_data_fresh["mois_index"]
-            temp_jour = calendrier_data_fresh["jour_index"]
-            temp_jours_irl = calendrier_data_fresh.get("jours_irl_actuel", 0)
-            mois_initial = temp_mois
-            avancements = 0
-            
-            # Simuler pas à pas jusqu'au prochain mois
-            channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-            
-            while temp_mois == mois_initial and temp_mois < len(CALENDRIER_MONTHS):
-                # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
-                if temp_mois % 2 == 0:  # Mois pairs : 2 jours IRL
-                    jours_requis = 2
-                else:  # Mois impairs : 1 jour IRL
-                    jours_requis = 1
-                
-                # Incrémenter le compteur de jours IRL
-                temp_jours_irl += 1
-                
-                # Avancer le jour uniquement si on a atteint le nombre de jours requis
-                if temp_jours_irl >= jours_requis:
-                    if temp_jour == 0:
-                        temp_jour = 1  # 1/2 → 2/2
-                        avancements += 1
-                    else:
-                        temp_jour = 0  # 2/2 → 1/2 du mois suivant
-                        temp_mois += 1
-                        avancements += 1
-                    
-                    # Reset le compteur pour le prochain cycle
-                    temp_jours_irl = 0
-                    
-                    # Poster un message pour chaque avancement significatif
-                    if channel and temp_mois <= len(CALENDRIER_MONTHS):
-                        if temp_mois < len(CALENDRIER_MONTHS):
-                            mois_nom = CALENDRIER_MONTHS[temp_mois]
-                            jour_str = "1/2" if temp_jour == 0 else "2/2"
-                            
-                            embed = discord.Embed(
-                                description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - {jour_str}\n\n"
-                                           f"⚡ **Avancement administratif du calendrier !**\n"
-                                           f"Le calendrier a été avancé manuellement pas à pas.",
-                                color=CALENDRIER_COLOR
-                            )
-                            embed.set_image(url=CALENDRIER_IMAGE_URL)
-                            
-                            try:
-                                message = await channel.send(embed=embed)
-                                calendrier_data_fresh.setdefault("messages", [])
-                                calendrier_data_fresh["messages"].append(str(message.id))
-                            except Exception as e:
-                                print(f"❌ Erreur lors de l'envoi du message calendrier: {e}")
-            
-            # Mettre à jour le calendrier avec l'état final
-            now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-            calendrier_data_fresh["mois_index"] = temp_mois
-            calendrier_data_fresh["jour_index"] = temp_jour
-            calendrier_data_fresh["jours_irl_actuel"] = temp_jours_irl
-            calendrier_data_fresh["last_update"] = now.isoformat()
-            
-            # Sauvegarder
-            save_calendrier(calendrier_data_fresh)
-            
-            # Vérifier et terminer automatiquement les développements dans tous les serveurs
-            total_completed = 0
-            for guild in bot.guilds:
-                guild_id = str(guild.id)
-                developments_completed = check_and_complete_developments(guild_id)
-                total_completed += developments_completed
-                if developments_completed > 0:
-                    print(f"📅 Avancement manuel: {developments_completed} développements terminés dans {guild.name}")
-            
-            # Sauvegarder dans PostgreSQL
-            save_all_json_to_postgres()
-            
-            # Embed de succès
-            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data['mois']]
-            nouveau_jour_str = f"{calendrier_data['jour']}/{calendrier_data['alternance']}"
-            
-            success_embed = discord.Embed(
-                title="✅ Calendrier Avancé",
-                description=f"**Ancien état :** {mois_actuel_nom} {annee} - {jour_actuel_str}\n"
-                           f"**Nouvel état :** {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n\n"
-                           f"📱 Messages postés : {avancements}\n"
-                           f"🔬 Développements finalisés : {total_completed}\n"
-                           f"💾 Sauvegarde PostgreSQL : ✅ Effectuée",
-                color=0x00ff00
-            )
-            
-            await button_interaction.followup.send(embed=success_embed, ephemeral=True)
-            
-        except Exception as e:
-            error_embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Une erreur est survenue lors de l'avancement :\n```{str(e)}```",
-                color=0xff0000
-            )
-            await button_interaction.followup.send(embed=error_embed, ephemeral=True)
-    
-    # Bouton pour avancer d'un seul jour IRL
-    async def avancer_un_jour(button_interaction):
-        await button_interaction.response.defer()
-        
-        try:
-            # Recharger les données pour être sûr
-            calendrier_data_fresh = load_calendrier()
-            temp_mois = calendrier_data_fresh['mois_index']
-            temp_jour = calendrier_data_fresh['jour_index']
-            temp_jours_irl = calendrier_data_fresh.get('jours_irl_actuel', 0)
-            annee = calendrier_data_fresh['annee']
-            
-            # Avancer d'un seul jour IRL
-            temp_jours_irl += 1
-            
-            # Vérifier si c'est le moment d'avancer le jour RP selon l'alternance
-            # Mois pairs (0,2,4...) = 2 jours IRL, Mois impairs (1,3,5...) = 1 jour IRL
-            if temp_mois % 2 == 0:  # Mois pairs : 2 jours IRL
-                alternance_actuelle = 2
-            else:  # Mois impairs : 1 jour IRL
-                alternance_actuelle = 1
-            
-            if temp_jours_irl >= alternance_actuelle:
-                # Avancer d'un jour RP
-                if temp_jour == 0:
-                    temp_jour = 1  # 1/2 → 2/2
-                else:
-                    temp_jour = 0  # 2/2 → 1/2 du mois suivant
-                    temp_mois += 1
-                
-                # Reset le compteur pour le prochain cycle
-                temp_jours_irl = 0
-            
-            # Sauvegarder les nouvelles données
-            calendrier_data_fresh['mois_index'] = temp_mois
-            calendrier_data_fresh['jour_index'] = temp_jour
-            calendrier_data_fresh['jours_irl_actuel'] = temp_jours_irl
-            save_calendrier(calendrier_data_fresh)
-            
-            # Poster un message si on a changé de jour RP
-            if temp_jours_irl == 0:  # On vient de changer de jour RP
-                channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-                if channel and temp_mois < len(CALENDRIER_MONTHS):
-                    mois_nom = CALENDRIER_MONTHS[temp_mois]
-                    jour_str = "1/2" if temp_jour == 0 else "2/2"
-                    
-                    embed = discord.Embed(
-                        description=f"{CALENDRIER_EMOJI} {mois_nom} {annee} - {jour_str}\n\n"
-                                   f"⏱️ **Avancement d'un jour IRL !**\n"
-                                   f"Le calendrier a été avancé manuellement.",
-                        color=CALENDRIER_COLOR
-                    )
-                    embed.set_image(url=CALENDRIER_IMAGE_URL)
-                    
-                    try:
-                        message = await channel.send(embed=embed)
-                        calendrier_data_fresh.setdefault("messages", [])
-                        calendrier_data_fresh["messages"].append(str(message.id))
-                        save_calendrier(calendrier_data_fresh)
-                    except Exception as e:
-                        print(f"❌ Erreur lors de l'envoi du message calendrier: {e}")
-            
-            # Finaliser les développements si nécessaire
-            total_completed = check_and_complete_developments(button_interaction.guild.id)
-            
-            # Sauvegarder dans PostgreSQL
-            save_all_json_to_postgres()
-            
-            # Embed de succès
-            nouveau_mois_nom = CALENDRIER_MONTHS[calendrier_data_fresh['mois_index']]
-            nouveau_jour_str = "1/2" if calendrier_data_fresh['jour_index'] == 0 else "2/2"
-            
-            # Calculer l'alternance pour l'affichage
-            if calendrier_data_fresh['mois_index'] % 2 == 0:
-                alternance_affichage = 2
-            else:
-                alternance_affichage = 1
-            
-            success_embed = discord.Embed(
-                title="✅ Calendrier Avancé (+1 jour IRL)",
-                description=f"**Nouvel état :** {nouveau_mois_nom} {annee} - {nouveau_jour_str}\n"
-                           f"🕐 Jours IRL : {calendrier_data_fresh['jours_irl_actuel']}/{alternance_affichage}\n\n"
-                           f"🔬 Développements finalisés : {total_completed}\n"
-                           f"💾 Sauvegarde PostgreSQL : ✅ Effectuée",
-                color=0x00ff00
-            )
-            
-            await button_interaction.followup.send(embed=success_embed, ephemeral=True)
-            
-        except Exception as e:
-            error_embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Une erreur est survenue lors de l'avancement :\n```{str(e)}```",
-                color=0xff0000
-            )
-            await button_interaction.followup.send(embed=error_embed, ephemeral=True)
-    
-    # Bouton Annuler
-    async def annuler_avancement(button_interaction):
-        await button_interaction.response.defer()
-        cancel_embed = discord.Embed(
-            title="❌ Avancement Annulé",
-            description="L'avancement du calendrier a été annulé.",
-            color=0xffa500
-        )
-        await button_interaction.followup.send(embed=cancel_embed, ephemeral=True)
-    
-    confirm_button = discord.ui.Button(
-        label="Avancer d'un mois",
-        style=discord.ButtonStyle.primary,
-        emoji="⚡"
-    )
-    confirm_button.callback = confirmer_avancement
-    
-    one_day_button = discord.ui.Button(
-        label="Avancer d'1 jour IRL",
-        style=discord.ButtonStyle.success,
-        emoji="⏱️"
-    )
-    one_day_button.callback = avancer_un_jour
-    
-    cancel_button = discord.ui.Button(
-        label="Annuler",
-        style=discord.ButtonStyle.secondary,
-        emoji="❌"
-    )
-    cancel_button.callback = annuler_avancement
-    
-    view.add_item(confirm_button)
-    view.add_item(one_day_button)
-    view.add_item(cancel_button)
-    
-    await interaction.followup.send(embed=embed_confirm, view=view, ephemeral=True)
 
 async def generate_help_banner(
     sections: typing.List[typing.Tuple[str, typing.List[typing.Tuple[str, str]]]]
@@ -5595,105 +5426,6 @@ async def help_command(interaction: discord.Interaction):
         response_kwargs["view"] = Components(block_content)  # type: ignore[call-arg]
 
     await interaction.response.send_message(**response_kwargs)
-
-@loop(minutes=1)
-async def calendrier_update_task():
-    calendrier_data = load_calendrier()
-    if not calendrier_data:
-        calendrier_update_task.stop()
-        return
-    
-    # Vérifier si on doit avancer (minuit heure Paris)
-    now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-    
-    # Vérifier si c'est minuit (ou proche de minuit)
-    if now.hour != 0:
-        return
-    
-    last_update = calendrier_data.get("last_update")
-    if last_update:
-        last_update_dt = datetime.datetime.fromisoformat(last_update)
-        # Convertir vers le fuseau horaire de Paris si nécessaire
-        if last_update_dt.tzinfo is None:
-            last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
-        else:
-            last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
-        if last_update_dt.date() == now.date():
-            return # déjà mis à jour aujourd'hui
-    
-    # Ignorer le premier passage à minuit
-    if calendrier_data.get("skip_first_midnight", False):
-        calendrier_data["skip_first_midnight"] = False
-        calendrier_data["last_update"] = now.isoformat()
-        save_calendrier(calendrier_data)
-        save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
-        return
-    
-    # Logique d'alternance : 2 jours IRL puis 1 jour IRL
-    # Pour 18 jours total : 12 mois * 1.5 jour moyen = 18 jours
-    # Pattern : 2j, 1j, 2j, 1j, 2j, 1j... (soit 6 cycles = 18 jours)
-    jours_irl_actuel = calendrier_data.get("jours_irl_actuel", 0)
-    
-    # Déterminer combien de jours IRL pour ce mois (alternance 2j/1j)
-    if calendrier_data["mois_index"] % 2 == 0:  # Mois pairs : 2 jours IRL
-        jours_requis = 2
-    else:  # Mois impairs : 1 jour IRL
-        jours_requis = 1
-    
-    # Avancer le calendrier
-    mois_index = calendrier_data["mois_index"]
-    jour_index = calendrier_data["jour_index"]
-    
-    if mois_index >= len(CALENDRIER_MONTHS):
-        calendrier_update_task.stop()
-        return
-    
-    mois = CALENDRIER_MONTHS[mois_index]
-    jour_str = "1/2" if jour_index == 0 else "2/2"
-    
-    # Poster le message
-    channel = bot.get_channel(CALENDRIER_CHANNEL_ID)
-    if channel:
-        embed = discord.Embed(
-            description=f"{CALENDRIER_EMOJI} {mois} {calendrier_data['annee']} - {jour_str}\n\n"
-                       f"Le calendrier RP continue !\n"
-                       f"Nous sommes maintenant en {mois} {calendrier_data['annee']}.",
-            color=CALENDRIER_COLOR
-        )
-        embed.set_image(url=CALENDRIER_IMAGE_URL)
-        message = await channel.send(embed=embed)
-        calendrier_data.setdefault("messages", [])
-        calendrier_data["messages"].append(str(message.id))
-    
-    # Incrémenter le compteur de jours IRL
-    jours_irl_actuel += 1
-    calendrier_data["jours_irl_actuel"] = jours_irl_actuel
-    
-    # Avancer le jour uniquement si on a atteint le nombre de jours requis
-    if jours_irl_actuel >= jours_requis:
-        if jour_index == 0:
-            calendrier_data["jour_index"] = 1
-        else:
-            calendrier_data["jour_index"] = 0
-            calendrier_data["mois_index"] += 1
-        
-        # Reset le compteur pour le prochain mois
-        calendrier_data["jours_irl_actuel"] = 0
-    
-    calendrier_data["last_update"] = now.isoformat()
-    save_calendrier(calendrier_data)
-    save_all_json_to_postgres()  # Sauvegarder dans PostgreSQL
-    
-    # Vérifier et terminer automatiquement les développements dans tous les serveurs
-    for guild in bot.guilds:
-        guild_id = str(guild.id)
-        developments_completed = check_and_complete_developments(guild_id)
-        if developments_completed > 0:
-            print(f"[DEBUG] Calendrier automatique: {developments_completed} développements terminés dans {guild.name}")
-    
-    # Stop si Décembre 2/2 passé
-    if calendrier_data["mois_index"] >= len(CALENDRIER_MONTHS):
-        calendrier_update_task.stop()
 
 @bot.tree.command(name="debug_heure", description="Debug : affiche les informations d'heure pour le calendrier")
 @app_commands.checks.has_permissions(administrator=True)
