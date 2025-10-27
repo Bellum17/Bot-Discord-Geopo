@@ -7957,26 +7957,43 @@ class TechnoConfirmView(discord.ui.View):
                 annee_courante = calendrier_data.get("annee", 2072)
                 nom_mois_debut = CALENDRIER_MONTHS[mois_debut_index]
                 
-                # Calculer la fin
-                mois_fin_index = (mois_debut_index + duree_finale) % 12
-                annee_fin = annee_courante + ((mois_debut_index + duree_finale) // 12)
+                # Calculer la fin (corrigé)
+                mois_fin_index = (mois_debut_index + duree_finale - 1) % 12
+                annee_fin = annee_courante + ((mois_debut_index + duree_finale - 1) // 12)
                 nom_mois_fin = CALENDRIER_MONTHS[mois_fin_index]
                 
+                # Utiliser get_jour_display pour l'affichage correct
+                jour_debut_str = get_jour_display(nom_mois_debut, 0)
+                jour_fin_str = get_jour_display(nom_mois_fin, 0)
+                
+                # Formater l'année avec parenthèses si nécessaire
+                if annee_fin != annee_courante:
+                    annee_fin_str = f"({annee_fin})"
+                else:
+                    annee_fin_str = str(annee_fin)
+                
                 discord_timestamp = format_discord_timestamp(fin_timestamp)
-                date_info = f"**Début RP :** {nom_mois_debut} {annee_courante} 1/2\n**Fin RP :** {nom_mois_fin} {annee_fin} 1/2\n**Fin IRL :** {discord_timestamp}\n"
+                date_info = f"**Début RP :** {nom_mois_debut} {annee_courante} {jour_debut_str}\n**Fin RP :** {nom_mois_fin} {annee_fin_str} {jour_fin_str}\n**Fin IRL :** {discord_timestamp}\n"
             elif calendrier_data:
-                # Calcul normal basé sur la durée
+                # Calcul normal basé sur la durée (corrigé)
                 mois_actuel = calendrier_data.get("mois_index", 0)
                 annee_actuelle = calendrier_data.get("annee", 2072)
-                mois_fin = (mois_actuel + duree_finale) % 12
-                annee_fin = annee_actuelle + ((mois_actuel + duree_finale) // 12)
+                mois_fin = (mois_actuel + duree_finale - 1) % 12
+                annee_fin = annee_actuelle + ((mois_actuel + duree_finale - 1) // 12)
                 nom_mois_fin = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                
+                # Utiliser get_jour_display et parenthèses pour l'année
+                jour_fin_str = get_jour_display(nom_mois_fin, 0)
+                if annee_fin != annee_actuelle:
+                    annee_fin_str = f"({annee_fin})"
+                else:
+                    annee_fin_str = str(annee_fin)
                 
                 # Calculer le timestamp réel IRL
                 real_timestamp = calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
                 discord_timestamp = format_discord_timestamp(real_timestamp)
                 
-                date_info = f"**Fin RP :** {nom_mois_fin} {annee_fin}\n**Fin IRL :** {discord_timestamp}\n"
+                date_info = f"**Fin RP :** {nom_mois_fin} {annee_fin_str} {jour_fin_str}\n**Fin IRL :** {discord_timestamp}\n"
             else:
                 # Fallback sans calendrier
                 discord_timestamp = format_discord_timestamp(fin_timestamp)
