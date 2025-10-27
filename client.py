@@ -74,6 +74,13 @@ ADMIN_IDS = [300740726257139712]  # IDs des administrateurs du bot
 COUNTRY_MANAGER_ROLE_ID = 1418245630639476868  # Rôle autorisé à créer/supprimer des pays
 EXCLUDED_ROLE_IDS = [1424143590246056127]  # Rôles exclus du système économique
 
+# Rôles staff autorisés à utiliser la commande bilan_techno
+STAFF_TECHNO_ROLE_IDS = [
+    1410802014769643603,  # Rôle staff 1
+    1418246098442780692,  # Rôle staff 2
+    1418245630639476868   # Rôle staff 3 (COUNTRY_MANAGER)
+]
+
 def is_valid_country_role(role_id):
     """Vérifie si un rôle peut être utilisé dans le système économique."""
     return int(role_id) not in EXCLUDED_ROLE_IDS
@@ -91,6 +98,19 @@ def has_country_management_permissions(interaction: discord.Interaction):
     # Vérifier le rôle spécifique
     for role in interaction.user.roles:
         if role.id == COUNTRY_MANAGER_ROLE_ID:
+            return True
+    
+    return False
+
+def has_staff_techno_permissions(interaction: discord.Interaction):
+    """Vérifie si l'utilisateur a les permissions pour utiliser bilan_techno (rôles staff)."""
+    # Vérifier ADMIN_IDS (admins ont toujours accès)
+    if interaction.user.id in ADMIN_IDS:
+        return True
+    
+    # Vérifier les rôles staff techno
+    for role in interaction.user.roles:
+        if role.id in STAFF_TECHNO_ROLE_IDS:
             return True
     
     return False
@@ -10796,7 +10816,6 @@ async def engin_autocomplete(
         ]
 
 @bot.tree.command(name="bilan_techno", description="Génère un bilan technologique avec coûts aléatoires pour développement")
-@app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(
     pays="Rôle (pays) pour lequel générer le bilan technologique",
     nom="Nom à donner à ce développement technologique",
@@ -10833,11 +10852,12 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     
     await interaction.response.defer()
     
-    # Vérifier que l'utilisateur a le rôle pays mentionné
-    if pays not in interaction.user.roles:
+    # Vérifier que l'utilisateur a les permissions staff pour utiliser cette commande
+    if not has_staff_techno_permissions(interaction):
         embed = discord.Embed(
             title="❌ Accès refusé",
-            description=f"Vous devez avoir le rôle {pays.mention} pour générer un bilan technologique pour ce pays.",
+            description=f"Cette commande est réservée aux membres du staff.\n"
+                       f"Vous devez avoir l'un des rôles staff autorisés pour générer un bilan technologique.",
             color=0xff0000,
             timestamp=datetime.datetime.now()
         )
