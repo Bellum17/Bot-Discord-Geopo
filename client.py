@@ -4708,19 +4708,6 @@ def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
     target_date = next_midnight + datetime.timedelta(days=jours_irl_necessaires - 1)
     return int(target_date.timestamp())
 
-def get_rp_date_from_timestamp(timestamp):
-    """Retourne la date RP correspondant à un timestamp."""
-    # Fonction simplifiée pour compatibilité
-    calendrier_data = load_calendrier()
-    if not calendrier_data:
-        return "Date inconnue"
-    
-    mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
-    jour_str = get_jour_display(mois_nom, calendrier_data["jour_index"])
-    annee = calendrier_data["annee"]
-    
-    return f"{mois_nom} {annee} {jour_str}"
-
 def format_discord_timestamp(timestamp):
     """Formate un timestamp pour Discord."""
     return f"<t:{int(timestamp)}:f>"
@@ -5009,31 +4996,68 @@ from discord.ext.tasks import loop
 
 def get_rp_date_from_timestamp(timestamp):
     """
-    Extrait la date RP (mois, année) d'un timestamp de fin de développement
-    
-    Logique : 1 mois RP = 2 jours IRL
+    Retourne la date RP complète (jour, mois, année) correspondant à un timestamp.
+    Utilise la logique du calendrier avec alternance 2j/1j.
     """
     calendrier_data = load_calendrier()
     if not calendrier_data:
-        return None, None
+        return "Date inconnue"
         
     mois_actuel = calendrier_data.get("mois_index", 0)
-    annee_actuelle = calendrier_data.get("annee", 2025)
+    annee_actuelle = calendrier_data.get("annee", 2072)
     jour_actuel = calendrier_data.get("jour_index", 0)
+    jours_irl_ecoules = calendrier_data.get("jours_irl_ecoules", 0)
     
     # Calculer la différence en secondes depuis maintenant
     diff_seconds = timestamp - time.time()
-    diff_jours = diff_seconds / (24 * 3600)  # Différence en jours IRL
+    if diff_seconds <= 0:
+        # Si c'est dans le passé ou maintenant, retourner la date actuelle
+        mois_nom = CALENDRIER_MONTHS[mois_actuel]
+        jour_str = get_jour_display(mois_nom, jour_actuel)
+        return f"{jour_str} {mois_nom} {annee_actuelle}"
     
-    # Convertir les jours IRL en mois RP (1 mois RP = 2 jours IRL)
-    # Si on est sur 1/2 d'un mois, il faut 1 jour pour finir ce mois
-    mois_restants = diff_jours / 2.0  # Approximation
+    # Convertir en jours IRL
+    diff_jours = int(diff_seconds / (24 * 3600))
+    if diff_seconds % (24 * 3600) > 0:
+        diff_jours += 1  # Arrondir vers le haut
     
-    # Calculer le mois et l'année de fin
-    mois_fin = (mois_actuel + int(mois_restants)) % 12
-    annee_fin = annee_actuelle + ((mois_actuel + int(mois_restants)) // 12)
+    # Simuler l'avancement du calendrier jour par jour
+    mois_simule = mois_actuel
+    annee_simulee = annee_actuelle
+    jour_simule = jour_actuel
+    jours_irl_simules = jours_irl_ecoules
     
-    return mois_fin, annee_fin
+    for _ in range(diff_jours):
+        # Avancer d'un jour IRL
+        jours_irl_simules += 1
+        
+        # Vérifier si on change de jour RP
+        mois_nom_simule = CALENDRIER_MONTHS[mois_simule]
+        duree_mois_simule = get_duree_mois(mois_nom_simule)
+        
+        if jours_irl_simules >= duree_mois_simule:
+            # Passer au jour suivant dans le mois RP
+            if jour_simule == 0:  # On était sur 1/X, passer à 2/X si c'est un mois de 2 jours
+                if duree_mois_simule == 2:
+                    jour_simule = 1
+                else:
+                    # Mois de 1 jour, passer au mois suivant
+                    jour_simule = 0
+                    mois_simule = (mois_simule + 1) % 12
+                    if mois_simule == 0:
+                        annee_simulee += 1
+                jours_irl_simules = 0
+            else:  # On était sur 2/2, passer au mois suivant
+                jour_simule = 0
+                mois_simule = (mois_simule + 1) % 12
+                if mois_simule == 0:
+                    annee_simulee += 1
+                jours_irl_simules = 0
+    
+    # Retourner la date RP formatée
+    mois_nom_final = CALENDRIER_MONTHS[mois_simule]
+    jour_str_final = get_jour_display(mois_nom_final, jour_simule)
+    return f"{jour_str_final} {mois_nom_final} {annee_simulee}"
 
 def format_discord_timestamp(timestamp):
     """
@@ -5070,10 +5094,9 @@ def format_development_end_info(dev):
     # Date RP si disponible
     calendrier_data = load_calendrier()
     if calendrier_data:
-        mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
-        if mois_fin is not None and annee_fin is not None:
-            nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
-            return f"⏳ **EN COURS**\n📅 Fin RP: **{nom_mois} {annee_fin}**\n🕐 Fin IRL: {discord_timestamp}"
+        date_rp_fin = get_rp_date_from_timestamp(fin_timestamp)
+        if date_rp_fin != "Date inconnue":
+            return f"⏳ **EN COURS**\n📅 Fin RP: **{date_rp_fin}**\n🕐 Fin IRL: {discord_timestamp}"
     
     # Fallback sans calendrier
     temps_restant = fin_timestamp - time.time()
@@ -7678,11 +7701,11 @@ class TechnoConfirmView(discord.ui.View):
         # Charger les données du calendrier
         calendrier_data = load_calendrier()
         
-        # Vérifier le budget du rôle
+        # Vérifier le budget du rôle (seulement si ce n'est pas instantané)
         role_id = str(self.role.id)
         budget_actuel = balances.get(role_id, 0)
         
-        if budget_actuel < self.cout_dev:
+        if not self.is_instant and budget_actuel < self.cout_dev:
             embed = discord.Embed(
                 title="❌ Budget insuffisant",
                 description=f"**Coût du développement :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
@@ -11011,8 +11034,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         description=f"**Pays :** {pays.mention}\n"
                    f"**Nom :** {nom}\n"
                    f"**Catégorie :** {technologies[categorie]['name']}\n"
-                   f"**Technologie :** {engin_specs['name']}\n"
-                   f"**Généré pour :** {interaction.user.mention}",
+                   f"**Technologie :** {engin_specs['name']}",
         color=EMBED_COLOR,
         timestamp=datetime.datetime.now()
     )
@@ -11323,13 +11345,12 @@ class DeveloppementsNavigationView(discord.ui.View):
                 # Développement en cours
                 calendrier_data = load_calendrier()
                 if calendrier_data:
-                    mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
-                    if mois_fin is not None and annee_fin is not None:
-                        nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                    date_rp_fin = get_rp_date_from_timestamp(fin_timestamp)
+                    if date_rp_fin != "Date inconnue":
                         discord_timestamp = format_discord_timestamp(fin_timestamp)
                         embed.add_field(
                             name="⏳ En cours - Date de fin",
-                            value=f"**RP :** {nom_mois} {annee_fin}\n**IRL :** {discord_timestamp}",
+                            value=f"**RP :** {date_rp_fin}\n**IRL :** {discord_timestamp}",
                             inline=False
                         )
                     else:
@@ -11754,12 +11775,11 @@ async def gestion_centres(interaction: discord.Interaction):
                     # Calculer la date RP de fin
                     calendrier_data = load_calendrier()
                     if calendrier_data:
-                        mois_fin, annee_fin = get_rp_date_from_timestamp(fin_timestamp)
-                        if mois_fin is not None and annee_fin is not None:
-                            nom_mois = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                        date_rp_fin = get_rp_date_from_timestamp(fin_timestamp)
+                        if date_rp_fin != "Date inconnue":
                             discord_timestamp = format_discord_timestamp(fin_timestamp)
                             description += f"> • **{dev['nom']}**\n"
-                            description += f">   📅 Fin RP: {nom_mois} {annee_fin}\n"
+                            description += f">   📅 Fin RP: {date_rp_fin}\n"
                             description += f">   🕐 Fin IRL: {discord_timestamp}\n"
                         else:
                             temps_restant = fin_timestamp - time.time()
