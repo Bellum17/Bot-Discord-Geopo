@@ -11150,18 +11150,25 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         annee_fin = annee_courante + ((mois_index + mois_duree - 1) // 12)
         mois_fin = CALENDRIER_MONTHS[mois_fin_index]
         
-        # Déterminer si c'est 1/2 ou 2/2 (par défaut 1/2)
-        jour_str = "1/2"
+        # Utiliser la fonction get_jour_display pour le format correct
+        jour_debut_str = get_jour_display(mois_debut, 0)  # 0 = premier jour (1/X)
+        jour_fin_str = get_jour_display(mois_fin, 0)     # 0 = premier jour (1/X)
+        
+        # Formater l'année de fin avec parenthèses si différente de l'année de début
+        if annee_fin != annee_courante:
+            annee_fin_str = f"({annee_fin})"
+        else:
+            annee_fin_str = str(annee_fin)
         
         embed.add_field(
             name="📅 Date de début",
-            value=f"{mois_debut} {annee_courante} {jour_str}",
+            value=f"{mois_debut} {annee_courante} {jour_debut_str}",
             inline=True
         )
         
         embed.add_field(
             name="📅 Date de fin prévue",
-            value=f"{mois_fin} {annee_fin} {jour_str}",
+            value=f"{mois_fin} {annee_fin_str} {jour_fin_str}",
             inline=True
         )
     elif mois is not None and is_instant:
