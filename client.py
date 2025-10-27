@@ -4317,7 +4317,9 @@ async def on_ready():
     calendrier_data = load_calendrier()
     if calendrier_data and calendrier_data["mois_index"] < len(CALENDRIER_MONTHS):
         # Démarrer la tâche de mise à jour automatique du calendrier
-        print(f"📅 Calendrier actif détecté au démarrage: {CALENDRIER_MONTHS[calendrier_data['mois_index']]} {calendrier_data['annee']} {'1/2' if calendrier_data['jour_index'] == 0 else '2/2'}")
+        mois_nom = CALENDRIER_MONTHS[calendrier_data['mois_index']]
+        jour_str = get_jour_display(mois_nom, calendrier_data['jour_index'])
+        print(f"📅 Calendrier actif détecté au démarrage: {mois_nom} {calendrier_data['annee']} {jour_str}")
         
         # Démarrer la tâche de mise à jour si pas déjà en cours
         if not calendrier_automatique.is_running():
@@ -4493,6 +4495,16 @@ def get_duree_mois(mois_nom):
     """Retourne la durée en jours IRL d'un mois RP."""
     return CALENDRIER_DUREES.get(mois_nom, 1)
 
+def get_jour_display(mois_nom, jour_index):
+    """Retourne l'affichage correct du jour selon la durée du mois."""
+    duree_mois = get_duree_mois(mois_nom)
+    if duree_mois == 1:
+        # Mois de 1 jour : toujours 1/1
+        return "1/1"
+    else:
+        # Mois de 2 jours : 1/2 ou 2/2
+        return "1/2" if jour_index == 0 else "2/2"
+
 def avancer_calendrier_un_jour():
     """Avance le calendrier d'un jour RP et retourne les nouvelles données."""
     calendrier_data = load_calendrier()
@@ -4533,7 +4545,9 @@ def avancer_calendrier_un_jour():
     save_calendrier(calendrier_data)
     # Sauvegarder immédiatement dans PostgreSQL
     save_all_json_to_postgres()
-    print(f"📅 Calendrier avancé: {CALENDRIER_MONTHS[mois_index]} {calendrier_data['annee']} {'1/2' if jour_index == 0 else '2/2'}")
+    mois_nom = CALENDRIER_MONTHS[mois_index]
+    jour_str = get_jour_display(mois_nom, jour_index)
+    print(f"📅 Calendrier avancé: {mois_nom} {calendrier_data['annee']} {jour_str}")
     return calendrier_data
 
 def reculer_calendrier_un_jour():
@@ -4581,7 +4595,9 @@ def reculer_calendrier_un_jour():
     save_calendrier(calendrier_data)
     # Sauvegarder immédiatement dans PostgreSQL
     save_all_json_to_postgres()
-    print(f"📅 Calendrier reculé: {CALENDRIER_MONTHS[mois_index]} {calendrier_data['annee']} {'1/2' if jour_index == 0 else '2/2'}")
+    mois_nom = CALENDRIER_MONTHS[mois_index]
+    jour_str = get_jour_display(mois_nom, jour_index)
+    print(f"📅 Calendrier reculé: {mois_nom} {calendrier_data['annee']} {jour_str}")
     return calendrier_data
 
 async def envoyer_message_calendrier(calendrier_data, raison="Mise à jour automatique"):
@@ -4591,7 +4607,7 @@ async def envoyer_message_calendrier(calendrier_data, raison="Mise à jour autom
         return None
     
     mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
-    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    jour_str = get_jour_display(mois_nom, calendrier_data["jour_index"])
     annee = calendrier_data["annee"]
     
     embed = discord.Embed(
@@ -4680,7 +4696,7 @@ def get_rp_date_from_timestamp(timestamp):
         return "Date inconnue"
     
     mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
-    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    jour_str = get_jour_display(mois_nom, calendrier_data["jour_index"])
     annee = calendrier_data["annee"]
     
     return f"{mois_nom} {annee} {jour_str}"
@@ -4762,7 +4778,7 @@ async def calendrier_cmd(interaction: discord.Interaction):
     calendrier_data = load_calendrier()
     if calendrier_data:
         mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
-        jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+        jour_str = get_jour_display(mois_nom, calendrier_data["jour_index"])
         annee = calendrier_data["annee"]
         
         await interaction.followup.send(
@@ -4882,7 +4898,7 @@ async def gestion_date_cmd(interaction: discord.Interaction):
     
     # État actuel
     mois_nom = CALENDRIER_MONTHS[calendrier_data["mois_index"]]
-    jour_str = "1/2" if calendrier_data["jour_index"] == 0 else "2/2"
+    jour_str = get_jour_display(mois_nom, calendrier_data["jour_index"])
     annee = calendrier_data["annee"]
     jours_irl_ecoules = calendrier_data.get("jours_irl_ecoules", 0)
     duree_mois = get_duree_mois(mois_nom)
@@ -4917,7 +4933,7 @@ async def gestion_date_cmd(interaction: discord.Interaction):
             
             # Message de confirmation
             nouveau_mois = CALENDRIER_MONTHS[nouvelles_donnees["mois_index"]]
-            nouveau_jour = "1/2" if nouvelles_donnees["jour_index"] == 0 else "2/2"
+            nouveau_jour = get_jour_display(nouveau_mois, nouvelles_donnees["jour_index"])
             
             await button_interaction.followup.send(
                 f"✅ **Calendrier avancé d'un jour !**\n\n"
@@ -4944,7 +4960,7 @@ async def gestion_date_cmd(interaction: discord.Interaction):
             
             # Message de confirmation
             nouveau_mois = CALENDRIER_MONTHS[nouvelles_donnees["mois_index"]]
-            nouveau_jour = "1/2" if nouvelles_donnees["jour_index"] == 0 else "2/2"
+            nouveau_jour = get_jour_display(nouveau_mois, nouvelles_donnees["jour_index"])
             
             await button_interaction.followup.send(
                 f"✅ **Calendrier reculé d'un jour !**\n\n"
@@ -5053,7 +5069,12 @@ async def debug_calendrier_cmd(interaction: discord.Interaction):
     
     # 1. État avant restauration
     calendrier_local = load_calendrier()
-    local_info = "Aucun" if not calendrier_local else f"{CALENDRIER_MONTHS[calendrier_local['mois_index']]} {calendrier_local['annee']} {'1/2' if calendrier_local['jour_index'] == 0 else '2/2'}"
+    if calendrier_local:
+        mois_nom = CALENDRIER_MONTHS[calendrier_local['mois_index']]
+        jour_str = get_jour_display(mois_nom, calendrier_local['jour_index'])
+        local_info = f"{mois_nom} {calendrier_local['annee']} {jour_str}"
+    else:
+        local_info = "Aucun"
     
     # 2. Restaurer depuis PostgreSQL
     print("🔄 Restauration PostgreSQL pour debug...")
@@ -5061,16 +5082,25 @@ async def debug_calendrier_cmd(interaction: discord.Interaction):
     
     # 3. État après restauration
     calendrier_postgres = load_calendrier()
-    postgres_info = "Aucun" if not calendrier_postgres else f"{CALENDRIER_MONTHS[calendrier_postgres['mois_index']]} {calendrier_postgres['annee']} {'1/2' if calendrier_postgres['jour_index'] == 0 else '2/2'}"
+    if calendrier_postgres:
+        mois_nom = CALENDRIER_MONTHS[calendrier_postgres['mois_index']]
+        jour_str = get_jour_display(mois_nom, calendrier_postgres['jour_index'])
+        postgres_info = f"{mois_nom} {calendrier_postgres['annee']} {jour_str}"
+    else:
+        postgres_info = "Aucun"
     
     # 4. Détails complets
-    details = "Aucune donnée" if not calendrier_postgres else f"""
-**Mois index:** {calendrier_postgres['mois_index']} ({CALENDRIER_MONTHS[calendrier_postgres['mois_index']]})
-**Jour index:** {calendrier_postgres['jour_index']} ({'1/2' if calendrier_postgres['jour_index'] == 0 else '2/2'})
+    if calendrier_postgres:
+        mois_nom = CALENDRIER_MONTHS[calendrier_postgres['mois_index']]
+        jour_str = get_jour_display(mois_nom, calendrier_postgres['jour_index'])
+        details = f"""
+**Mois index:** {calendrier_postgres['mois_index']} ({mois_nom})
+**Jour index:** {calendrier_postgres['jour_index']} ({jour_str})
 **Jours IRL écoulés:** {calendrier_postgres.get('jours_irl_ecoules', 0)}
 **Dernière MAJ:** {calendrier_postgres.get('last_update', 'Inconnue')}
-**Messages:** {len(calendrier_postgres.get('messages', []))}
-"""
+**Messages:** {len(calendrier_postgres.get('messages', []))}"""
+    else:
+        details = "Aucune donnée"
     
     embed = discord.Embed(
         title="🐛 Debug Calendrier",
@@ -7592,7 +7622,7 @@ async def supprimer_backup_error(interaction: discord.Interaction, error: app_co
 
 # Vue pour le bouton de confirmation de développement technologique
 class TechnoConfirmView(discord.ui.View):
-    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image, unit_multiplier):
+    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image, unit_multiplier, mois_fin_personnalise=None, is_instant=False):
         super().__init__(timeout=None)  # Durée indéfinie
         self.user_id = user_id
         self.role = role
@@ -7605,6 +7635,8 @@ class TechnoConfirmView(discord.ui.View):
         self.mois = mois
         self.image = image
         self.unit_multiplier = unit_multiplier
+        self.mois_fin_personnalise = mois_fin_personnalise
+        self.is_instant = is_instant
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -7716,18 +7748,36 @@ class TechnoConfirmView(discord.ui.View):
                     await interaction.followup.send(embed=embed)
                     return
         
-        # Déduire le coût du budget
-        balances[role_id] = budget_actuel - self.cout_dev
-        save_balances(balances)
-        save_all_json_to_postgres()
+        # Déduire le coût du budget (seulement si ce n'est pas instantané)
+        if not self.is_instant:
+            balances[role_id] = budget_actuel - self.cout_dev
+            save_balances(balances)
+            save_all_json_to_postgres()
         
         # Calculer la durée avec bonus du centre (niveau 3 = -1 mois)
         duree_finale = self.mois
-        if centre_choisi["niveau"] == 3:
+        if not self.is_instant and centre_choisi["niveau"] == 3:
             duree_finale = max(1, self.mois - 1)  # Au minimum 1 mois
         
         # Calculer le timestamp de fin avec le système de calendrier
-        fin_timestamp = calculate_fin_with_calendar(duree_finale)
+        if self.is_instant:
+            # Pour les développements instantanés, utiliser l'heure actuelle
+            fin_timestamp = time.time()
+        elif self.mois_fin_personnalise is not None:
+            # Si un mois personnalisé est fourni, calculer la fin pour ce mois-là
+            mois_debut_index = int(self.mois_fin_personnalise)
+            calendrier_data = load_calendrier()
+            annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
+            
+            # Le mois fourni est maintenant le DÉBUT, calculer la fin
+            mois_fin_index = (mois_debut_index + duree_finale) % 12
+            annee_fin = annee_courante + ((mois_debut_index + duree_finale) // 12)
+            
+            # Calculer le timestamp pour ce mois RP (par défaut 1/2)
+            fin_timestamp = calculate_real_timestamp_from_calendar(mois_fin_index, annee_fin)
+        else:
+            # Utiliser le calcul normal basé sur la durée
+            fin_timestamp = calculate_fin_with_calendar(duree_finale)
         
         # Sauvegarder le développement dans le JSON
         developpements = load_developpements()
@@ -7738,6 +7788,7 @@ class TechnoConfirmView(discord.ui.View):
             developpements[guild_id][role_id] = []
         
         # Créer l'entrée de développement
+        calendrier_data = load_calendrier()
         developpement_data = {
             "nom": self.nom_developpement,
             "technologie": self.nom_techno,
@@ -7753,37 +7804,87 @@ class TechnoConfirmView(discord.ui.View):
             "centre_attache": centre_choisi.get("nom", centre_choisi.get("localisation", "")),
             "domaine": domaine_tech,
             "fin_timestamp": fin_timestamp,
-            "statut": "en_cours",  # Statut par défaut pour les nouveaux développements
+            "statut": "termine" if self.is_instant else "en_cours",  # Instantané = déjà terminé
+            "is_instant": self.is_instant,  # Marquer les développements instantanés
             # Ajouter le contexte RP pour le calcul de fin selon le calendrier
             "mois_creation_rp": calendrier_data.get("mois_index", 0),
-            "annee_creation_rp": calendrier_data.get("annee", 2025)
+            "annee_creation_rp": calendrier_data.get("annee", 2072)
         }
+        
+        # Ajouter les informations de date personnalisée si fournie
+        if self.mois_fin_personnalise is not None:
+            if self.is_instant:
+                # Pour les développements instantanés, le mois fourni est la date de développement
+                developpement_data["mois_developpement"] = int(self.mois_fin_personnalise)
+            else:
+                # Pour les développements normaux, le mois fourni est la date de début
+                developpement_data["mois_debut_personnalise"] = int(self.mois_fin_personnalise)
+                developpement_data["date_debut_personnalisee"] = True
         
         developpements[guild_id][role_id].append(developpement_data)
         save_developpements(developpements)
         
         # Créer l'embed de confirmation
-        bonus_text = f" (-1 mois grâce au centre niveau 3)" if centre_choisi["niveau"] == 3 and duree_finale != self.mois else ""
+        bonus_text = f" (-1 mois grâce au centre niveau 3)" if not self.is_instant and centre_choisi["niveau"] == 3 and duree_finale != self.mois else ""
         
-        # Calculer les dates de fin
+        # Calculer les informations de date selon le type de développement
         calendrier_data = load_calendrier()
         date_info = ""
-        if calendrier_data:
-            mois_actuel = calendrier_data.get("mois_index", 0)
-            annee_actuelle = calendrier_data.get("annee", 2025)
-            mois_fin = (mois_actuel + duree_finale) % 12
-            annee_fin = annee_actuelle + ((mois_actuel + duree_finale) // 12)
-            nom_mois_fin = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
-            
-            # Calculer le timestamp réel IRL
-            real_timestamp = calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
-            discord_timestamp = format_discord_timestamp(real_timestamp)
-            
-            date_info = f"**Fin RP :** {nom_mois_fin} {annee_fin}\n**Fin IRL :** {discord_timestamp}\n"
+        
+        if self.is_instant:
+            # Pour les développements instantanés
+            if self.mois_fin_personnalise is not None:
+                mois_dev_index = int(self.mois_fin_personnalise)
+                annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
+                nom_mois_dev = CALENDRIER_MONTHS[mois_dev_index]
+                date_info = f"**Développé en :** {nom_mois_dev} {annee_courante} 1/2 ⚡\n"
+            else:
+                date_info = f"**Développement :** Instantané ⚡\n"
+                
+            # Calculer le nouveau budget (pas de coût pour les armes à feu)
+            nouveau_budget = balances.get(role_id, 0)  # Budget inchangé
+            cout_info = "**Coût :** Gratuit (Armes à feu) ⚡"
+            budget_info = f"**Budget actuel :** {format_number(nouveau_budget)} {MONNAIE_EMOJI}"
         else:
-            # Fallback sans calendrier
-            discord_timestamp = format_discord_timestamp(fin_timestamp)
-            date_info = f"**Date de fin :** {discord_timestamp}\n"
+            # Pour les développements normaux
+            if calendrier_data and self.mois_fin_personnalise is not None:
+                # Date de début personnalisée fournie
+                mois_debut_index = int(self.mois_fin_personnalise)
+                annee_courante = calendrier_data.get("annee", 2072)
+                nom_mois_debut = CALENDRIER_MONTHS[mois_debut_index]
+                
+                # Calculer la fin
+                mois_fin_index = (mois_debut_index + duree_finale) % 12
+                annee_fin = annee_courante + ((mois_debut_index + duree_finale) // 12)
+                nom_mois_fin = CALENDRIER_MONTHS[mois_fin_index]
+                
+                discord_timestamp = format_discord_timestamp(fin_timestamp)
+                date_info = f"**Début RP :** {nom_mois_debut} {annee_courante} 1/2\n**Fin RP :** {nom_mois_fin} {annee_fin} 1/2\n**Fin IRL :** {discord_timestamp}\n"
+            elif calendrier_data:
+                # Calcul normal basé sur la durée
+                mois_actuel = calendrier_data.get("mois_index", 0)
+                annee_actuelle = calendrier_data.get("annee", 2072)
+                mois_fin = (mois_actuel + duree_finale) % 12
+                annee_fin = annee_actuelle + ((mois_actuel + duree_finale) // 12)
+                nom_mois_fin = CALENDRIER_MONTHS[mois_fin] if mois_fin < len(CALENDRIER_MONTHS) else "Mois inconnu"
+                
+                # Calculer le timestamp réel IRL
+                real_timestamp = calculate_real_timestamp_from_calendar(mois_fin, annee_fin)
+                discord_timestamp = format_discord_timestamp(real_timestamp)
+                
+                date_info = f"**Fin RP :** {nom_mois_fin} {annee_fin}\n**Fin IRL :** {discord_timestamp}\n"
+            else:
+                # Fallback sans calendrier
+                discord_timestamp = format_discord_timestamp(fin_timestamp)
+                date_info = f"**Date de fin :** {discord_timestamp}\n"
+            
+            # Calculer le nouveau budget
+            nouveau_budget = balances.get(role_id, 0)
+            cout_info = f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}"
+            budget_info = f"**Nouveau budget :** {format_number(nouveau_budget)} {MONNAIE_EMOJI}"
+        
+        # Texte de durée adapté
+        duree_info = "**Durée :** Instantané ⚡" if self.is_instant else f"**Durée :** {duree_finale} mois{bonus_text}"
         
         embed = discord.Embed(
             title="✅ Développement confirmé !",
@@ -7791,10 +7892,10 @@ class TechnoConfirmView(discord.ui.View):
                        f"**Technologie :** {self.nom_techno}\n"
                        f"**Pays :** {self.role.mention}\n"
                        f"**Centre :** {centre_choisi['localisation']} ({domaine_tech})\n"
-                       f"**Durée :** {duree_finale} mois{bonus_text}\n"
+                       f"{duree_info}\n"
                        f"{date_info}"
-                       f"**Coût payé :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
-                       f"**Nouveau budget :** {format_number(balances[role_id])} {MONNAIE_EMOJI}",
+                       f"{cout_info}\n"
+                       f"{budget_info}",
             color=EMBED_COLOR,
             timestamp=datetime.datetime.now()
         )
@@ -7802,14 +7903,17 @@ class TechnoConfirmView(discord.ui.View):
         await interaction.followup.send(embed=embed)
         
         # Log dans le salon des logs
+        duree_log = "Instantané ⚡" if self.is_instant else f"{duree_finale} mois"
+        cout_log = "Gratuit (Armes à feu)" if self.is_instant else f"{format_number(self.cout_dev)} {MONNAIE_EMOJI}"
+        
         log_embed = discord.Embed(
             title="🔬 Développement technologique",
             description=f"**Pays :** {self.role.mention}\n"
                        f"**Nom :** {self.nom_developpement}\n"
                        f"**Technologie :** {self.nom_techno}\n"
                        f"**Centre :** {centre_choisi['localisation']}\n"
-                       f"**Durée :** {duree_finale} mois\n"
-                       f"**Coût :** {format_number(self.cout_dev)} {MONNAIE_EMOJI}\n"
+                       f"**Durée :** {duree_log}\n"
+                       f"**Coût :** {cout_log}\n"
                        f"**Développé par :** {interaction.user.mention}",
             color=EMBED_COLOR,
             timestamp=datetime.datetime.now()
@@ -10698,17 +10802,33 @@ async def engin_autocomplete(
     nom="Nom à donner à ce développement technologique",
     categorie="Catégorie technologique à développer",
     engin="Type d'engin spécifique à développer",
-    image="URL de l'image pour illustrer le développement technologique (optionnel)"
+    image="URL de l'image pour illustrer le développement technologique (optionnel)",
+    mois="Mois RP où le développement COMMENCE (optionnel, pour planifier des démarrages en retard)"
 )
 @app_commands.choices(categorie=[
+    discord.app_commands.Choice(name="Armes à feu", value="armes_feu"),
     discord.app_commands.Choice(name="Véhicules Terrestres", value="vehicules_terrestres"),
     discord.app_commands.Choice(name="Artillerie", value="artillerie"),
     discord.app_commands.Choice(name="Bâtiments de guerre", value="batiments_guerre"),
     discord.app_commands.Choice(name="Appareils aériens", value="appareils_aeriens"),
     discord.app_commands.Choice(name="Missiles", value="missiles")
 ])
+@app_commands.choices(mois=[
+    discord.app_commands.Choice(name="Janvier", value="0"),
+    discord.app_commands.Choice(name="Février", value="1"),
+    discord.app_commands.Choice(name="Mars", value="2"),
+    discord.app_commands.Choice(name="Avril", value="3"),
+    discord.app_commands.Choice(name="Mai", value="4"),
+    discord.app_commands.Choice(name="Juin", value="5"),
+    discord.app_commands.Choice(name="Juillet", value="6"),
+    discord.app_commands.Choice(name="Août", value="7"),
+    discord.app_commands.Choice(name="Septembre", value="8"),
+    discord.app_commands.Choice(name="Octobre", value="9"),
+    discord.app_commands.Choice(name="Novembre", value="10"),
+    discord.app_commands.Choice(name="Décembre", value="11")
+])
 @app_commands.autocomplete(engin=engin_autocomplete)
-async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom: str, categorie: str, engin: str, image: str = None):
+async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom: str, categorie: str, engin: str, image: str = None, mois: str = None):
     """Génère un bilan technologique avec coûts et durées aléatoires pour un engin spécifique."""
     
     await interaction.response.defer()
@@ -10726,6 +10846,21 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     
     # Données technologiques basées sur le CSV (excluant les armes à feu)
     technologies = {
+        "armes_feu": {
+            "name": "Armes à feu",
+            "emoji": "🔫",
+            "engins": {
+                "fusil_assaut": {"name": "Fusil d'Assaut", "instant": True, "cout_range": (300, 700), "unit_multiplier": 1},
+                "pistolet": {"name": "Pistolet", "instant": True, "cout_range": (100, 300), "unit_multiplier": 1},
+                "mitrailleuse": {"name": "Mitrailleuse", "instant": True, "cout_range": (400, 800), "unit_multiplier": 1},
+                "lance_roquette": {"name": "Lance-Roquette", "instant": True, "cout_range": (1000, 1200), "unit_multiplier": 1},
+                "carabine": {"name": "Carabine", "instant": True, "cout_range": (200, 600), "unit_multiplier": 1},
+                "pistolet_mitrailleur": {"name": "Pistolet-Mitrailleur", "instant": True, "cout_range": (200, 500), "unit_multiplier": 1},
+                "grenades": {"name": "Grenades", "instant": True, "cout_range": (5, 20), "unit_multiplier": 1},
+                "mines": {"name": "Mines", "instant": True, "cout_range": (20, 70), "unit_multiplier": 1},
+            }
+        },
+
         "vehicules_terrestres": {
             "name": "Véhicules Terrestres",
             "engins": {
@@ -10737,6 +10872,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
                 "chasseur_chars": {"name": "Chasseur de chars", "dev_range": (11, 17), "cout_range": (135, 200), "unit_multiplier": 1000, "mois_range": (9, 13)},
                 "char_super_lourd": {"name": "Char super lourd", "dev_range": (20, 25), "cout_range": (400, 500), "unit_multiplier": 1000, "mois_range": (9, 12)},
                 "lance_roquettes": {"name": "Lance-roquettes multiple", "dev_range": (9, 15), "cout_range": (120, 200), "unit_multiplier": 1000, "mois_range": (8, 13)},
+                "vehicule_blinde": {"name": "Véhicule blindé", "dev_range": (4, 6), "cout_range": (50, 100), "unit_multiplier": 1000, "mois_range": (3, 5)},
             }
         },
         
@@ -10835,10 +10971,19 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     import random
     engin_specs = technologies[categorie]["engins"][engin]
     
-    # Générer les valeurs aléatoires
-    cout_dev = random.randint(engin_specs["dev_range"][0], engin_specs["dev_range"][1]) * 1000000  # En millions
-    cout_unite = random.randint(engin_specs["cout_range"][0], engin_specs["cout_range"][1]) * engin_specs["unit_multiplier"]
-    mois = random.randint(engin_specs["mois_range"][0], engin_specs["mois_range"][1])
+    # Vérifier si c'est un développement instantané (armes à feu)
+    is_instant = engin_specs.get("instant", False)
+    
+    if is_instant:
+        # Pour les armes à feu : pas de coût de développement ni de durée
+        cout_dev = 0
+        cout_unite = random.randint(engin_specs["cout_range"][0], engin_specs["cout_range"][1]) * engin_specs["unit_multiplier"]
+        mois_duree = 0  # Instantané
+    else:
+        # Pour les autres technologies : calcul normal
+        cout_dev = random.randint(engin_specs["dev_range"][0], engin_specs["dev_range"][1]) * 1000000  # En millions
+        cout_unite = random.randint(engin_specs["cout_range"][0], engin_specs["cout_range"][1]) * engin_specs["unit_multiplier"]
+        mois_duree = random.randint(engin_specs["mois_range"][0], engin_specs["mois_range"][1])
     
     # Créer l'embed de résultat
     embed = discord.Embed(
@@ -10856,11 +11001,18 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         embed.set_image(url=image)
     
     # Ajouter les détails techniques
-    embed.add_field(
-        name="💰 Coût de développement",
-        value=f"{format_number(cout_dev)} {MONNAIE_EMOJI}",
-        inline=True
-    )
+    if is_instant:
+        embed.add_field(
+            name="💰 Coût de développement",
+            value="**DÉVELOPPEMENT INSTANTANÉ** ⚡",
+            inline=True
+        )
+    else:
+        embed.add_field(
+            name="💰 Coût de développement",
+            value=f"{format_number(cout_dev)} {MONNAIE_EMOJI}",
+            inline=True
+        )
     
     embed.add_field(
         name="🏭 Prix unitaire",
@@ -10868,24 +11020,83 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         inline=True
     )
     
-    embed.add_field(
-        name="⏱️ Durée de développement",
-        value=f"{mois} mois",
-        inline=True
-    )
+    if is_instant:
+        embed.add_field(
+            name="⏱️ Durée de développement",
+            value="**INSTANTANÉ** ⚡",
+            inline=True
+        )
+    else:
+        embed.add_field(
+            name="⏱️ Durée de développement",
+            value=f"{mois_duree} mois",
+            inline=True
+        )
     
-    embed.add_field(
-        name="ℹ️ Informations",
-        value=f"*Coûts générés par le Bot selon le Tableur*\n\n"
-              f"**Fourchette de Coût de Développement :**\n"
-              f"- {engin_specs['dev_range'][0]} / {engin_specs['dev_range'][1]} millions\n\n"
-              f"**Fourchette de Coût à l'Unité :**\n"
-              f"- {format_unit_range(engin_specs['cout_range'][0], engin_specs['cout_range'][1], engin_specs['unit_multiplier'])}",
-        inline=False
-    )
+    # Gérer les dates de début/fin personnalisées
+    if mois is not None and not is_instant:
+        mois_index = int(mois)
+        calendrier_data = load_calendrier()
+        annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
+        
+        # Le paramètre "mois" est maintenant la date de DÉBUT
+        mois_debut = CALENDRIER_MONTHS[mois_index]
+        
+        # Calculer la date de fin en ajoutant la durée de développement
+        mois_fin_index = (mois_index + mois_duree) % 12
+        annee_fin = annee_courante + ((mois_index + mois_duree) // 12)
+        mois_fin = CALENDRIER_MONTHS[mois_fin_index]
+        
+        # Déterminer si c'est 1/2 ou 2/2 (par défaut 1/2)
+        jour_str = "1/2"
+        
+        embed.add_field(
+            name="📅 Date de début",
+            value=f"{mois_debut} {annee_courante} {jour_str}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📅 Date de fin prévue",
+            value=f"{mois_fin} {annee_fin} {jour_str}",
+            inline=True
+        )
+    elif mois is not None and is_instant:
+        # Pour les armes à feu instantanées avec date de début
+        mois_index = int(mois)
+        calendrier_data = load_calendrier()
+        annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
+        mois_nom = CALENDRIER_MONTHS[mois_index]
+        
+        embed.add_field(
+            name="📅 Date de développement",
+            value=f"{mois_nom} {annee_courante} 1/2 ⚡",
+            inline=True
+        )
+    
+    # Section d'informations adaptée selon le type de développement
+    if is_instant:
+        embed.add_field(
+            name="ℹ️ Informations",
+            value=f"*Coûts générés par le Bot selon le Tableur*\n\n"
+                  f"**Type :** Armes à feu (développement instantané)\n\n"
+                  f"**Fourchette de Coût à l'Unité :**\n"
+                  f"- {format_unit_range(engin_specs['cout_range'][0], engin_specs['cout_range'][1], engin_specs['unit_multiplier'])}",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="ℹ️ Informations",
+            value=f"*Coûts générés par le Bot selon le Tableur*\n\n"
+                  f"**Fourchette de Coût de Développement :**\n"
+                  f"- {engin_specs['dev_range'][0]} / {engin_specs['dev_range'][1]} millions\n\n"
+                  f"**Fourchette de Coût à l'Unité :**\n"
+                  f"- {format_unit_range(engin_specs['cout_range'][0], engin_specs['cout_range'][1], engin_specs['unit_multiplier'])}",
+            inline=False
+        )
     
     # Créer la vue avec le bouton de confirmation
-    view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois, image, engin_specs['unit_multiplier'])
+    view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois_duree, image, engin_specs['unit_multiplier'], mois, is_instant)
     
     await interaction.followup.send(embed=embed, view=view)
 
