@@ -4310,10 +4310,14 @@ async def on_ready():
     if not update_stats_voice_channels_periodically.is_running():
         update_stats_voice_channels_periodically.start()
 
+    # Restaurer les données depuis PostgreSQL au démarrage
+    print("📥 Restauration des données depuis PostgreSQL...")
+    restore_all_json_from_postgres()
+    
     calendrier_data = load_calendrier()
     if calendrier_data and calendrier_data["mois_index"] < len(CALENDRIER_MONTHS):
         # Démarrer la tâche de mise à jour automatique du calendrier
-        print("📅 Calendrier actif détecté au démarrage...")
+        print(f"📅 Calendrier actif détecté au démarrage: {CALENDRIER_MONTHS[calendrier_data['mois_index']]} {calendrier_data['annee']} {'1/2' if calendrier_data['jour_index'] == 0 else '2/2'}")
         
         # Démarrer la tâche de mise à jour si pas déjà en cours
         if not calendrier_automatique.is_running():
@@ -4527,6 +4531,9 @@ def avancer_calendrier_un_jour():
     })
     
     save_calendrier(calendrier_data)
+    # Sauvegarder immédiatement dans PostgreSQL
+    save_all_json_to_postgres()
+    print(f"📅 Calendrier avancé: {CALENDRIER_MONTHS[mois_index]} {calendrier_data['annee']} {'1/2' if jour_index == 0 else '2/2'}")
     return calendrier_data
 
 def reculer_calendrier_un_jour():
@@ -4572,6 +4579,9 @@ def reculer_calendrier_un_jour():
     })
     
     save_calendrier(calendrier_data)
+    # Sauvegarder immédiatement dans PostgreSQL
+    save_all_json_to_postgres()
+    print(f"📅 Calendrier reculé: {CALENDRIER_MONTHS[mois_index]} {calendrier_data['annee']} {'1/2' if jour_index == 0 else '2/2'}")
     return calendrier_data
 
 async def envoyer_message_calendrier(calendrier_data, raison="Mise à jour automatique"):
@@ -4856,6 +4866,10 @@ async def gestion_date_cmd(interaction: discord.Interaction):
     """Interface pour avancer ou reculer le calendrier RP."""
     await interaction.response.defer(ephemeral=True)
     
+    # Restaurer depuis PostgreSQL pour avoir les données les plus récentes
+    print("📥 Restauration depuis PostgreSQL pour gestion_date...")
+    restore_all_json_from_postgres()
+    
     # Vérifier qu'un calendrier existe
     calendrier_data = load_calendrier()
     if not calendrier_data:
@@ -4878,7 +4892,8 @@ async def gestion_date_cmd(interaction: discord.Interaction):
         title="📅 Gestion de la Date RP",
         description=f"**Date actuelle:** {mois_nom} {annee} {jour_str}\n"
                    f"**Jours IRL écoulés:** {jours_irl_ecoules}/{duree_mois}\n"
-                   f"**Durée de {mois_nom}:** {duree_mois} jour(s) IRL",
+                   f"**Durée de {mois_nom}:** {duree_mois} jour(s) IRL\n"
+                   f"**Dernière MAJ:** {calendrier_data.get('last_update', 'Inconnue')}",
         color=CALENDRIER_COLOR
     )
     embed.set_image(url=CALENDRIER_IMAGE_URL)
@@ -5029,6 +5044,43 @@ def format_development_end_info(dev):
     jours = int(temps_restant // 86400)
     heures = int((temps_restant % 86400) // 3600)
     return f"⏳ **EN COURS**\n⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
+
+@bot.tree.command(name="debug_calendrier", description="Debug : affiche l'état du calendrier après restauration PostgreSQL")
+@app_commands.checks.has_permissions(administrator=True)
+async def debug_calendrier_cmd(interaction: discord.Interaction):
+    """Commande de debug pour vérifier l'état du calendrier."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # 1. État avant restauration
+    calendrier_local = load_calendrier()
+    local_info = "Aucun" if not calendrier_local else f"{CALENDRIER_MONTHS[calendrier_local['mois_index']]} {calendrier_local['annee']} {'1/2' if calendrier_local['jour_index'] == 0 else '2/2'}"
+    
+    # 2. Restaurer depuis PostgreSQL
+    print("🔄 Restauration PostgreSQL pour debug...")
+    restore_all_json_from_postgres()
+    
+    # 3. État après restauration
+    calendrier_postgres = load_calendrier()
+    postgres_info = "Aucun" if not calendrier_postgres else f"{CALENDRIER_MONTHS[calendrier_postgres['mois_index']]} {calendrier_postgres['annee']} {'1/2' if calendrier_postgres['jour_index'] == 0 else '2/2'}"
+    
+    # 4. Détails complets
+    details = "Aucune donnée" if not calendrier_postgres else f"""
+**Mois index:** {calendrier_postgres['mois_index']} ({CALENDRIER_MONTHS[calendrier_postgres['mois_index']]})
+**Jour index:** {calendrier_postgres['jour_index']} ({'1/2' if calendrier_postgres['jour_index'] == 0 else '2/2'})
+**Jours IRL écoulés:** {calendrier_postgres.get('jours_irl_ecoules', 0)}
+**Dernière MAJ:** {calendrier_postgres.get('last_update', 'Inconnue')}
+**Messages:** {len(calendrier_postgres.get('messages', []))}
+"""
+    
+    embed = discord.Embed(
+        title="🐛 Debug Calendrier",
+        description=f"**État local avant:** {local_info}\n"
+                   f"**État PostgreSQL après:** {postgres_info}\n\n"
+                   f"**Détails PostgreSQL:**{details}",
+        color=0xFF6B35
+    )
+    
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def generate_help_banner(
     sections: typing.List[typing.Tuple[str, typing.List[typing.Tuple[str, str]]]]
