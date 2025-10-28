@@ -699,11 +699,11 @@ def get_domaine_from_tech(tech_name):
     tech_lower = tech_name.lower()
     
     # Mots-clés pour chaque domaine
-    if any(keyword in tech_lower for keyword in ["char", "tank", "artillerie", "infanterie", "terrestre"]):
+    if any(keyword in tech_lower for keyword in ["char", "tank", "artillerie", "infanterie", "terrestre", "vehicule"]):
         return "Terrestre"
     elif any(keyword in tech_lower for keyword in ["avion", "chasseur", "bombardier", "hélicoptère", "aérien"]):
         return "Aérien"
-    elif any(keyword in tech_lower for keyword in ["naval", "destroyer", "frégate", "sous-marin", "marine"]):
+    elif any(keyword in tech_lower for keyword in ["naval", "destroyer", "frégate", "sous-marin", "marine", "bâtiment", "batiment", "guerre", "navire", "cuirassé", "cuirasse", "croiseur"]):
         return "Marine"
     elif any(keyword in tech_lower for keyword in ["nucléaire", "bombe", "missile", "destruction", "amd"]):
         return "Armes de Destruction Massive"
@@ -11078,19 +11078,50 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         await interaction.followup.send(embed=embed, ephemeral=True)
         return
     
-    # Vérifier que l'engin existe dans la catégorie
-    if engin not in technologies[categorie]["engins"]:
-        embed = discord.Embed(
-            title="❌ Erreur",
-            description=f"Engin non trouvé dans la catégorie {technologies[categorie]['name']}.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    
-    # Récupérer les spécifications de l'engin
+    # Vérifier si l'engin existe dans la catégorie ou s'il s'agit d'un nom personnalisé
     import random
-    engin_specs = technologies[categorie]["engins"][engin]
+    engin_specs = None
+    custom_engin_name = None
+    
+    if engin in technologies[categorie]["engins"]:
+        # Engin prédéfini trouvé
+        engin_specs = technologies[categorie]["engins"][engin]
+        custom_engin_name = engin_specs["name"]
+    else:
+        # Nom personnalisé d'engin - utiliser les spécifications par défaut de la catégorie
+        custom_engin_name = engin
+        
+        # Choisir des spécifications par défaut selon la catégorie
+        if categorie == "artillerie":
+            # Pour l'artillerie, déterminer le type selon le calibre mentionné
+            if any(calibre in engin.lower() for calibre in ["15cm", "150", "155", "203", "210", "240", "280", "380", "406"]):
+                # Artillerie lourde (+160mm)
+                engin_specs = technologies[categorie]["engins"]["artillerie_lourde"]
+            elif any(calibre in engin.lower() for calibre in ["75", "77", "88", "90", "105", "122", "130", "152"]):
+                # Artillerie de campagne (70-160mm)
+                engin_specs = technologies[categorie]["engins"]["artillerie_campagne"]
+            else:
+                # Par défaut : artillerie de campagne
+                engin_specs = technologies[categorie]["engins"]["artillerie_campagne"]
+        elif categorie == "vehicules_terrestres":
+            # Par défaut : char moyen
+            engin_specs = technologies[categorie]["engins"]["char_moyen"]
+        elif categorie == "batiments_guerre":
+            # Par défaut : destroyer
+            engin_specs = technologies[categorie]["engins"]["destroyer"]
+        elif categorie == "appareils_aeriens":
+            # Par défaut : avion multirôle
+            engin_specs = technologies[categorie]["engins"]["avion_multirole"]
+        elif categorie == "missiles":
+            # Par défaut : SRBM
+            engin_specs = technologies[categorie]["engins"]["srbm"]
+        elif categorie == "armes_feu":
+            # Par défaut : fusil d'assaut
+            engin_specs = technologies[categorie]["engins"]["fusil_assaut"]
+        else:
+            # Fallback : prendre le premier engin de la catégorie
+            first_engin = list(technologies[categorie]["engins"].keys())[0]
+            engin_specs = technologies[categorie]["engins"][first_engin]
     
     # Vérifier si c'est un développement instantané (armes à feu)
     is_instant = engin_specs.get("instant", False)
@@ -11112,7 +11143,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
         description=f"**Pays :** {pays.mention}\n"
                    f"**Nom :** {nom}\n"
                    f"**Catégorie :** {technologies[categorie]['name']}\n"
-                   f"**Technologie :** {engin_specs['name']}",
+                   f"**Technologie :** {custom_engin_name}",
         color=EMBED_COLOR,
         timestamp=datetime.datetime.now()
     )
