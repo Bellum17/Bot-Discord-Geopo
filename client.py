@@ -10857,7 +10857,9 @@ async def engin_autocomplete(
             "armes_feu": [
                 ("fusil_assaut", "Fusil d'Assaut"),
                 ("pistolet", "Pistolet"),
+                ("mitrailleuse_legere", "Mitrailleuse légère"),
                 ("mitrailleuse", "Mitrailleuse"),
+                ("mitrailleuse_lourde", "Mitrailleuse lourde"),
                 ("lance_roquette", "Lance-Roquette"),
                 ("carabine", "Carabine"),
                 ("pistolet_mitrailleur", "Pistolet-Mitrailleur"),
@@ -10998,7 +11000,9 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
             "engins": {
                 "fusil_assaut": {"name": "Fusil d'Assaut", "instant": True, "cout_range": (300, 700), "unit_multiplier": 1},
                 "pistolet": {"name": "Pistolet", "instant": True, "cout_range": (100, 300), "unit_multiplier": 1},
+                "mitrailleuse_legere": {"name": "Mitrailleuse légère", "instant": True, "cout_range": (300, 600), "unit_multiplier": 1},
                 "mitrailleuse": {"name": "Mitrailleuse", "instant": True, "cout_range": (400, 800), "unit_multiplier": 1},
+                "mitrailleuse_lourde": {"name": "Mitrailleuse lourde", "instant": True, "cout_range": (600, 1000), "unit_multiplier": 1},
                 "lance_roquette": {"name": "Lance-Roquette", "instant": True, "cout_range": (1000, 1200), "unit_multiplier": 1},
                 "carabine": {"name": "Carabine", "instant": True, "cout_range": (200, 600), "unit_multiplier": 1},
                 "pistolet_mitrailleur": {"name": "Pistolet-Mitrailleur", "instant": True, "cout_range": (200, 500), "unit_multiplier": 1},
