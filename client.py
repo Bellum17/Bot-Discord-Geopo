@@ -4870,10 +4870,17 @@ async def calendrier_automatique():
     try:
         calendrier_data = load_calendrier()
         if not calendrier_data:
+            print("[DEBUG] Calendrier automatique: Aucune donnée de calendrier trouvée")
             return
         
         # Vérifier si c'est entre minuit et 1h du matin heure de Paris (fenêtre plus large)
         now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+        
+        # Log de debug à chaque passage (avec modulo pour éviter le spam)
+        import time
+        if int(time.time()) % 300 == 0:  # Log toutes les 5 minutes seulement
+            print(f"[DEBUG] Calendrier automatique: Heure actuelle = {now.strftime('%H:%M:%S')}, Recherche de minuit...")
+        
         if now.hour != 0:
             return
         
@@ -4888,27 +4895,57 @@ async def calendrier_automatique():
             
             # Si la dernière mise à jour était aujourd'hui, ne pas refaire
             if last_update_dt.date() == now.date():
+                print(f"[DEBUG] Calendrier déjà mis à jour aujourd'hui: {last_update_dt.date()}")
                 return  # Déjà mis à jour aujourd'hui
+            
+            # Si la dernière mise à jour était il y a plus d'un jour, on peut avancer
+            days_diff = (now.date() - last_update_dt.date()).days
+            print(f"[DEBUG] Dernière MAJ: {last_update_dt.date()}, Aujourd'hui: {now.date()}, Différence: {days_diff} jours")
         
         print(f"🕛 Mise à jour automatique du calendrier déclenchée à {now.strftime('%H:%M')}")
         
-        # Avancer le calendrier d'un jour
-        nouvelles_donnees = avancer_calendrier_un_jour()
+        # Calculer combien de jours avancer (au cas où le bot était hors ligne)
+        days_to_advance = 1
+        if last_update:
+            last_update_dt = datetime.datetime.fromisoformat(last_update)
+            if last_update_dt.tzinfo is None:
+                last_update_dt = last_update_dt.replace(tzinfo=ZoneInfo("Europe/Paris"))
+            else:
+                last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
+            
+            days_diff = (now.date() - last_update_dt.date()).days
+            if days_diff > 1:
+                days_to_advance = min(days_diff, 7)  # Maximum 7 jours d'avancement automatique
+                print(f"🕛 Bot était hors ligne {days_diff} jours, avancement de {days_to_advance} jours")
+        
+        # Avancer le calendrier du nombre de jours nécessaire
+        nouvelles_donnees = None
+        for day in range(days_to_advance):
+            nouvelles_donnees = avancer_calendrier_un_jour()
+            if not nouvelles_donnees:
+                print(f"❌ Impossible d'avancer le calendrier au jour {day + 1}")
+                break
+        
         if nouvelles_donnees:
             # Envoyer le message de mise à jour
-            await envoyer_message_calendrier(nouvelles_donnees, "Mise à jour automatique à minuit")
+            if days_to_advance == 1:
+                await envoyer_message_calendrier(nouvelles_donnees, "Mise à jour automatique à minuit")
+            else:
+                await envoyer_message_calendrier(nouvelles_donnees, f"Rattrapage automatique: {days_to_advance} jours")
             
             # Vérifier les développements terminés
+            total_developments_completed = 0
             for guild in bot.guilds:
                 guild_id = str(guild.id)
                 developments_completed = check_and_complete_developments(guild_id)
+                total_developments_completed += developments_completed
                 if developments_completed > 0:
                     print(f"📅 Mise à jour automatique: {developments_completed} développements terminés dans {guild.name}")
             
             # Sauvegarder dans PostgreSQL
             save_all_json_to_postgres()
             
-            print(f"📅 Calendrier mis à jour automatiquement à minuit")
+            print(f"📅 Calendrier mis à jour automatiquement: {days_to_advance} jours, {total_developments_completed} développements terminés")
             
     except Exception as e:
         print(f"❌ Erreur dans la tâche automatique du calendrier: {e}")
@@ -5243,6 +5280,162 @@ def format_development_end_info(dev):
     jours = int(temps_restant // 86400)
     heures = int((temps_restant % 86400) // 3600)
     return f"⏳ **EN COURS**\n⏰ Fin dans {jours}j {heures}h\n🕐 Date: {discord_timestamp}"
+
+@bot.tree.command(name="force_minuit", description="🌙 Forcer l'avancement automatique du calendrier comme si c'était minuit")
+@app_commands.describe(
+    code="Code de sécurité pour la simulation"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def force_minuit(interaction: discord.Interaction, code: str):
+    """Force la logique de minuit pour tester l'automatisation."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Vérification du code de sécurité
+    if code != "240806":
+        await interaction.followup.send("❌ Code de sécurité incorrect.", ephemeral=True)
+        return
+    
+    try:
+        print("🌙 Simulation forcée de minuit...")
+        
+        calendrier_data = load_calendrier()
+        if not calendrier_data:
+            await interaction.followup.send("❌ Aucune donnée de calendrier trouvée", ephemeral=True)
+            return
+        
+        # Sauvegarder l'état avant
+        mois_avant = calendrier_data.get('mois_index', 0)
+        annee_avant = calendrier_data.get('annee', 2072)
+        mois_nom_avant = CALENDRIER_MONTHS[mois_avant] if mois_avant < 12 else 'Inconnu'
+        
+        # Forcer l'avancement (simulation de la logique de minuit)
+        nouvelles_donnees = avancer_calendrier_un_jour()
+        
+        if nouvelles_donnees:
+            # Vérifier les développements terminés
+            guild_id = str(interaction.guild.id)
+            developments_completed = check_and_complete_developments(guild_id)
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            # État après
+            mois_apres = nouvelles_donnees.get('mois_index', 0)
+            annee_apres = nouvelles_donnees.get('annee', 2072)
+            mois_nom_apres = CALENDRIER_MONTHS[mois_apres] if mois_apres < 12 else 'Inconnu'
+            jour_str_apres = get_jour_display(mois_nom_apres, nouvelles_donnees.get('jour_index', 0))
+            
+            # Créer le rapport
+            embed = discord.Embed(
+                title="🌙 Simulation de Minuit Terminée",
+                color=0x4a90e2
+            )
+            
+            embed.add_field(
+                name="📅 Avancement du Calendrier",
+                value=f"**Avant:** {mois_nom_avant} {annee_avant}\n"
+                      f"**Après:** {mois_nom_apres} {annee_apres} {jour_str_apres}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🔬 Développements",
+                value=f"**Vérifiés:** Oui\n"
+                      f"**Nouvellement terminés:** {developments_completed}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💾 Sauvegarde",
+                value="✅ PostgreSQL mis à jour",
+                inline=True
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            print(f"🌙 Simulation terminée: Calendrier avancé, {developments_completed} développements terminés")
+        else:
+            await interaction.followup.send("❌ Impossible d'avancer le calendrier", ephemeral=True)
+            
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur lors de la simulation: {e}", ephemeral=True)
+        print(f"❌ Erreur simulation minuit: {e}")
+
+@bot.tree.command(name="test_auto_calendrier", description="🧪 Tester la logique automatique du calendrier")
+@app_commands.checks.has_permissions(administrator=True)
+async def test_auto_calendrier(interaction: discord.Interaction):
+    """Test la logique automatique du calendrier."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Tester la tâche automatique
+    print("🧪 Test forcé de la tâche automatique du calendrier...")
+    
+    try:
+        # Appeler manuellement la logique de la tâche automatique
+        calendrier_data = load_calendrier()
+        if not calendrier_data:
+            await interaction.followup.send("❌ Aucune donnée de calendrier trouvée", ephemeral=True)
+            return
+        
+        # Afficher l'heure actuelle
+        now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
+        
+        # Vérifier l'état de la tâche automatique
+        is_running = calendrier_automatique.is_running()
+        
+        # Vérifier les développements
+        guild_id = str(interaction.guild.id)
+        developments_completed = check_and_complete_developments(guild_id)
+        
+        # Créer un rapport
+        embed = discord.Embed(
+            title="🧪 Test de la Tâche Automatique",
+            color=0x00ff88
+        )
+        
+        mois_nom = CALENDRIER_MONTHS[calendrier_data['mois_index']]
+        jour_str = get_jour_display(mois_nom, calendrier_data['jour_index'])
+        
+        embed.add_field(
+            name="📅 État du Calendrier",
+            value=f"**Date RP:** {mois_nom} {calendrier_data['annee']} {jour_str}\n"
+                  f"**Dernière MAJ:** {calendrier_data.get('last_update', 'Inconnue')}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🕐 Heure Système",
+            value=f"**Paris:** {now.strftime('%H:%M:%S')}\n"
+                  f"**Est minuit?** {'Oui' if now.hour == 0 else 'Non'}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🔄 Tâche Automatique",
+            value=f"**En cours:** {'Oui' if is_running else 'Non'}\n"
+                  f"**Prochaine vérif:** Dans 5 min max",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🔬 Développements",
+            value=f"**Vérifiés:** Oui\n"
+                  f"**Terminés maintenant:** {developments_completed}",
+            inline=False
+        )
+        
+        if now.hour == 0:
+            embed.add_field(
+                name="⚠️ Simulation Minuit",
+                value="C'est l'heure ! Le calendrier devrait avancer automatiquement.",
+                inline=False
+            )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        print(f"🧪 Test terminé: {developments_completed} développements traités")
+        
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur lors du test: {e}", ephemeral=True)
+        print(f"❌ Erreur test automatique: {e}")
 
 @bot.tree.command(name="debug_calendrier", description="Debug : affiche l'état du calendrier après restauration PostgreSQL")
 @app_commands.checks.has_permissions(administrator=True)
@@ -12120,49 +12313,46 @@ def is_development_completed_by_calendar(dev, calendrier_data):
         return False
     
     # Récupérer les données du développement
-    date_creation = dev.get('date_creation')
     duree_mois = dev.get('mois', 0)
     
-    if not date_creation or duree_mois <= 0:
-        return False
+    if duree_mois <= 0:
+        return False  # Développements instantanés sont toujours terminés
     
     try:
-        # Convertir la date de création en datetime
-        date_creation_dt = datetime.datetime.fromisoformat(date_creation)
-        
-        # Calculer le mois et l'année de création selon le calendrier RP
-        # On suppose que le développement a été créé au mois actuel du calendrier
-        # quand il a été créé
-        
         # Récupérer l'état actuel du calendrier
         mois_actuel = calendrier_data.get("mois_index", 0)
-        annee_actuelle = calendrier_data.get("annee", 2025)
+        annee_actuelle = calendrier_data.get("annee", 2072)
         
-        # Calculer combien de mois se sont écoulés depuis la création
-        # Si le développement a été créé récemment, on calcule depuis quand
-        # Sinon, on utilise la durée prévue
-        
-        # Pour simplifier : si le calendrier actuel a avancé de plus de mois
-        # que la durée du développement depuis sa création logique, alors il est terminé
-        
-        # Récupérer les métadonnées du développement si disponibles
+        # Récupérer les métadonnées du développement
         mois_creation = dev.get('mois_creation_rp')
         annee_creation = dev.get('annee_creation_rp')
         
-        # Si pas de métadonnées, estimer à partir de la date
+        # Si pas de métadonnées, utiliser les bonnes valeurs par défaut (2072)
         if mois_creation is None or annee_creation is None:
-            # Estimer que le développement a été créé il y a quelques mois
-            # En mars 2025 pour les tests existants
-            mois_creation = 2  # Mars (index 2)
-            annee_creation = 2025
+            # Pour les développements sans métadonnées, on estime qu'ils ont été créés
+            # au mois précédent du calendrier actuel
+            mois_creation = (mois_actuel - 1) % 12
+            annee_creation = annee_actuelle
+            if mois_actuel == 0:  # Si on était en janvier, la création était en décembre de l'année précédente
+                annee_creation -= 1
+            
+            # Ajouter les métadonnées pour les prochaines vérifications
+            dev['mois_creation_rp'] = mois_creation
+            dev['annee_creation_rp'] = annee_creation
         
         # Calculer combien de mois se sont écoulés
         mois_ecoules = (annee_actuelle - annee_creation) * 12 + (mois_actuel - mois_creation)
         
         # Le développement est terminé si plus de mois se sont écoulés que sa durée
-        return mois_ecoules >= duree_mois
+        is_completed = mois_ecoules >= duree_mois
         
-    except:
+        if is_completed:
+            print(f"[DEBUG] Développement '{dev.get('nom', 'Inconnu')}' terminé: {mois_ecoules} mois écoulés >= {duree_mois} mois requis")
+        
+        return is_completed
+        
+    except Exception as e:
+        print(f"[DEBUG] Erreur dans is_development_completed_by_calendar: {e}")
         # En cas d'erreur, utiliser la méthode par timestamp
         fin_timestamp = dev.get('fin_timestamp', 0)
         if fin_timestamp > 0:
@@ -12204,6 +12394,8 @@ def check_and_complete_developments(guild_id):
                 dev['date_fin_reelle'] = get_paris_time()
                 print(f"[DEBUG] Développement marqué comme terminé par calendrier RP: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
                 developments_completed += 1
+            else:
+                print(f"[DEBUG] Développement pas encore terminé: {dev.get('nom', 'Inconnu')} pour le rôle {role_id}")
     
     # Sauvegarder les changements si des développements ont été terminés
     if developments_completed > 0:
