@@ -764,7 +764,7 @@ def get_domaine_from_tech(tech_name):
         return "Terrestre"
     elif any(keyword in tech_lower for keyword in ["avion", "chasseur", "bombardier", "hélicoptère", "aérien"]):
         return "Aérien"
-    elif any(keyword in tech_lower for keyword in ["naval", "destroyer", "frégate", "sous-marin", "marine", "bâtiment", "batiment", "guerre", "navire", "cuirassé", "cuirasse", "croiseur"]):
+    elif any(keyword in tech_lower for keyword in ["naval", "destroyer", "frégate", "sous-marin", "marine", "bâtiment", "batiment", "guerre", "navire", "cuirassé", "cuirasse", "croiseur", "barge", "débarquement", "porte-avions", "patrouilleur", "corvette"]):
         return "Marine"
     elif any(keyword in tech_lower for keyword in ["nucléaire", "bombe", "missile", "destruction", "amd"]):
         return "Armes de Destruction Massive"
@@ -11342,7 +11342,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     
     embed.add_field(
         name="🏭 Prix unitaire",
-        value=f"{cout_unite} {MONNAIE_EMOJI}",
+        value=f"{format_unit_cost(cout_unite, engin_specs['unit_multiplier'])} {MONNAIE_EMOJI}",
         inline=True
     )
     
