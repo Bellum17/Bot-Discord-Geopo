@@ -174,6 +174,7 @@ PAYS_LOG_FILE = os.path.join(DATA_DIR, "pays_log_channel.json")
 PAYS_IMAGES_FILE = os.path.join(DATA_DIR, "pays_images.json")
 MUTE_LOG_FILE = os.path.join(DATA_DIR, "mute_log_channel.json")
 WARNINGS_FILE = os.path.join(DATA_DIR, "warnings.json")
+PERSISTENT_INTERACTIONS_FILE = os.path.join(DATA_DIR, "persistent_interactions.json")
 
 # === XP/LEVEL SYSTEM ===
 LVL_FILE = os.path.join(DATA_DIR, "levels.json")
@@ -288,6 +289,66 @@ def save_warnings(warnings_data):
             print(f"[DEBUG] Erreur sauvegarde PostgreSQL warnings: {e}")
     except Exception as e:
         print(f"Erreur lors de la sauvegarde des avertissements: {e}")
+
+# === PERSISTENT INTERACTIONS SYSTEM ===
+def load_persistent_interactions():
+    """Charge les interactions persistantes depuis le fichier JSON."""
+    if not os.path.exists(PERSISTENT_INTERACTIONS_FILE):
+        with open(PERSISTENT_INTERACTIONS_FILE, "w") as f:
+            json.dump({}, f)
+        return {}
+    try:
+        with open(PERSISTENT_INTERACTIONS_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Erreur lors du chargement des interactions persistantes: {e}")
+        return {}
+
+def save_persistent_interactions(interactions_data):
+    """Sauvegarde les interactions persistantes dans le fichier JSON."""
+    try:
+        with open(PERSISTENT_INTERACTIONS_FILE, "w") as f:
+            json.dump(interactions_data, f, indent=2)
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde des interactions persistantes: {e}")
+
+def add_persistent_interaction(message_id, interaction_type, interaction_data):
+    """Ajoute une interaction persistante."""
+    interactions = load_persistent_interactions()
+    interactions[str(message_id)] = {
+        "type": interaction_type,
+        "data": interaction_data,
+        "created_at": datetime.datetime.now().isoformat()
+    }
+    save_persistent_interactions(interactions)
+
+def remove_persistent_interaction(message_id):
+    """Supprime une interaction persistante."""
+    interactions = load_persistent_interactions()
+    if str(message_id) in interactions:
+        del interactions[str(message_id)]
+        save_persistent_interactions(interactions)
+
+def clean_old_persistent_interactions():
+    """Nettoie les interactions persistantes anciennes (plus de 7 jours)."""
+    interactions = load_persistent_interactions()
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=7)
+    
+    to_remove = []
+    for message_id, data in interactions.items():
+        try:
+            created_at = datetime.datetime.fromisoformat(data.get("created_at", ""))
+            if created_at < cutoff_date:
+                to_remove.append(message_id)
+        except:
+            to_remove.append(message_id)  # Supprimer les entrées corrompues
+    
+    for message_id in to_remove:
+        del interactions[message_id]
+    
+    if to_remove:
+        save_persistent_interactions(interactions)
+        print(f"🧹 Nettoyé {len(to_remove)} interactions persistantes anciennes")
 
 # Configuration PIB
 PIB_DEFAULT = 0
@@ -4323,6 +4384,10 @@ async def on_ready():
     await restore_mutes_on_start()
     await verify_economy_data(bot)
 
+    # Restaurer les interactions persistantes
+    print("🔄 Restauration des interactions persistantes...")
+    await restore_persistent_interactions()
+
     guild = bot.get_guild(PRIMARY_GUILD_ID)
     if guild:
         await update_stats_voice_channels(guild)
@@ -7740,7 +7805,7 @@ async def supprimer_backup_error(interaction: discord.Interaction, error: app_co
 
 # Vue pour le bouton de confirmation de développement technologique
 class TechnoConfirmView(discord.ui.View):
-    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image, unit_multiplier, mois_fin_personnalise=None, is_instant=False):
+    def __init__(self, user_id, role, cout_dev, nom_techno, nom_developpement, categorie, nom_categorie, cout_unite, mois, image, unit_multiplier, mois_fin_personnalise=None, is_instant=False, message_id=None):
         super().__init__(timeout=None)  # Durée indéfinie
         self.user_id = user_id
         self.role = role
@@ -7755,6 +7820,54 @@ class TechnoConfirmView(discord.ui.View):
         self.unit_multiplier = unit_multiplier
         self.mois_fin_personnalise = mois_fin_personnalise
         self.is_instant = is_instant
+        self.message_id = message_id
+    
+    def save_persistent_state(self, message_id):
+        """Sauvegarde l'état de cette interaction pour la restaurer après redémarrage."""
+        self.message_id = message_id
+        interaction_data = {
+            "user_id": self.user_id,
+            "role_id": self.role.id if hasattr(self.role, 'id') else self.role,
+            "cout_dev": self.cout_dev,
+            "nom_techno": self.nom_techno,
+            "nom_developpement": self.nom_developpement,
+            "categorie": self.categorie,
+            "nom_categorie": self.nom_categorie,
+            "cout_unite": self.cout_unite,
+            "mois": self.mois,
+            "image": self.image,
+            "unit_multiplier": self.unit_multiplier,
+            "mois_fin_personnalise": self.mois_fin_personnalise,
+            "is_instant": self.is_instant
+        }
+        add_persistent_interaction(message_id, "techno_confirm", interaction_data)
+    
+    @staticmethod
+    def restore_from_data(guild, interaction_data):
+        """Restaure une TechnoConfirmView à partir des données sauvegardées."""
+        try:
+            role = guild.get_role(interaction_data["role_id"])
+            if not role:
+                return None
+            
+            return TechnoConfirmView(
+                user_id=interaction_data["user_id"],
+                role=role,
+                cout_dev=interaction_data["cout_dev"],
+                nom_techno=interaction_data["nom_techno"],
+                nom_developpement=interaction_data["nom_developpement"],
+                categorie=interaction_data["categorie"],
+                nom_categorie=interaction_data["nom_categorie"],
+                cout_unite=interaction_data["cout_unite"],
+                mois=interaction_data["mois"],
+                image=interaction_data["image"],
+                unit_multiplier=interaction_data["unit_multiplier"],
+                mois_fin_personnalise=interaction_data.get("mois_fin_personnalise"),
+                is_instant=interaction_data.get("is_instant", False)
+            )
+        except Exception as e:
+            print(f"Erreur lors de la restauration de TechnoConfirmView: {e}")
+            return None
     
     @discord.ui.button(label="Confirmer le développement", style=discord.ButtonStyle.green, emoji="🔬")
     async def confirmer_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -7950,14 +8063,15 @@ class TechnoConfirmView(discord.ui.View):
         date_info = ""
         
         if self.is_instant:
-            # Pour les développements instantanés
-            if self.mois_fin_personnalise is not None:
-                mois_dev_index = int(self.mois_fin_personnalise)
-                annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
-                nom_mois_dev = CALENDRIER_MONTHS[mois_dev_index]
-                date_info = f"**Développé en :** {nom_mois_dev} {annee_courante} 1/2 ⚡\n"
-            else:
-                date_info = f"**Développement :** Instantané ⚡\n"
+            # Pour les développements instantanés, utiliser la date actuelle du calendrier
+            annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
+            mois_actuel_index = calendrier_data.get("mois_index", 0) if calendrier_data else 0
+            jour_actuel_index = calendrier_data.get("jour_index", 0) if calendrier_data else 0
+            
+            nom_mois_dev = CALENDRIER_MONTHS[mois_actuel_index]
+            jour_display = get_jour_display(nom_mois_dev, jour_actuel_index)
+            
+            date_info = f"**Développé en :** {nom_mois_dev} {annee_courante} {jour_display} ⚡\n"
                 
             # Calculer le nouveau budget (pas de coût pour les armes à feu)
             nouveau_budget = balances.get(role_id, 0)  # Budget inchangé
@@ -8062,6 +8176,10 @@ class TechnoConfirmView(discord.ui.View):
             if isinstance(item, discord.ui.Button):
                 item.disabled = True
         
+        # Supprimer l'interaction persistante puisqu'elle est terminée
+        if self.message_id:
+            remove_persistent_interaction(str(self.message_id))
+        
         # Mettre à jour le message original avec les boutons désactivés
         try:
             # Essayer de mettre à jour le message original depuis la view
@@ -8071,6 +8189,30 @@ class TechnoConfirmView(discord.ui.View):
         except:
             # Si ça échoue, ce n'est pas grave
             pass
+    
+    @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.secondary)
+    async def annuler_developpement(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Vérifier que l'utilisateur a bien le rôle du pays concerné
+        if self.role not in interaction.user.roles:
+            await interaction.response.send_message(f"❌ Vous devez avoir le rôle {self.role.mention} pour annuler ce développement.", ephemeral=True)
+            return
+        
+        # Désactiver tous les boutons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        
+        # Supprimer l'interaction persistante
+        if self.message_id:
+            remove_persistent_interaction(str(self.message_id))
+        
+        embed = discord.Embed(
+            title="❌ Développement annulé",
+            description=f"Le développement de **{self.nom_developpement}** a été annulé.",
+            color=discord.Color.red()
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=self)
 
 # === SYSTÈME DE ROLL GÉNÉRAL ===
 
@@ -10860,6 +11002,7 @@ async def engin_autocomplete(
                 ("mitrailleuse_legere", "Mitrailleuse légère"),
                 ("mitrailleuse", "Mitrailleuse"),
                 ("mitrailleuse_lourde", "Mitrailleuse lourde"),
+                ("lance_flammes", "Lance-flammes"),
                 ("lance_roquette", "Lance-Roquette"),
                 ("carabine", "Carabine"),
                 ("pistolet_mitrailleur", "Pistolet-Mitrailleur"),
@@ -10898,6 +11041,7 @@ async def engin_autocomplete(
                 ("avion_multirole", "Avion multirôle"),
                 ("avion_attaque_sol", "Avion d'attaque au sol"),
                 ("avion_chasse", "Avion de chasse (interception)"),
+                ("avion_entrainement", "Avion d'entraînement"),
                 ("bombardier_tactique", "Bombardier tactique"),
                 ("bombardier_strategique", "Bombardier stratégique"),
                 ("avion_reconnaissance", "Avion de reconnaissance"),
@@ -11003,6 +11147,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
                 "mitrailleuse_legere": {"name": "Mitrailleuse légère", "instant": True, "cout_range": (300, 600), "unit_multiplier": 1},
                 "mitrailleuse": {"name": "Mitrailleuse", "instant": True, "cout_range": (400, 800), "unit_multiplier": 1},
                 "mitrailleuse_lourde": {"name": "Mitrailleuse lourde", "instant": True, "cout_range": (600, 1000), "unit_multiplier": 1},
+                "lance_flammes": {"name": "Lance-flammes", "instant": True, "cout_range": (900, 1100), "unit_multiplier": 1},
                 "lance_roquette": {"name": "Lance-Roquette", "instant": True, "cout_range": (1000, 1200), "unit_multiplier": 1},
                 "carabine": {"name": "Carabine", "instant": True, "cout_range": (200, 600), "unit_multiplier": 1},
                 "pistolet_mitrailleur": {"name": "Pistolet-Mitrailleur", "instant": True, "cout_range": (200, 500), "unit_multiplier": 1},
@@ -11068,6 +11213,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
                 "avion_multirole": {"name": "Avion multirôle", "dev_range": (10, 15), "cout_range": (350, 700), "unit_multiplier": 1000, "mois_range": (8, 12)},
                 "avion_attaque_sol": {"name": "Avion d'attaque au sol", "dev_range": (10, 20), "cout_range": (300, 600), "unit_multiplier": 1000, "mois_range": (6, 12)},
                 "avion_chasse": {"name": "Avion de chasse (interception)", "dev_range": (10, 20), "cout_range": (300, 600), "unit_multiplier": 1000, "mois_range": (6, 12)},
+                "avion_entrainement": {"name": "Avion d'entraînement", "dev_range": (5, 10), "cout_range": (150, 400), "unit_multiplier": 1000, "mois_range": (5, 8)},
                 "bombardier_tactique": {"name": "Bombardier tactique", "dev_range": (20, 25), "cout_range": (500, 700), "unit_multiplier": 1000, "mois_range": (8, 12)},
                 "bombardier_strategique": {"name": "Bombardier stratégique", "dev_range": (30, 35), "cout_range": (750, 1000), "unit_multiplier": 1000, "mois_range": (10, 12)},
                 "avion_reconnaissance": {"name": "Avion de reconnaissance", "dev_range": (5, 10), "cout_range": (200, 300), "unit_multiplier": 1000, "mois_range": (6, 9)},
@@ -11249,15 +11395,18 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
             inline=True
         )
     elif mois is not None and is_instant:
-        # Pour les armes à feu instantanées avec date de début
-        mois_index = int(mois)
+        # Pour les armes à feu instantanées, utiliser la date actuelle du calendrier
         calendrier_data = load_calendrier()
         annee_courante = calendrier_data.get("annee", 2072) if calendrier_data else 2072
-        mois_nom = CALENDRIER_MONTHS[mois_index]
+        mois_actuel_index = calendrier_data.get("mois_index", 0) if calendrier_data else 0
+        jour_actuel_index = calendrier_data.get("jour_index", 0) if calendrier_data else 0
+        
+        mois_nom = CALENDRIER_MONTHS[mois_actuel_index]
+        jour_display = get_jour_display(mois_nom, jour_actuel_index)
         
         embed.add_field(
             name="📅 Date de développement",
-            value=f"{mois_nom} {annee_courante} 1/2 ⚡",
+            value=f"{mois_nom} {annee_courante} {jour_display} ⚡",
             inline=True
         )
     
@@ -11285,7 +11434,11 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     # Créer la vue avec le bouton de confirmation
     view = TechnoConfirmView(interaction.user.id, pays, cout_dev, engin_specs['name'], nom, categorie, technologies[categorie]['name'], cout_unite, mois_duree, image, engin_specs['unit_multiplier'], mois, is_instant)
     
-    await interaction.followup.send(embed=embed, view=view)
+    # Envoyer le message avec la vue
+    message = await interaction.followup.send(embed=embed, view=view)
+    
+    # Sauvegarder l'état persistant après l'envoi
+    view.save_persistent_state(message.id)
 
 # === COMMANDE POUR VOIR LES DÉVELOPPEMENTS ===
 
@@ -12486,6 +12639,58 @@ async def force_sync_postgres(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, ephemeral=True)
 
+
+async def restore_persistent_interactions():
+    """Restaure toutes les interactions persistantes après redémarrage du bot."""
+    try:
+        interactions = load_persistent_interactions()
+        restored_count = 0
+        
+        for message_id, data in interactions.items():
+            try:
+                view_type = data.get("type")
+                
+                if view_type == "techno_confirm":
+                    # Récupérer le message
+                    message = None
+                    for guild in bot.guilds:
+                        for channel in guild.text_channels:
+                            try:
+                                message = await channel.fetch_message(int(message_id))
+                                break
+                            except:
+                                continue
+                        if message:
+                            break
+                    
+                    if message:
+                        # Restaurer la vue
+                        view = TechnoConfirmView.restore_from_data(message.guild, data["data"])
+                        if view:
+                            view.message_id = int(message_id)
+                            try:
+                                await message.edit(view=view)
+                                restored_count += 1
+                                print(f"Interaction restaurée: {message_id}")
+                            except:
+                                # Si impossible de restaurer, supprimer de la base
+                                remove_persistent_interaction(message_id)
+                    else:
+                        # Message introuvable, supprimer de la base
+                        remove_persistent_interaction(message_id)
+                        
+            except Exception as e:
+                print(f"Erreur lors de la restauration de l'interaction {message_id}: {e}")
+                remove_persistent_interaction(message_id)
+        
+        if restored_count > 0:
+            print(f"✅ {restored_count} interaction(s) persistante(s) restaurée(s)")
+        
+        # Nettoyer les anciennes interactions
+        clean_old_persistent_interactions()
+        
+    except Exception as e:
+        print(f"Erreur lors de la restauration des interactions persistantes: {e}")
 
 
 # === COMMANDES OLLAMA SUPPRIMÉES ===
