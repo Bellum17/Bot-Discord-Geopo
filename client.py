@@ -11342,7 +11342,7 @@ async def bilan_techno(interaction: discord.Interaction, pays: discord.Role, nom
     
     embed.add_field(
         name="🏭 Prix unitaire",
-        value=f"{format_unit_cost(cout_unite, engin_specs['unit_multiplier'])} {MONNAIE_EMOJI}",
+        value=f"{cout_unite} {MONNAIE_EMOJI}",
         inline=True
     )
     
