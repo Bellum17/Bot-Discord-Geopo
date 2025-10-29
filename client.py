@@ -4542,16 +4542,27 @@ def avancer_calendrier_un_jour():
     # Incrémenter les jours IRL écoulés
     jours_irl_ecoules += 1
     
-    # Vérifier si on doit avancer le jour RP
+    # Logique d'avancement selon la durée du mois
     if jours_irl_ecoules >= duree_mois:
-        if jour_index == 0:  # 1/2 -> 2/2
-            jour_index = 1
-        else:  # 2/2 -> 1/2 du mois suivant
+        if duree_mois == 1:
+            # Mois de 1 jour : 1/1 -> 1/1 du mois suivant (pas de jour_index = 1)
             jour_index = 0
             mois_index += 1
+        else:
+            # Mois de 2 jours : progression normale
+            if jour_index == 0:  # 1/2 -> 2/2
+                jour_index = 1
+            else:  # 2/2 -> 1/2 du mois suivant
+                jour_index = 0
+                mois_index += 1
         
         # Reset du compteur de jours IRL
         jours_irl_ecoules = 0
+    
+    # Gestion du passage d'année
+    if mois_index >= len(CALENDRIER_MONTHS):
+        mois_index = 0
+        calendrier_data["annee"] += 1
     
     # Mettre à jour les données
     now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
@@ -4788,17 +4799,17 @@ from discord.ext.tasks import loop
 import datetime
 
 # Tâche planifiée pour la mise à jour automatique du calendrier
-@loop(minutes=1)
+@loop(minutes=5)  # Vérifie toutes les 5 minutes au lieu de 1
 async def calendrier_automatique():
-    """Tâche qui vérifie chaque minute si il faut mettre à jour le calendrier à minuit."""
+    """Tâche qui vérifie si il faut mettre à jour le calendrier à minuit."""
     try:
         calendrier_data = load_calendrier()
         if not calendrier_data:
             return
         
-        # Vérifier si c'est minuit heure de Paris
+        # Vérifier si c'est entre minuit et 1h du matin heure de Paris (fenêtre plus large)
         now = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-        if now.hour != 0 or now.minute != 0:
+        if now.hour != 0:
             return
         
         # Vérifier si on a déjà mis à jour aujourd'hui
@@ -4810,14 +4821,17 @@ async def calendrier_automatique():
             else:
                 last_update_dt = last_update_dt.astimezone(ZoneInfo("Europe/Paris"))
             
+            # Si la dernière mise à jour était aujourd'hui, ne pas refaire
             if last_update_dt.date() == now.date():
                 return  # Déjà mis à jour aujourd'hui
+        
+        print(f"🕛 Mise à jour automatique du calendrier déclenchée à {now.strftime('%H:%M')}")
         
         # Avancer le calendrier d'un jour
         nouvelles_donnees = avancer_calendrier_un_jour()
         if nouvelles_donnees:
             # Envoyer le message de mise à jour
-            await envoyer_message_calendrier(nouvelles_donnees, "Mise à jour automatique")
+            await envoyer_message_calendrier(nouvelles_donnees, "Mise à jour automatique à minuit")
             
             # Vérifier les développements terminés
             for guild in bot.guilds:
