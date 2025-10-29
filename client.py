@@ -12286,12 +12286,118 @@ async def test_calendrier(interaction: discord.Interaction, mois: int, code: str
     
     await interaction.followup.send(message, ephemeral=True)
 
+class SelectTechnoDeleteView(discord.ui.View):
+    def __init__(self, developpements_data, guild_id, role_id, role_name):
+        super().__init__(timeout=300)
+        self.developpements_data = developpements_data
+        self.guild_id = guild_id
+        self.role_id = role_id
+        self.role_name = role_name
+        
+        # Créer le menu déroulant avec les développements
+        if guild_id in developpements_data and role_id in developpements_data[guild_id]:
+            developpements = developpements_data[guild_id][role_id]
+            
+            if len(developpements) > 25:
+                # Si plus de 25 développements, prendre seulement les plus récents
+                developpements = sorted(developpements, key=lambda x: x.get('debut_timestamp', 0), reverse=True)[:25]
+            
+            options = []
+            for i, dev in enumerate(developpements):
+                statut = dev.get('statut', 'en_cours')
+                nom = dev.get('nom', 'Développement sans nom')
+                techno = dev.get('technologie', 'Technologie inconnue')
+                
+                # Icônes selon le statut
+                if statut == 'termine':
+                    icon = "✅"
+                    desc = "Terminé - Suppression de l'historique"
+                else:
+                    icon = "🔄"
+                    desc = "En cours - Remboursement + libération centre"
+                
+                options.append(discord.SelectOption(
+                    label=f"{icon} {nom}",
+                    description=f"{techno} - {desc}",
+                    value=str(i)
+                ))
+            
+            if options:
+                select = discord.ui.Select(
+                    placeholder="Choisissez la technologie à supprimer...",
+                    options=options,
+                    custom_id="select_techno_delete"
+                )
+                select.callback = self.select_callback
+                self.add_item(select)
+    
+    async def select_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        
+        try:
+            selected_index = int(interaction.data['values'][0])
+            developpements = self.developpements_data[self.guild_id][self.role_id]
+            
+            if selected_index >= len(developpements):
+                await interaction.followup.send("❌ Développement non trouvé.", ephemeral=True)
+                return
+            
+            dev_to_delete = developpements[selected_index]
+            nom_dev = dev_to_delete.get('nom', 'Développement sans nom')
+            techno = dev_to_delete.get('technologie', 'Technologie inconnue')
+            statut = dev_to_delete.get('statut', 'en_cours')
+            cout_dev = dev_to_delete.get('cout_dev', 0)
+            
+            # Supprimer le développement de la liste
+            del developpements[selected_index]
+            
+            # Si la liste devient vide, supprimer complètement l'entrée du pays
+            if not developpements:
+                if self.role_id in self.developpements_data[self.guild_id]:
+                    del self.developpements_data[self.guild_id][self.role_id]
+            
+            # Sauvegarder les développements mis à jour
+            save_developpements(self.developpements_data)
+            
+            # Si le développement était en cours, rembourser et libérer le centre
+            remboursement_msg = ""
+            if statut == 'en_cours' and cout_dev > 0:
+                # Rembourser le coût de développement
+                balances = load_balances()
+                if self.role_id not in balances:
+                    balances[self.role_id] = 0
+                balances[self.role_id] += cout_dev
+                save_balances(balances)
+                
+                remboursement_msg = f"\n💰 **Remboursement :** {format_number(cout_dev)} {MONNAIE_EMOJI}"
+            
+            # Sauvegarder dans PostgreSQL
+            save_all_json_to_postgres()
+            
+            embed = discord.Embed(
+                title="🗑️ Technologie Supprimée",
+                description=f"**Pays :** <@&{self.role_id}>\n"
+                           f"**Développement :** {nom_dev}\n"
+                           f"**Technologie :** {techno}\n"
+                           f"**Statut :** {statut.title()}\n"
+                           f"{remboursement_msg}\n\n"
+                           f"✅ Technologie supprimée avec succès !\n"
+                           f"💾 Sauvegarde PostgreSQL effectuée.",
+                color=0x00ff00
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Erreur lors de la suppression : {str(e)}", ephemeral=True)
+
 @bot.tree.command(name="reset_tech", description="🚨 Reset tous les centres et développements d'un pays")
 @app_commands.describe(
     pays="Le pays à reset (mention)",
-    code="Code de sécurité requis"
+    code="Code de sécurité requis",
+    selectif="Si True, permet de sélectionner une technologie spécifique à supprimer"
 )
-async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code: str):
+async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code: str, selectif: bool = False):
     await interaction.response.defer(ephemeral=True)
     
     # Vérification du code de sécurité
@@ -12307,6 +12413,33 @@ async def reset_tech(interaction: discord.Interaction, pays: discord.Role, code:
     guild_id = str(interaction.guild.id)
     role_id = str(pays.id)
     
+    if selectif:
+        # Mode sélectif : choisir une technologie spécifique
+        developpements_data = load_developpements()
+        
+        if (guild_id not in developpements_data or 
+            role_id not in developpements_data[guild_id] or 
+            not developpements_data[guild_id][role_id]):
+            await interaction.followup.send(f"❌ Aucun développement trouvé pour {pays.mention}.", ephemeral=True)
+            return
+        
+        # Créer la vue de sélection
+        view = SelectTechnoDeleteView(developpements_data, guild_id, role_id, pays.name)
+        
+        embed = discord.Embed(
+            title="🎯 Suppression Sélective de Technologie",
+            description=f"**Pays :** {pays.mention}\n\n"
+                       f"Sélectionnez la technologie à supprimer dans le menu ci-dessous.\n\n"
+                       f"**📝 Effets de la suppression :**\n"
+                       f"• **En cours :** Remboursement du coût + libération du centre\n"
+                       f"• **Terminée :** Suppression de l'historique uniquement",
+            color=0xffa500
+        )
+        
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        return
+    
+    # Mode complet (comportement original)
     # Reset des centres technologiques
     centres_data = load_centres_tech()
     centres_resetted = 0
