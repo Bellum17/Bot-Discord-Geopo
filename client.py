@@ -10852,6 +10852,17 @@ async def engin_autocomplete(
                 ("chasseur_chars", "Chasseur de chars"),
                 ("char_super_lourd", "Char super lourd"),
                 ("lance_roquettes", "Lance-roquettes multiple"),
+                ("vehicule_blinde", "Véhicule blindé"),
+            ],
+            "armes_feu": [
+                ("fusil_assaut", "Fusil d'Assaut"),
+                ("pistolet", "Pistolet"),
+                ("mitrailleuse", "Mitrailleuse"),
+                ("lance_roquette", "Lance-Roquette"),
+                ("carabine", "Carabine"),
+                ("pistolet_mitrailleur", "Pistolet-Mitrailleur"),
+                ("grenades", "Grenades"),
+                ("mines", "Mines"),
             ],
             "artillerie": [
                 ("artillerie_campagne", "Artillerie de campagne (70-160mm)"),
