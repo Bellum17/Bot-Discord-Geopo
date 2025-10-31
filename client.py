@@ -9278,6 +9278,10 @@ class GeneralNamingModal(discord.ui.Modal):
     discord.app_commands.Choice(name="Marine", value="marine")
 ])
 async def roll_general(interaction: discord.Interaction, ecole: str, domaine: str):
+    # ...existing code...
+    # Calcul du roll final (suppression du +30 caché)
+    roll_final = min(roll_base, 100) # pyright: ignore[reportUndefinedVariable]
+    # ...existing code...
     """Génère un général aléatoire avec traits et spécialités selon le domaine."""
     
     # Fonction pour vérifier si un rôle est un rôle de pays
