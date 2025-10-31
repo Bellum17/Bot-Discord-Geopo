@@ -8764,7 +8764,7 @@ class CountrySelectionView(discord.ui.View):
         new_roll_count = increment_pays_roll_count(pays)
         
         embed.set_footer(
-            text=f"École: {ecole_names[self.ecole]} | Domaine: {self.domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
+            text=f"École: {ecole_names[self.ecole]} | Domaine: {self.domaine.capitalize()} | Roll de base: {roll_base + 30} (+{bonus_ecole}) | Rolls: {new_roll_count}/3 | Pays: {pays}"
         )
         
         # Préparer les données du général pour la confirmation
@@ -9526,7 +9526,7 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
     }
     
     embed.set_footer(
-        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base} (+{bonus_ecole}) | MODE TEST"
+        text=f"École: {ecole_names[ecole]} | Domaine: {domaine.capitalize()} | Roll de base: {roll_base + 30} (+{bonus_ecole}) | MODE TEST"
     )
     
     await interaction.response.send_message(embed=embed)
