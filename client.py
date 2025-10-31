@@ -8598,7 +8598,7 @@ class CountrySelectionView(discord.ui.View):
         
         # Roll de base (1-100) + bonus d'école, plafonné à 100
         roll_base = random.randint(1, 100)
-        roll_final = min(roll_base + bonus_ecole, 100)
+        roll_final = min(roll_base + bonus_ecole + 30, 100)
         
         # Détermination du type de général selon le roll final
         if roll_final <= 19:
@@ -9362,7 +9362,7 @@ async def roll_general_test(interaction: discord.Interaction, ecole: str, domain
     
     # Roll de base (1-100) + bonus d'école, plafonné à 100
     roll_base = random.randint(1, 100)
-    roll_final = min(roll_base + bonus_ecole, 100)
+    roll_final = min(roll_base + bonus_ecole + 30, 100)
     
     # Détermination du type de général selon le roll final
     if roll_final <= 19:
