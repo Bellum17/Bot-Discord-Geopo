@@ -9359,6 +9359,11 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     discord.app_commands.Choice(name="Marine", value="marine")
 ])
 async def roll_general_test(interaction: discord.Interaction, ecole: str, domaine: str):
+    # ...existing code...
+    # Roll de base (1-100) + bonus d'école, plafonné à 100
+    roll_base = random.randint(1, 100)
+    roll_final = min(roll_base + int(ecole), 100)
+    # ...existing code...
     """Version de test de la génération de général (sans limite de rolls)."""
     
     # Conversion du bonus d'école
