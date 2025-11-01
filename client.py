@@ -9285,6 +9285,11 @@ async def roll_general(interaction: discord.Interaction, ecole: str, domaine: st
     # ...existing code...
     # Roll de base (1-100)
     roll_base = random.randint(1, 100)
+    bonus_ecole = int(ecole)
+    roll_final = min(roll_base + bonus_ecole, 100)
+    # ...existing code...
+    # Roll de base (1-100)
+    roll_base = random.randint(1, 100)
     # Calcul du roll final (suppression du +30 caché)
     roll_final = min(roll_base, 100) # pyright: ignore[reportUndefinedVariable]
     # ...existing code...
