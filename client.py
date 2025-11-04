@@ -1263,10 +1263,6 @@ async def setlogpays(interaction: discord.Interaction, channel: discord.TextChan
 
 # Commande ranking
 @bot.tree.command(name="ranking", description="Affiche le classement des plus riches de l'économie")
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
 @bot.tree.command(name="reset_economie", description="Réinitialise toute l'économie et supprime l'argent en circulation (admin seulement)")
 @app_commands.checks.has_permissions(administrator=True)
 async def reset_economie(interaction: discord.Interaction):
@@ -1314,8 +1310,6 @@ async def reset_economie(interaction: discord.Interaction):
         view=confirm_view,
         ephemeral=True
     )
->>>>>>> 559ebf1 (Ajout de la commande /reset_economie pour réinitialiser l'économie)
->>>>>>> ac12a6f (first commit)
 @app_commands.checks.has_permissions(administrator=True)  # Remplace view_channel par administrator
 async def ranking(interaction: discord.Interaction):
     """Affiche le classement économique du serveur avec top 15."""
