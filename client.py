@@ -1261,8 +1261,6 @@ async def setlogpays(interaction: discord.Interaction, channel: discord.TextChan
     embed.set_image(url=IMAGE_URL)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# Commande ranking
-@bot.tree.command(name="ranking", description="Affiche le classement des plus riches de l'économie")
 @bot.tree.command(name="reset_economie", description="Réinitialise toute l'économie et supprime l'argent en circulation (admin seulement)")
 @app_commands.checks.has_permissions(administrator=True)
 async def reset_economie(interaction: discord.Interaction):
