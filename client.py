@@ -1310,7 +1310,8 @@ async def reset_economie(interaction: discord.Interaction):
         view=confirm_view,
         ephemeral=True
     )
-@app_commands.checks.has_permissions(administrator=True)  # Remplace view_channel par administrator
+@bot.tree.command(name="ranking", description="Affiche le classement économique du serveur")
+@app_commands.checks.has_permissions(administrator=True)
 async def ranking(interaction: discord.Interaction):
     """Affiche le classement économique du serveur avec top 15."""
     await interaction.response.defer(ephemeral=True)
