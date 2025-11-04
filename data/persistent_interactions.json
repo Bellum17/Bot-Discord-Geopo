@@ -1,0 +1,344 @@
+{
+  "1433132672787419279": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 772821169664426025,
+      "role_id": 1424947646195564706,
+      "cout_dev": 0,
+      "nom_techno": "Fusil d'Assaut",
+      "nom_developpement": "Type 002 (F) & (I)",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 488,
+      "mois": 0,
+      "image": null,
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "1",
+      "is_instant": true
+    },
+    "created_at": "2025-10-29T16:37:37.574617"
+  },
+  "1433132976996093952": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 772821169664426025,
+      "role_id": 1424947646195564706,
+      "cout_dev": 0,
+      "nom_techno": "Fusil d'Assaut",
+      "nom_developpement": "Type 002",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 673,
+      "mois": 0,
+      "image": null,
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "1",
+      "is_instant": true
+    },
+    "created_at": "2025-10-29T16:38:48.797881"
+  },
+  "1433139449356750928": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1218248773923373176,
+      "role_id": 1425735656323285052,
+      "cout_dev": 0,
+      "nom_techno": "Fusil d'Assaut",
+      "nom_developpement": "Fusil Arisaka Type 99",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 615,
+      "mois": 0,
+      "image": "https://images-ext-1.discordapp.net/external/PCBi1cHuU9e3QcIM2zQbPm71Ru0cmvAOmc7oGZdcZh0/https/upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Japanese_Type_99_carbine.jpg/1200px-Japanese_Type_99_carbine.jpg?format=webp&width=1988&height=1320",
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "1",
+      "is_instant": true
+    },
+    "created_at": "2025-10-29T17:04:31.901401"
+  },
+  "1433140937684680736": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 772821169664426025,
+      "role_id": 1424947646195564706,
+      "cout_dev": 2000000,
+      "nom_techno": "Barge de D\u00e9barquement",
+      "nom_developpement": "Classe Daihatsu",
+      "categorie": "batiments_guerre",
+      "nom_categorie": "B\u00e2timents de guerre",
+      "cout_unite": 202000,
+      "mois": 4,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "1",
+      "is_instant": false
+    },
+    "created_at": "2025-10-29T17:10:26.633790"
+  },
+  "1433831116690821202": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1302403450566610944,
+      "role_id": 1425199137015464067,
+      "cout_dev": 11000000,
+      "nom_techno": "Avion multir\u00f4le",
+      "nom_developpement": "Bf 109 F",
+      "categorie": "appareils_aeriens",
+      "nom_categorie": "Appareils a\u00e9riens",
+      "cout_unite": 384000,
+      "mois": 8,
+      "image": "https://fr.wikipedia.org/wiki/Messerschmitt_Bf_109#/media/Fichier%3ABf_109Es_JG_27_on_flight_over_North_Africa_c1941.jpg",
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "2",
+      "is_instant": false
+    },
+    "created_at": "2025-10-31T14:52:58.478514"
+  },
+  "1433872519949193416": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1302403450566610944,
+      "role_id": 1425199137015464067,
+      "cout_dev": 11000000,
+      "nom_techno": "Avion de chasse (interception)",
+      "nom_developpement": "Messerschmitt Bf 109 E",
+      "categorie": "appareils_aeriens",
+      "nom_categorie": "Appareils a\u00e9riens",
+      "cout_unite": 412000,
+      "mois": 6,
+      "image": "https://fr.wikipedia.org/wiki/Fichier:Bf_109Es_JG_27_on_flight_over_North_Africa_c1941.jpg",
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "2",
+      "is_instant": false
+    },
+    "created_at": "2025-10-31T17:37:29.659113"
+  },
+  "1433873279642370154": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1302403450566610944,
+      "role_id": 1425199137015464067,
+      "cout_dev": 0,
+      "nom_techno": "Carabine",
+      "nom_developpement": "M1 Garand",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 424,
+      "mois": 0,
+      "image": "https://cdn.discordapp.com/attachments/1433872893447766126/1433872920974987425/M1_Garand_rifle_USA_noBG_new.png?ex=690645b8&is=6904f438&hm=0ba14e56407c6873b784c5261022c2935281e8e144eb65749a341b2770877982&",
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "2",
+      "is_instant": true
+    },
+    "created_at": "2025-10-31T17:40:30.619657"
+  },
+  "1434169073981329501": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1426929775955411085,
+      "cout_dev": 0,
+      "nom_techno": "Carabine",
+      "nom_developpement": "M1903 Springfield",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 213,
+      "mois": 0,
+      "image": null,
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "4",
+      "is_instant": true
+    },
+    "created_at": "2025-11-01T13:15:56.016978"
+  },
+  "1434192325302554797": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1426929775955411085,
+      "cout_dev": 5000000,
+      "nom_techno": "Canon anti-a\u00e9rien",
+      "nom_developpement": "Flak 18/36",
+      "categorie": "artillerie",
+      "nom_categorie": "Artillerie",
+      "cout_unite": 8000,
+      "mois": 6,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T14:48:17.088790"
+  },
+  "1434192530051825847": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1426929775955411085,
+      "cout_dev": 5000000,
+      "nom_techno": "V\u00e9hicule blind\u00e9",
+      "nom_developpement": "Sd.Kfz.221",
+      "categorie": "vehicules_terrestres",
+      "nom_categorie": "V\u00e9hicules Terrestres",
+      "cout_unite": 99000,
+      "mois": 4,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T14:49:06.427828"
+  },
+  "1434192674457522277": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1426929775955411085,
+      "cout_dev": 11000000,
+      "nom_techno": "Chasseur de chars",
+      "nom_developpement": "Panzerj\u00e4ger I",
+      "categorie": "vehicules_terrestres",
+      "nom_categorie": "V\u00e9hicules Terrestres",
+      "cout_unite": 158000,
+      "mois": 9,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T14:49:40.107172"
+  },
+  "1434200319436394676": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1425735656323285052,
+      "cout_dev": 4000000,
+      "nom_techno": "Canon anti-char",
+      "nom_developpement": "Pak 36",
+      "categorie": "artillerie",
+      "nom_categorie": "Artillerie",
+      "cout_unite": 11000,
+      "mois": 5,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T15:20:03.249491"
+  },
+  "1434200471307812998": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1425735656323285052,
+      "cout_dev": 5000000,
+      "nom_techno": "Artillerie de campagne (70-160mm)",
+      "nom_developpement": "Cannon de 88mm",
+      "categorie": "artillerie",
+      "nom_categorie": "Artillerie",
+      "cout_unite": 19000,
+      "mois": 4,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T15:20:39.836771"
+  },
+  "1434200606863790191": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1425735656323285052,
+      "cout_dev": 9000000,
+      "nom_techno": "Char Moyen",
+      "nom_developpement": "Panzer IV",
+      "categorie": "vehicules_terrestres",
+      "nom_categorie": "V\u00e9hicules Terrestres",
+      "cout_unite": 143000,
+      "mois": 11,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T15:21:11.555650"
+  },
+  "1434200746026340362": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1425735656323285052,
+      "cout_dev": 5000000,
+      "nom_techno": "V\u00e9hicule blind\u00e9",
+      "nom_developpement": "Sd Kfz 251",
+      "categorie": "vehicules_terrestres",
+      "nom_categorie": "V\u00e9hicules Terrestres",
+      "cout_unite": 77000,
+      "mois": 3,
+      "image": null,
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T15:21:44.682712"
+  },
+  "1434201076852068634": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 853323676572975114,
+      "role_id": 1425735656323285052,
+      "cout_dev": 6000000,
+      "nom_techno": "Mortier d'infanterie (-70mm)",
+      "nom_developpement": "Granatawerfer 36",
+      "categorie": "artillerie",
+      "nom_categorie": "Artillerie",
+      "cout_unite": 711,
+      "mois": 4,
+      "image": null,
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-01T15:23:03.440187"
+  },
+  "1434569939137593394": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1218248773923373176,
+      "role_id": 1431979598543065088,
+      "cout_dev": 19000000,
+      "nom_techno": "Fr\u00e9gate",
+      "nom_developpement": "HMS Fidelity",
+      "categorie": "batiments_guerre",
+      "nom_categorie": "B\u00e2timents de guerre",
+      "cout_unite": 507000,
+      "mois": 8,
+      "image": "https://upload.wikimedia.org/wikipedia/commons/2/26/HMS_Fidelity_ADNO5229.jpg",
+      "unit_multiplier": 1000,
+      "mois_fin_personnalise": "4",
+      "is_instant": false
+    },
+    "created_at": "2025-11-02T15:48:47.271515"
+  },
+  "1434570250988294208": {
+    "type": "techno_confirm",
+    "data": {
+      "user_id": 1218248773923373176,
+      "role_id": 1431979598543065088,
+      "cout_dev": 0,
+      "nom_techno": "Pistolet-Mitrailleur",
+      "nom_developpement": "Thompson M1",
+      "categorie": "armes_feu",
+      "nom_categorie": "Armes \u00e0 feu",
+      "cout_unite": 379,
+      "mois": 0,
+      "image": "https://upload.wikimedia.org/wikipedia/commons/d/da/ThompsonM1A1VWM.jpg",
+      "unit_multiplier": 1,
+      "mois_fin_personnalise": "4",
+      "is_instant": true
+    },
+    "created_at": "2025-11-02T15:50:02.029018"
+  }
+}

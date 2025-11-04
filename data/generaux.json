@@ -1,0 +1,1311 @@
+{
+  "pays_\ud83d\udc3a\u30fb\u275d \uff62 royaume du nord \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "772821169664426025": {
+    "generaux": {
+      "Jon Snow": {
+        "stars": 1,
+        "pays": "\ud83d\udc3a\u30fb\u275d \uff62 Royaume du Nord \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Personnalit\u00e9 publique",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Conqu\u00e9rant",
+          "Ours polaire"
+        ],
+        "experience": 0
+      },
+      "Robb Stark": {
+        "stars": 3,
+        "pays": "\ud83d\udc3a\u30fb\u275d \uff62 Royaume du Nord \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Strat\u00e8ge de g\u00e9nie",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Combattant des plaines",
+          "Officier de cavalerie"
+        ],
+        "experience": 0
+      },
+      "Cregan Stark": {
+        "stars": 1,
+        "pays": "\ud83d\udc3a\u30fb\u275d \uff62 Royaume du Nord \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Sp\u00e9cialiste du combat urbain",
+          "Major de promotion"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddee\ud83c\uddf9\u30fb\u275d \uff62 royaume d\u2019italie \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "pays_\u2627\u30fb\u275d \uff62 ordre souverain et chr\u00e9tien du temple de qu\u00e9bec \uff63 \u275e": {
+    "roll_count": 0
+  },
+  "pays_\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 consulat ath\u00e9nien \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "853323676572975114": {
+    "generaux": {
+      "Nikolaos Drakos": {
+        "stars": 1,
+        "pays": "\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 Consulat Ath\u00e9nien \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 45,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Alexandros Kastor": {
+        "stars": 1,
+        "pays": "\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 Consulat Ath\u00e9nien \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 65,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Alcoolique"
+        ],
+        "traits_commandement": [
+          "Officier de cavalerie"
+        ],
+        "experience": 0
+      },
+      "Eleni Karamanlis": {
+        "stars": 1,
+        "pays": "\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 Consulat Ath\u00e9nien \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 61,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Officier des blind\u00e9s"
+        ],
+        "experience": 0
+      },
+      "Nikolas Drakos": {
+        "stars": 1,
+        "pays": "\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 Consulat Ath\u00e9nien \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 76,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Renard des marais"
+        ],
+        "experience": 0
+      },
+      "Kast\u00f2tas Pyrrhus": {
+        "stars": 1,
+        "pays": "\ud83c\uddec\ud83c\uddf7\u30fb\u275d \uff62 Consulat Ath\u00e9nien \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 60,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Drogu\u00e9"
+        ],
+        "traits_commandement": [
+          "Major de promotion"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddf7\ud83c\uddfa\u30fb\u275d \uff62 union des r\u00e9publiques socialistes sovi\u00e9tiques r\u00e9nov\u00e9es \uff63 \u275e": {
+    "roll_count": 0
+  },
+  "pays_\ud83c\uddf5\ud83c\uddf9\u30fb\u275d \uff62 \u00e9tat national du portugal \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1318303240885899277": {
+    "generaux": {
+      "G\u00e9n\u00e9ral Ant\u00f3nio Ferreira da Costa": {
+        "stars": 1,
+        "pays": "\ud83c\uddf5\ud83c\uddf9\u30fb\u275d \uff62 \u00c9tat National du Portugal \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Officier d'infanterie",
+          "Combattant des plaines"
+        ],
+        "experience": 0
+      },
+      "G\u00e9n\u00e9ral Joaquim Santos Pereira": {
+        "stars": 1,
+        "pays": "\ud83c\uddf5\ud83c\uddf9\u30fb\u275d \uff62 \u00c9tat National du Portugal \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Officier de reconnaissance",
+          "Montagnard"
+        ],
+        "experience": 0
+      },
+      "G\u00e9n\u00e9ral Henrique Almeida Coelho": {
+        "stars": 1,
+        "pays": "\ud83c\uddf5\ud83c\uddf9\u30fb\u275d \uff62 \u00c9tat National du Portugal \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 69,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Drogu\u00e9"
+        ],
+        "traits_commandement": [
+          "Major de promotion"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddf7\ud83c\uddf4\u30fb\u275d \uff62 khanat de valachie \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "816759002788659220": {
+    "generaux": {
+      "Ba\u015fbu\u011f Sungur Tekin": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddf4\u30fb\u275d \uff62 Khanat de Valachie \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 37,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Alcoolique",
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Ba\u015fbu\u011f Batuga": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddf4\u30fb\u275d \uff62 Khanat de Valachie \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 61,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Vieux jeu"
+        ],
+        "traits_commandement": [
+          "Aigle des cieux"
+        ],
+        "experience": 0
+      },
+      "Ba\u015fbu\u011f Alparslan": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddf4\u30fb\u275d \uff62 Khanat de Valachie \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "\u00c9cole militaire moyenne",
+        "roll_final": 91,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [
+          "Renard des marais"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "626075558073073676": {
+    "generaux": {
+      "Alessandro De Sanctis": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf9\u30fb\u275d \uff62 Royaume d\u2019Italie \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 70,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Renard du d\u00e9sert"
+        ],
+        "experience": 0
+      },
+      "Lorenzo Bartoli": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf9\u30fb\u275d \uff62 Royaume d\u2019Italie \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "aerien",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 45,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Giuliano Ferretti": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf9\u30fb\u275d \uff62 Royaume d\u2019Italie \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Protecteur de la flotte",
+          "Ma\u00eetre tacticien"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\udde6\ud83c\uddf6\u30fb\u275d \uff62 commandement de d\u00e9fense arctique \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1277777722709508248": {
+    "generaux": {
+      "Johnson Peterson": {
+        "stars": 1,
+        "pays": "\ud83c\udde6\ud83c\uddf6\u30fb\u275d \uff62 Commandement de D\u00e9fense Arctique \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 70,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Expert de basse mer"
+        ],
+        "experience": 0
+      },
+      "Daniel Golfon": {
+        "stars": 1,
+        "pays": "\ud83c\udde6\ud83c\uddf6\u30fb\u275d \uff62 Commandement de D\u00e9fense Arctique \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 56,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "L\u00e2che"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Thor Salvat": {
+        "stars": 1,
+        "pays": "\ud83c\udde6\ud83c\uddf6\u30fb\u275d \uff62 Commandement de D\u00e9fense Arctique \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 97,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Th\u00e9oricien du support rapproch\u00e9",
+          "Aigle des cieux"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddfe\ud83c\uddea\u30fb\u275d \uff62 grand califat \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "974673226976350318": {
+    "generaux": {
+      "Abu Ubayda al-Yamani": {
+        "stars": 1,
+        "pays": "\ud83c\uddfe\ud83c\uddea\u30fb\u275d \uff62 Grand Califat \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Conqu\u00e9rant",
+          "Major de promotion"
+        ],
+        "experience": 0
+      },
+      "Salazar": {
+        "stars": 1,
+        "pays": "\ud83c\uddfe\ud83c\uddea\u30fb\u275d \uff62 Grand Califat \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 27,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique",
+          "Parano\u00efaque"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "BJ Bellum": {
+        "stars": 1,
+        "pays": "\ud83c\uddfe\ud83c\uddea\u30fb\u275d \uff62 Grand Califat \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral m\u00e9diocre",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 18,
+        "traits_positifs": [
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "L\u00e2che",
+          "Parano\u00efaque",
+          "Alcoolique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddef\ud83c\uddf5\u30fb\u275d \uff62 empire du yamatai \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "677663204960239666": {
+    "generaux": {
+      "Fuchida Yoshitsugu": {
+        "stars": 1,
+        "pays": "\ud83c\uddef\ud83c\uddf5\u30fb\u275d \uff62 Empire du Yamatai \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 68,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Parano\u00efaque"
+        ],
+        "traits_commandement": [
+          "Combattant des plaines"
+        ],
+        "experience": 0
+      },
+      "Tachibana Haruto": {
+        "stars": 1,
+        "pays": "\ud83c\uddef\ud83c\uddf5\u30fb\u275d \uff62 Empire du Yamatai \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 98,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Rat de la jungle",
+          "Combattant des plaines"
+        ],
+        "experience": 0
+      },
+      "Koga Mitsumasa": {
+        "stars": 1,
+        "pays": "\ud83c\uddef\ud83c\uddf5\u30fb\u275d \uff62 Empire du Yamatai \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 97,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Loup des mers glac\u00e9es",
+          "Combattant c\u00f4tier"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddee\ud83c\uddf3\u30fb\u275d \uff62 \u00e9tat national du bharat \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1020557967432617984": {
+    "generaux": {
+      "Vikram Thakur (Chef d'\u00c9tat)": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf3\u30fb\u275d \uff62 \u00c9tat National du Bharat \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 91,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [
+          "Sp\u00e9cialiste du combat urbain"
+        ],
+        "experience": 0
+      },
+      "Vin\u00e2yaka Modhi": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf3\u30fb\u275d \uff62 \u00c9tat National du Bharat \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 64,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Alcoolique"
+        ],
+        "traits_commandement": [
+          "\u00c9claireur"
+        ],
+        "experience": 0
+      },
+      "Kapila Singh": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf3\u30fb\u275d \uff62 \u00c9tat National du Bharat \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 75,
+        "traits_positifs": [
+          "Courageux",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Drogu\u00e9"
+        ],
+        "traits_commandement": [
+          "Pos\u00e9idon"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddf8\ud83c\udde6\u30fb\u275d \uff62 al-khil\u0101fa al-n\u016br\u012bya \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1234771797350551605": {
+    "generaux": {
+      "Zahra' bint \u1e24\u0101zim": {
+        "stars": 1,
+        "pays": "\ud83c\uddf8\ud83c\udde6\u30fb\u275d \uff62 Al-Khil\u0101fa Al-N\u016br\u012bya \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 86,
+        "traits_positifs": [
+          "Courageux",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [
+          "Renard du d\u00e9sert"
+        ],
+        "experience": 0
+      },
+      "Azzah al-Q\u0101'ida": {
+        "stars": 1,
+        "pays": "\ud83c\uddf8\ud83c\udde6\u30fb\u275d \uff62 Al-Khil\u0101fa Al-N\u016br\u012bya \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 80,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Protecteur du ciel"
+        ],
+        "experience": 0
+      },
+      "Sumayyah al-B\u0101\u1e6dil": {
+        "stars": 1,
+        "pays": "\ud83c\uddf8\ud83c\udde6\u30fb\u275d \uff62 Al-Khil\u0101fa Al-N\u016br\u012bya \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 30,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Parano\u00efaque",
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddea\ud83c\uddf9\u30fb\u275d \uff62 royaume salomonide d\u2019\u00e9thiopie \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1070301137720315934": {
+    "generaux": {
+      "Tabor Yared Boru": {
+        "stars": 1,
+        "pays": "\ud83c\uddea\ud83c\uddf9\u30fb\u275d \uff62 Royaume Salomonide d\u2019\u00c9thiopie \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 39,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Vieux jeu",
+          "Parano\u00efaque"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Gorfu Berhane Mesfin": {
+        "stars": 1,
+        "pays": "\ud83c\uddea\ud83c\uddf9\u30fb\u275d \uff62 Royaume Salomonide d\u2019\u00c9thiopie \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "aerien",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 22,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique",
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddff\ud83c\udde6\u30fb\u275d \uff62 kapstaat \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1226977403314901145": {
+    "generaux": {
+      "G\u00e9n\u00e9ral des Veldwagters - Jon Kozart": {
+        "stars": 1,
+        "pays": "\ud83c\uddff\ud83c\udde6\u30fb\u275d \uff62 Kapstaat \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 57,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "G\u00e9n\u00e9ral Veldwagters - Jon Kozart": {
+        "stars": 1,
+        "pays": "\ud83c\uddff\ud83c\udde6\u30fb\u275d \uff62 Kapstaat \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 57,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddf7\ud83c\uddfa\u30fb\u275d \uff62 union des ra\u00efons socialistes sovi\u00e9tiques \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1302403450566610944": {
+    "generaux": {
+      "Vasily Alexeyevich Koptsov": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddfa\u30fb\u275d \uff62 Union des Ra\u00efons Socialistes Sovi\u00e9tiques \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 55,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 10
+      },
+      "Dmitry Grigoryevich Pavlov": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddfa\u30fb\u275d \uff62 Union des Ra\u00efons Socialistes Sovi\u00e9tiques \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral m\u00e9diocre",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 19,
+        "traits_positifs": [
+          "Officier de carri\u00e8re"
+        ],
+        "traits_negatifs": [
+          "Alcoolique",
+          "L\u00e2che",
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [],
+        "experience": 10
+      },
+      "Alexander Stepanovich Kostitsyn": {
+        "stars": 1,
+        "pays": "\ud83c\uddf7\ud83c\uddfa\u30fb\u275d \uff62 Union des Ra\u00efons Socialistes Sovi\u00e9tiques \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 56,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Alcoolique"
+        ],
+        "traits_commandement": [],
+        "experience": 10
+      }
+    }
+  },
+  "pays_\u2622\ufe0f\u30fb\u275d \uff62 national socialist order of america \uff63 \u275e": {
+    "roll_count": 2
+  },
+  "pays_\ud83c\uddff\ud83c\uddfc\u30fb\u275d \uff62 empire de monomotopa \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "723669328267968582": {
+    "generaux": {
+      "Tendai Chikowore": {
+        "stars": 1,
+        "pays": "\ud83c\uddff\ud83c\uddfc\u30fb\u275d \uff62 Empire de Monomotopa \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 59,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Tonderai Zvinayika": {
+        "stars": 1,
+        "pays": "\ud83c\uddff\ud83c\uddfc\u30fb\u275d \uff62 Empire de Monomotopa \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 53,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Drogu\u00e9"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Simba Chikomo": {
+        "stars": 1,
+        "pays": "\ud83c\uddff\ud83c\uddfc\u30fb\u275d \uff62 Empire de Monomotopa \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 84,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Vieux jeu"
+        ],
+        "traits_commandement": [
+          "Loup de mer"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83e\uddec\u30fb\u275d \uff62 complexe helix \uff63 \u275e": {
+    "roll_count": 2
+  },
+  "372385935066660865": {
+    "generaux": {
+      "Col. Magnus RHEE": {
+        "stars": 1,
+        "pays": "\ud83e\uddec\u30fb\u275d \uff62 Complexe Helix \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 80,
+        "traits_positifs": [
+          "Inflexible",
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Alcoolique"
+        ],
+        "traits_commandement": [
+          "Officier des blind\u00e9s"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\u30fb\u275d \uff62 la gouvernance \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1156292929409798154": {
+    "generaux": {
+      "Michael McOliver": {
+        "stars": 1,
+        "pays": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\u30fb\u275d \uff62 La Gouvernance \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral peu exp\u00e9riment\u00e9",
+        "domaine": "marine",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 27,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Parano\u00efaque",
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Charles Forstall": {
+        "stars": 1,
+        "pays": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\u30fb\u275d \uff62 La Gouvernance \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral m\u00e9diocre",
+        "domaine": "terrestre",
+        "ecole": "\u00c9cole militaire moyenne",
+        "roll_final": 12,
+        "traits_positifs": [
+          "Officier de carri\u00e8re"
+        ],
+        "traits_negatifs": [
+          "L\u00e2che",
+          "Vieux jeu",
+          "Connexion politique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "James \"Jim\" McGarth": {
+        "stars": 1,
+        "pays": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f\u30fb\u275d \uff62 La Gouvernance \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "\u00c9cole militaire moyenne",
+        "roll_final": 71,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Vieux jeu"
+        ],
+        "traits_commandement": [
+          "Officier des op\u00e9rations sp\u00e9ciales"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddf9\ud83c\uddf7\u30fb\u275d \uff62 sultanat selim\u00eete \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "924639440561913926": {
+    "generaux": {
+      "Srd. Lutfi Hamdi Pa\u015fa": {
+        "stars": 1,
+        "pays": "\ud83c\uddf9\ud83c\uddf7\u30fb\u275d \uff62 Sultanat Selim\u00eete \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Officier de reconnaissance",
+          "Sp\u00e9cialiste du combat urbain"
+        ],
+        "experience": 0
+      },
+      "Srd. Ismail Tekun Pa\u015fa": {
+        "stars": 1,
+        "pays": "\ud83c\uddf9\ud83c\uddf7\u30fb\u275d \uff62 Sultanat Selim\u00eete \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Destructeur m\u00e9ticuleux",
+          "Th\u00e9oricien du support rapproch\u00e9"
+        ],
+        "experience": 0
+      },
+      "Srd. Piri Reis": {
+        "stars": 3,
+        "pays": "\ud83c\uddf9\ud83c\uddf7\u30fb\u275d \uff62 Sultanat Selim\u00eete \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Strat\u00e8ge de g\u00e9nie",
+          "Officier de carri\u00e8re",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Expert de basse mer",
+          "Ma\u00eetre tacticien"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\udffa\u30fb\u275d \uff62 \u00e9tat carthaginois \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "1234080423856967714": {
+    "generaux": {
+      "Hadrubal Qartin": {
+        "stars": 1,
+        "pays": "\ud83c\udffa\u30fb\u275d \uff62 \u00c9tat Carthaginois \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "terrestre",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 56,
+        "traits_positifs": [
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Alcoolique"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Hamulbal Qartin": {
+        "stars": 1,
+        "pays": "\ud83c\udffa\u30fb\u275d \uff62 \u00c9tat Carthaginois \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "aerien",
+        "ecole": "Petite \u00e9cole",
+        "roll_final": 72,
+        "traits_positifs": [
+          "Inflexible",
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Col\u00e9rique"
+        ],
+        "traits_commandement": [
+          "Aigle des cieux"
+        ],
+        "experience": 0
+      },
+      "Hannibal Qartin": {
+        "stars": 1,
+        "pays": "\ud83c\udffa\u30fb\u275d \uff62 \u00c9tat Carthaginois \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 71,
+        "traits_positifs": [
+          "Courageux",
+          "Personnalit\u00e9 publique",
+          "Inflexible"
+        ],
+        "traits_negatifs": [
+          "Connexion politique"
+        ],
+        "traits_commandement": [
+          "Loup de mer"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddee\ud83c\uddf7\u30fb\u275d \uff62 arabionie \uff63 \u275e": {
+    "roll_count": 3
+  },
+  "905058764355428373": {
+    "generaux": {
+      "Saddam Hussein": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf7\u30fb\u275d \uff62 Arabionie \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Officier de reconnaissance",
+          "Officier du g\u00e9nie"
+        ],
+        "experience": 0
+      },
+      "Hafez El Assad": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf7\u30fb\u275d \uff62 Arabionie \uff63 \u275e",
+        "type": "G\u00e9n\u00e9ral exp\u00e9riment\u00e9",
+        "domaine": "aerien",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 49,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Courageux"
+        ],
+        "traits_negatifs": [
+          "Drogu\u00e9"
+        ],
+        "traits_commandement": [],
+        "experience": 0
+      },
+      "Khalid Al Muscati": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf7\u30fb\u275d \uff62 Arabionie \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Courageux",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Expert de haute mer",
+          "Observateur"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "669876614229917706": {
+    "generaux": {
+      "John Cameron Denton": {
+        "stars": 1,
+        "pays": "\u2622\ufe0f\u30fb\u275d \uff62 National Socialist Order of America \uff63 \u275e",
+        "type": "Grand G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 80,
+        "traits_positifs": [
+          "Courageux",
+          "Inflexible",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [
+          "Vieux jeu"
+        ],
+        "traits_commandement": [
+          "Combattant des plaines"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83c\uddee\ud83c\uddf1\u30fb\u275d \uff62 alliance des travailleurs de sion \uff63 \u275e": {
+    "roll_count": 2
+  },
+  "624650274145042464": {
+    "generaux": {
+      "Avner Katz": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf1\u30fb\u275d \uff62 Alliance des travailleurs de Sion \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Inflexible"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Conqu\u00e9rant",
+          "Officier des blind\u00e9s"
+        ],
+        "experience": 0
+      },
+      "Farid Barakat": {
+        "stars": 1,
+        "pays": "\ud83c\uddee\ud83c\uddf1\u30fb\u275d \uff62 Alliance des travailleurs de Sion \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Inflexible",
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Combattant des plaines",
+          "Officier de cavalerie"
+        ],
+        "experience": 0
+      }
+    }
+  },
+  "pays_\ud83e\udd91\u30fb\u275d \uff62 \u00eeles de fer \uff63 \u275e": {
+    "roll_count": 2
+  },
+  "1146933486566002708": {
+    "generaux": {
+      "Bj\u00f6rk Greyjoy": {
+        "stars": 1,
+        "pays": "\ud83e\udd91\u30fb\u275d \uff62 \u00celes de Fer \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Complexe Universitaire militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Officier de carri\u00e8re",
+          "Courageux",
+          "Personnalit\u00e9 publique"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Expert de basse mer",
+          "Loup de mer"
+        ],
+        "experience": 0
+      },
+      "Euron Greyjoy": {
+        "stars": 1,
+        "pays": "\ud83e\udd91\u30fb\u275d \uff62 \u00celes de Fer \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "terrestre",
+        "ecole": "Acad\u00e9mie militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Renard des marais",
+          "Renard du d\u00e9sert"
+        ],
+        "experience": 0
+      },
+      "Yara Greyjoy": {
+        "stars": 1,
+        "pays": "\ud83e\udd91\u30fb\u275d \uff62 \u00celes de Fer \uff63 \u275e",
+        "type": "Excellent G\u00e9n\u00e9ral",
+        "domaine": "marine",
+        "ecole": "Grande \u00c9cole militaire",
+        "roll_final": 100,
+        "traits_positifs": [
+          "Personnalit\u00e9 publique",
+          "Inflexible",
+          "Courageux"
+        ],
+        "traits_negatifs": [],
+        "traits_commandement": [
+          "Combattant c\u00f4tier",
+          "C\u0153ur de fer"
+        ],
+        "experience": 0
+      }
+    }
+  }
+}

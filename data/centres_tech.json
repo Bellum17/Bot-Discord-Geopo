@@ -1,0 +1,1078 @@
+{
+  "1393301496283795640": {
+    "1429495084000481513": [
+      {
+        "nom": "Centre technologique militaire terrestre d\u2019Ath\u00e8nes",
+        "localisation": "ath\u00e8ne",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357347
+      },
+      {
+        "nom": "Centre Technologique Militaire Navale de Piraeus",
+        "localisation": "Piraeus",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357397
+      },
+      {
+        "nom": "Centre Technologique Militaire A\u00e9rien de Maroussi",
+        "localisation": "Maroussi",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357443
+      },
+      {
+        "nom": "Centre Technologique Militaire de Kallithea",
+        "localisation": "Kallithea",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357498
+      },
+      {
+        "nom": "Centre Technologique et Militaire de Glyfada",
+        "localisation": "Glyfada",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357548
+      },
+      {
+        "nom": "Centre Militaire et Technologique terrestre de Elefsina",
+        "localisation": "Elefsina",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357619
+      },
+      {
+        "nom": "Centre Technologique et militaire Navale de Vouliagmeni",
+        "localisation": "Vouliagmeni",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761357702
+      }
+    ],
+    "1430905446268665927": [
+      {
+        "nom": "Centre Technologique de Bucarest (CTdB)",
+        "localisation": "Vilayet de Dar\u00fc\u2019l-B\u00fckr",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761413493
+      },
+      {
+        "nom": "Centre Technologique A\u00e9rienne de Bucarest (CTAdB)",
+        "localisation": "Vilayet de Dar\u00fc\u2019l-B\u00fckr",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761413660
+      },
+      {
+        "nom": "Centre Technologique Nucl\u00e9aire militaire de Burgas (CTNdBrg)",
+        "localisation": "Vilayet de Burgas",
+        "specialisation": "Armes de Destruction Massive",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761413755
+      },
+      {
+        "nom": "Centre Technologique Navale de Burgas (CTNdBrg)",
+        "localisation": "Vilayet de Burgas",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761413867
+      },
+      {
+        "nom": "Centre Technologique A\u00e9rospatiale National",
+        "localisation": "Vilayet de Morava",
+        "specialisation": "Spatial",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761413923
+      }
+    ],
+    "1424889272347136020": [
+      {
+        "nom": "CentreTech1",
+        "localisation": "Milan",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761422049
+      },
+      {
+        "nom": "CentreTech2",
+        "localisation": "Turin",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761422096
+      },
+      {
+        "nom": "CentreTech3",
+        "localisation": "Genoa",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761422125
+      },
+      {
+        "nom": "CentreTech4",
+        "localisation": "Bologne",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761422146
+      }
+    ],
+    "1427061149463220286": [
+      {
+        "nom": "Institut de recherche militaire terreste (IRMT)",
+        "localisation": "Lisbonne",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761431574
+      },
+      {
+        "nom": "Institut de recherche militaire a\u00e9ronautique (IRMA)",
+        "localisation": "Lisbonne",
+        "specialisation": "A\u00e9rien",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761431713
+      },
+      {
+        "nom": "Institut de recherche militaire naval (IRMN)",
+        "localisation": "Lisbonne",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761431755
+      },
+      {
+        "nom": "Institut de recherche militaire biologique (IRMB)",
+        "localisation": "Lisbonne",
+        "specialisation": "Armes de Destruction Massive",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761431786
+      },
+      {
+        "nom": "Institut de recherche militaire terrestre de Porto (IRMTP)",
+        "localisation": "Lisbonne",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761431985
+      },
+      {
+        "nom": "Institut de recherche militaire terrestre de Braga (IRMTB)",
+        "localisation": "Lisbonne",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761432024
+      },
+      {
+        "nom": "Institut de recherche militaire a\u00e9ronautique de Porto (IRMAP)",
+        "localisation": "Lisbonne",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761432047
+      },
+      {
+        "nom": "Institut de recherche militaire naval de Porto (IRMNP)",
+        "localisation": "Porto",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761432342
+      },
+      {
+        "nom": "Institut de recherche militaire terrestre de Coimbra (IRMTC)",
+        "localisation": "Lisbonne",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761468422
+      },
+      {
+        "nom": "Institut de recherche militaire naval de Set\u00fabal (IRMNS)",
+        "localisation": "Set\u00fabal",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761468470
+      },
+      {
+        "nom": "Institut de recherche militaire a\u00e9ronautique de Seb\u00fatal (IRMAS)",
+        "localisation": "Seb\u00fatal",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761468660
+      },
+      {
+        "nom": "Institut de recherche militaire terrestre de Seb\u00fatal (IRMTS)",
+        "localisation": "Seb\u00fatal",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761468815
+      }
+    ],
+    "1431674526453731378": [
+      {
+        "nom": "Centre de recherche maritime",
+        "localisation": "Navy Town",
+        "specialisation": "Marine",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761432917
+      }
+    ],
+    "1428875124416970823": [
+      {
+        "nom": "Centre Technologique al-Nasra",
+        "localisation": "Sana'a",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761441713
+      },
+      {
+        "nom": "Centre 515",
+        "localisation": "Ta'izz",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761442196
+      },
+      {
+        "nom": "Centre Uthm\u0101n'",
+        "localisation": "Salalah",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761443535
+      },
+      {
+        "nom": "Centre 610",
+        "localisation": "Sa'dah",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761443573
+      },
+      {
+        "nom": "Centre Salazar",
+        "localisation": "Mayyun (\u00eele)",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761444812
+      },
+      {
+        "nom": "Centre Umeyya",
+        "localisation": "Marib",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761445856
+      },
+      {
+        "nom": "Centre Abbassi",
+        "localisation": "Ibb",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761445889
+      },
+      {
+        "nom": "Centre al-Iza",
+        "localisation": "Dhamar",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761447503
+      },
+      {
+        "nom": "Centre T\u0101lib",
+        "localisation": "al Bayda",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761448225
+      },
+      {
+        "nom": "Centre Kh\u0101l\u0131l",
+        "localisation": "Mudiyah",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761448446
+      },
+      {
+        "nom": "Centre Ath\u0101riyy\u0101",
+        "localisation": "Mocha",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761448803
+      },
+      {
+        "nom": "Centre Kh\u0101lid",
+        "localisation": "Dhalkut",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761449376
+      },
+      {
+        "nom": "Centre Abu Bakr",
+        "localisation": "Sarfayt",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761449483
+      }
+    ],
+    "1424947646195564706": [
+      {
+        "nom": "bureau d'\u00e9tudes de Nambu",
+        "localisation": "Nagoya",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492457
+      },
+      {
+        "nom": "bureau d'\u00e9tude d'Arisaka",
+        "localisation": "Tokyo",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492511
+      },
+      {
+        "nom": "bureau d'\u00e9tudes de Mitsubishi",
+        "localisation": "Matsudo",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492530
+      },
+      {
+        "nom": "bureau d'\u00e9tudes de Mitsubishi 2",
+        "localisation": "Chiba",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492576
+      },
+      {
+        "nom": "bureau d'\u00e9tudes de Mitsubishi 3",
+        "localisation": "Kure",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492619
+      },
+      {
+        "nom": "bureau d'\u00e9tudes de Kawasaki",
+        "localisation": "Fukuoka",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761492634
+      },
+      {
+        "nom": "bureau d'\u00e9tudes de Nakajima",
+        "localisation": "Ojima",
+        "specialisation": "A\u00e9rien",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761492651
+      }
+    ],
+    "1426929775955411085": [
+      {
+        "nom": "Khor al Amal",
+        "localisation": "Ahwaz",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761496187
+      },
+      {
+        "nom": "Nasrallah",
+        "localisation": "Nasiriyah",
+        "specialisation": "A\u00e9rien",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761496652
+      },
+      {
+        "nom": "Qadisiyah",
+        "localisation": "Bandar E Emam Khomeini",
+        "specialisation": "Marine",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761513329
+      },
+      {
+        "nom": "Dammam",
+        "localisation": "Dammam",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1762000026
+      },
+      {
+        "nom": "koweit",
+        "localisation": "koweit",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1762000044
+      },
+      {
+        "nom": "Kut",
+        "localisation": "Kut",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1762000067
+      },
+      {
+        "nom": "dezful",
+        "localisation": "dezful",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1762018305
+      }
+    ],
+    "1426948101880418424": [
+      {
+        "nom": "Nura",
+        "localisation": "M\u00e9dina",
+        "specialisation": "Marine",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761511015
+      },
+      {
+        "nom": "Al-Sayf",
+        "localisation": "Nejd",
+        "specialisation": "A\u00e9rien",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761511041
+      },
+      {
+        "nom": "Nuriya",
+        "localisation": "Sud M\u00e9cquois",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761511079
+      },
+      {
+        "nom": "Markaz al-Fath al-Jaww\u012b",
+        "localisation": "Khaybar",
+        "specialisation": "A\u00e9rien",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761511280
+      },
+      {
+        "nom": "Bayt al-Jihad wa al-Dif",
+        "localisation": "Al-Kharj",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761511314
+      },
+      {
+        "nom": "Ma'had al-Ba\u1e25r wa al-Quwwa",
+        "localisation": "Al Qunfudhah",
+        "specialisation": "Marine",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761511347
+      }
+    ],
+    "1425199137015464067": [
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b01",
+        "localisation": "Madrid",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516632
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b02",
+        "localisation": "Madrid",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516674
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b03",
+        "localisation": "Madrid",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516705
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b04",
+        "localisation": "Madrid",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516741
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b05",
+        "localisation": "Valence",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516772
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b06",
+        "localisation": "Valence",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516801
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b07",
+        "localisation": "Valladolid",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516840
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b08",
+        "localisation": "Valladolid",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516901
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b09",
+        "localisation": "Saragosse",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516933
+      },
+      {
+        "nom": "Institut Imp\u00e9rial de recherche militaire | Complexe n\u00b010",
+        "localisation": "Valence",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761516968
+      }
+    ],
+    "1428867055314272367": [
+      {
+        "nom": "Institut Naval Imp\u00e9rial",
+        "localisation": "Cork",
+        "specialisation": "Marine",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761526943
+      },
+      {
+        "nom": "Institut Terrestre Imp\u00e9rial",
+        "localisation": "Kilkenny",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761527103
+      },
+      {
+        "nom": "Institut A\u00e9rien Imp\u00e9rial",
+        "localisation": "Shannon",
+        "specialisation": "A\u00e9rien",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761527165
+      }
+    ],
+    "1425449117865480212": [
+      {
+        "nom": "Centre Technologique Terrestre n\u00b01",
+        "localisation": "Novgorod",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761534823
+      },
+      {
+        "nom": "Centre Technologique A\u00e9rien n\u00b01",
+        "localisation": "Novgorod",
+        "specialisation": "A\u00e9rien",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761534952
+      },
+      {
+        "nom": "Centre Technologique Terrestre n\u00b02",
+        "localisation": "Louga",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761534992
+      },
+      {
+        "nom": "Centre Technologique A\u00e9rien n\u00b02",
+        "localisation": "Louga",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761535022
+      },
+      {
+        "nom": "Centre Technologique Terrestre n\u00b03",
+        "localisation": "Valda\u00ef",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761535083
+      },
+      {
+        "nom": "Centre Technologique A\u00e9rien n\u00b03",
+        "localisation": "Valda\u00ef",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761535125
+      }
+    ],
+    "1430876100430528643": [
+      {
+        "nom": "CRM-01",
+        "localisation": "Ville d'Hanoi",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556092
+      },
+      {
+        "nom": "CRM-02",
+        "localisation": "Ville de Prapang",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556146
+      },
+      {
+        "nom": "CRM-03",
+        "localisation": "Nam Dinh",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556196
+      },
+      {
+        "nom": "CRM-04",
+        "localisation": "Vinh",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556242
+      },
+      {
+        "nom": "CRM-05",
+        "localisation": "Ha Tinh",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556256
+      },
+      {
+        "nom": "CRM-06",
+        "localisation": "Hai Phong",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556287
+      },
+      {
+        "nom": "CRN-01",
+        "localisation": "Ngu Loc",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556322
+      },
+      {
+        "nom": "CRA-01",
+        "localisation": "Ville d'Hanoi",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556343
+      },
+      {
+        "nom": "CRM-07",
+        "localisation": "Ville d'Hanoi",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556362
+      },
+      {
+        "nom": "CRM-08",
+        "localisation": "Hoi An",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761556382
+      }
+    ],
+    "1425735656323285052": [
+      {
+        "nom": "IM",
+        "localisation": "Grand Zimbabwe",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761562240
+      },
+      {
+        "nom": "IMN",
+        "localisation": "Sofala",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761562399
+      },
+      {
+        "nom": "IMA",
+        "localisation": "Grand Zimbabwe",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761562420
+      }
+    ],
+    "1426531033964347432": [
+      {
+        "nom": "L'institue du Cerf",
+        "localisation": "Londres",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761593557
+      }
+    ],
+    "1425935121311338720": [
+      {
+        "nom": "Centre Technologique Naval de Durban",
+        "localisation": "Durban",
+        "specialisation": "Marine",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761610674
+      },
+      {
+        "nom": "Centre Technologique Terrestre du Kap",
+        "localisation": "Le Kap",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761610729
+      }
+    ],
+    "1425604209310564502": [
+      {
+        "nom": "Research Center - AURION",
+        "localisation": "38\u00b052'15.4\"N 77\u00b003'21.4\"W",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761661717
+      },
+      {
+        "nom": "Research Center - LYRA",
+        "localisation": "41\u00b039'33.9\"N 78\u00b056'55.3\"W",
+        "specialisation": "A\u00e9rien",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761661796
+      },
+      {
+        "nom": "Research Center - EDEN",
+        "localisation": "43\u00b045'48.2\"N 69\u00b019'33.2\"W",
+        "specialisation": "Armes de Destruction Massive",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761810111
+      }
+    ],
+    "1429462686105604147": [
+      {
+        "nom": "Centre technologique soleil",
+        "localisation": "sera pr\u00e9ciser en carte",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761702337
+      }
+    ],
+    "1429123273341534319": [
+      {
+        "nom": "Centre Technologique de Carthage",
+        "localisation": "Carthage",
+        "specialisation": "Marine",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761704093
+      },
+      {
+        "nom": "Centre Technologique de Tunis",
+        "localisation": "Tunis",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761704146
+      },
+      {
+        "nom": "Centre Technologique de Cagliari",
+        "localisation": "Cagliari",
+        "specialisation": "A\u00e9rien",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761704210
+      }
+    ],
+    "1425423630115930112": [
+      {
+        "nom": "Helix \u2014 Bastion Fabrication Unit (BFU)",
+        "localisation": "59.87738742677324, 8.579570534726859",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761735298
+      },
+      {
+        "nom": "Helix \u2014 Vault P4",
+        "localisation": "59.875948617194894, 8.593324065087305",
+        "specialisation": "Armes de Destruction Massive",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1761735377
+      }
+    ],
+    "1426538320447668387": [
+      {
+        "nom": "L'institue de l'arm\u00e9e de Terre",
+        "localisation": "Karagandy",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761772821
+      }
+    ],
+    "1424798099448266843": [
+      {
+        "nom": "National Experimental Warfare Laboratory",
+        "localisation": "Fort Myers",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761829651
+      },
+      {
+        "nom": "George Lincoln Rockwell Military Experimental Center",
+        "localisation": "Savannah",
+        "specialisation": "Terrestre",
+        "niveau": 3,
+        "emplacements_max": 3,
+        "developpements": [],
+        "date_creation": 1761829828
+      },
+      {
+        "nom": "Wernher von Braun Aviation Institute",
+        "localisation": "Tampa",
+        "specialisation": "A\u00e9rien",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761830939
+      }
+    ],
+    "1430698325719519294": [
+      {
+        "nom": "Robert Stirling Center for Science",
+        "localisation": "Lerwick, \u00celes Shetland",
+        "specialisation": "Terrestre",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761867145
+      },
+      {
+        "nom": "Niels Ryberg Finsen Center for Science",
+        "localisation": "T\u00f3rshavn, \u00celes F\u00e9ro\u00e9",
+        "specialisation": "Marine",
+        "niveau": 2,
+        "emplacements_max": 2,
+        "developpements": [],
+        "date_creation": 1761867209
+      }
+    ],
+    "1434279448051581111": [
+      {
+        "nom": "Centre Technologique de Tlemcen (CTT)",
+        "localisation": "Tlemcen",
+        "specialisation": "Terrestre",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1762102772
+      },
+      {
+        "nom": "Centre Technologique de Nouakchott (CTN)",
+        "localisation": "Nouakchott",
+        "specialisation": "Marine",
+        "niveau": 1,
+        "emplacements_max": 1,
+        "developpements": [],
+        "date_creation": 1762102893
+      }
+    ]
+  }
+}

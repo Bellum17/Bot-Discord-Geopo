@@ -1,0 +1,19 @@
+{
+  "mode": "json_fallback",
+  "reason": "postgresql_econnreset",
+  "timestamp": "2025-10-14T22:18:36.234039",
+  "postgres_status": "unavailable",
+  "features_available": [
+    "discord_bot_commands",
+    "backup_system",
+    "restore_system",
+    "delete_backup",
+    "json_data_storage"
+  ],
+  "features_unavailable": [
+    "postgresql_connection",
+    "database_queries",
+    "persistent_storage"
+  ],
+  "note": "Système temporaire en attendant la réparation de PostgreSQL"
+}

@@ -1,0 +1,26 @@
+{
+  "1393301496283795640": {
+    "1304874709648670730": {
+      "warns": [
+        {
+          "id": 1,
+          "raison": "Promotion d'id\u00e9ologies haineuses, int\u00e9r\u00eat favorable visible en faveur du n\u00e9o-nazisme",
+          "moderateur": 772821169664426025,
+          "date": "2025-10-20T21:53:08.687528"
+        }
+      ],
+      "next_id": 2
+    },
+    "974673226976350318": {
+      "warns": [
+        {
+          "id": 1,
+          "raison": "manipulation de joueur dans le cadre HRP",
+          "moderateur": 1316838776223301724,
+          "date": "2025-10-26T12:39:20.265817"
+        }
+      ],
+      "next_id": 2
+    }
+  }
+}

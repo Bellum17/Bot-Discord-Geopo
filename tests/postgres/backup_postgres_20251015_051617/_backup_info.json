@@ -1,0 +1,7 @@
+{
+  "backup_date": "2025-10-15T05:16:18.392475",
+  "database_url": "mainline.proxy.rlwy.net:21779/railway",
+  "files_saved": 23,
+  "backup_folder": "backup_postgres_20251015_051617",
+  "description": "Sauvegarde locale des données PostgreSQL"
+}
