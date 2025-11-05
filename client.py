@@ -1666,33 +1666,33 @@ async def creer_pays(
             )
             embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
             await interaction.followup.send(embed=embed)
-            # Message de bienvenue de création de pays désactivé temporairement
-            # bienvenue_channel_id = 1393945519327281153
-            # bienvenue_channel = interaction.guild.get_channel(bienvenue_channel_id)
-            # if bienvenue_channel:
-            #     # Récupération des rôles pour l'affichage
-            #     regime_role = interaction.guild.get_role(int(regime_politique)) if regime_politique else None
-            #     gouvernement_role = interaction.guild.get_role(int(gouvernement)) if gouvernement else None
-            #     religion_role = interaction.guild.get_role(int(religion)) if religion else None
-            #     continent_role = interaction.guild.get_role(int(continent)) if continent else None
-            #     drapeau_emoji = drapeau_perso if drapeau_perso else ""
-            #     bienvenue_embed = discord.Embed(
-            #         title="🏛️ | Un nouveau Pays fait son apparition",
-            #         description=(
-            #             "⠀\n"
-            #             f"> − **Nom du pays** : {role.mention}\n"
-            #             f"> − **Gouvernement** : {gouvernement_role.mention if gouvernement_role else 'Non défini'}\n"
-            #             f"> − **Régime Politique** : {regime_role.mention if regime_role else 'Non défini'}\n"
-            #             f"> − **Religion** : {religion_role.mention if religion_role else 'Non défini'}\n"
-            #             f"> − **Continent** : {continent_role.mention if continent_role else 'Non défini'}\n"
-            #             f"> − **Drapeau personnalisé** : {drapeau_emoji}\n"
-            #             "> \n"
-            #             f"> En te souhaitant une belle expérience {dirigeant.mention} sur **PAX RUINAE** !\n⠀"
-            #         ),
-            #         color=0x162e50
-            #     )
-            #     bienvenue_embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
-            #     await bienvenue_channel.send(embed=bienvenue_embed)
+            # Envoi du message de bienvenue dans le salon spécifique
+            bienvenue_channel_id = 1393945519327281153
+            bienvenue_channel = interaction.guild.get_channel(bienvenue_channel_id)
+            if bienvenue_channel:
+                # Récupération des rôles pour l'affichage
+                regime_role = interaction.guild.get_role(int(regime_politique)) if regime_politique else None
+                gouvernement_role = interaction.guild.get_role(int(gouvernement)) if gouvernement else None
+                religion_role = interaction.guild.get_role(int(religion)) if religion else None
+                continent_role = interaction.guild.get_role(int(continent)) if continent else None
+                drapeau_emoji = drapeau_perso if drapeau_perso else ""
+                bienvenue_embed = discord.Embed(
+                    title="🏛️ | Un nouveau Pays fait son apparition",
+                    description=(
+                        "⠀\n"
+                        f"> − **Nom du pays** : {role.mention}\n"
+                        f"> − **Gouvernement** : {gouvernement_role.mention if gouvernement_role else 'Non défini'}\n"
+                        f"> − **Régime Politique** : {regime_role.mention if regime_role else 'Non défini'}\n"
+                        f"> − **Religion** : {religion_role.mention if religion_role else 'Non défini'}\n"
+                        f"> − **Continent** : {continent_role.mention if continent_role else 'Non défini'}\n"
+                        f"> − **Drapeau personnalisé** : {drapeau_emoji}\n"
+                        "> \n"
+                        f"> En te souhaitant une belle expérience {dirigeant.mention} sur **PAX RUINAE** !\n⠀"
+                    ),
+                    color=0x162e50
+                )
+                bienvenue_embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
+                await bienvenue_channel.send(embed=bienvenue_embed)
         except Exception as e:
             print(f"[ERROR] Envoi embed confirmation : {e}")
             await interaction.followup.send(f"> Pays créé, mais erreur lors de l'envoi du message : {e}", ephemeral=True)
@@ -4742,6 +4742,332 @@ async def reset_debt(interaction: discord.Interaction, role: discord.Role = None
     )
     await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
 
+@bot.tree.command(name="gestion_roles", description="Ajoute plusieurs rôles aux membres ayant un rôle spécifique")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(
+    action="Action à effectuer (ajouter ou retirer les rôles)"
+)
+async def gestion_roles(interaction: discord.Interaction, action: str = "ajouter"):
+    """Ajoute ou retire les 6 rôles spécifiques aux membres ayant le rôle 1393408438209482782."""
+    await interaction.response.defer(ephemeral=True)
+    
+    # Rôle de base à rechercher
+    role_base_id = 1393408438209482782
+    
+    # Rôles à ajouter/retirer
+    roles_to_manage = [
+        1393344683706417152,  # Rôle 1
+        1410256979158634596,  # Rôle 2  
+        1410803492225941555,  # Rôle 3
+        1410802493616685096,  # Rôle 4
+        1393340583665209514,  # Rôle 5
+        1393345247697834044   # Rôle 6
+    ]
+    
+    guild = interaction.guild
+    role_base = guild.get_role(role_base_id)
+    
+    if not role_base:
+        embed_error = discord.Embed(
+            title="❌ | Erreur",
+            description="Le rôle de base n'a pas été trouvé sur ce serveur.",
+            color=0xFF0000
+        )
+        await interaction.followup.send(embed=embed_error, ephemeral=True)
+        return
+    
+    # Récupérer tous les rôles à gérer
+    roles_objects = []
+    roles_not_found = []
+    
+    for role_id in roles_to_manage:
+        role_obj = guild.get_role(role_id)
+        if role_obj:
+            roles_objects.append(role_obj)
+        else:
+            roles_not_found.append(role_id)
+    
+    if roles_not_found:
+        embed_warning = discord.Embed(
+            title="⚠️ | Attention",
+            description=f"Certains rôles n'ont pas été trouvés : {', '.join(map(str, roles_not_found))}",
+            color=0xFFFF00
+        )
+        await interaction.followup.send(embed=embed_warning, ephemeral=True)
+    
+    # Récupérer tous les membres ayant le rôle de base
+    membres_avec_role = [member for member in guild.members if role_base in member.roles]
+    
+    if not membres_avec_role:
+        embed_info = discord.Embed(
+            title="ℹ️ | Information",
+            description=f"Aucun membre n'a le rôle {role_base.mention}.",
+            color=0x3498DB
+        )
+        await interaction.followup.send(embed=embed_info, ephemeral=True)
+        return
+    
+    # Statistiques
+    membres_modifies = 0
+    erreurs = 0
+    membres_modifies_ids = []  # Liste pour enregistrer les IDs des membres modifiés
+    
+    # Action d'ajout ou de retrait
+    action_verb = "ajoutés" if action.lower() == "ajouter" else "retirés"
+    action_emoji = "➕" if action.lower() == "ajouter" else "➖"
+    
+    for member in membres_avec_role:
+        try:
+            if action.lower() == "ajouter":
+                # Ajouter les rôles manquants
+                roles_to_add = [role for role in roles_objects if role not in member.roles]
+                if roles_to_add:
+                    await member.add_roles(*roles_to_add, reason=f"Gestion automatique des rôles par {interaction.user}")
+                    membres_modifies += 1
+                    membres_modifies_ids.append(member.id)  # Enregistrer l'ID
+            else:
+                # Retirer les rôles présents
+                roles_to_remove = [role for role in roles_objects if role in member.roles]
+                if roles_to_remove:
+                    await member.remove_roles(*roles_to_remove, reason=f"Gestion automatique des rôles par {interaction.user}")
+                    membres_modifies += 1
+                    membres_modifies_ids.append(member.id)  # Enregistrer l'ID
+        except discord.Forbidden:
+            erreurs += 1
+            print(f"[WARN] Impossible de modifier les rôles de {member} (permission refusée)")
+        except discord.HTTPException as e:
+            erreurs += 1
+            print(f"[WARN] Erreur lors de la modification des rôles de {member}: {e}")
+    
+    # Enregistrer les IDs dans un fichier JSON
+    if membres_modifies_ids and action.lower() == "ajouter":
+        try:
+            # Charger le fichier existant ou créer un nouveau dictionnaire
+            ban_secours_file = "data/ban_secours.json"
+            try:
+                with open(ban_secours_file, 'r', encoding='utf-8') as f:
+                    ban_data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                ban_data = {"membres_modifies": [], "derniere_modification": ""}
+            
+            # Ajouter les nouveaux IDs (éviter les doublons)
+            for member_id in membres_modifies_ids:
+                if member_id not in ban_data["membres_modifies"]:
+                    ban_data["membres_modifies"].append(member_id)
+            
+            # Mettre à jour la date de dernière modification
+            ban_data["derniere_modification"] = datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')
+            ban_data["total_membres"] = len(ban_data["membres_modifies"])
+            
+            # Sauvegarder le fichier
+            with open(ban_secours_file, 'w', encoding='utf-8') as f:
+                json.dump(ban_data, f, indent=4, ensure_ascii=False)
+            
+            print(f"[INFO] {len(membres_modifies_ids)} IDs ajoutés au fichier ban_secours.json")
+        except Exception as e:
+            print(f"[ERROR] Impossible de sauvegarder les IDs pour ban_secours: {e}")
+    
+    # Créer l'embed de résultat
+    embed_result = discord.Embed(
+        title=f"{action_emoji} | Gestion des rôles terminée",
+        description=(
+            f"> **Rôle de base :** {role_base.mention}\n"
+            f"> **Membres concernés :** {len(membres_avec_role)}\n"
+            f"> **Membres modifiés :** {membres_modifies}\n"
+            f"> **Erreurs :** {erreurs}\n"
+            f"> **Rôles {action_verb} :** {len(roles_objects)}"
+        ),
+        color=0x00FF00 if erreurs == 0 else 0xFFFF00,
+        timestamp=datetime.datetime.now()
+    )
+    
+    # Ajouter la liste des rôles gérés
+    roles_list = "\n".join([f"• {role.mention}" for role in roles_objects])
+    if roles_list:
+        embed_result.add_field(
+            name=f"Rôles {action_verb}",
+            value=roles_list,
+            inline=False
+        )
+    
+    await interaction.followup.send(embed=embed_result, ephemeral=True)
+    
+    # Log de l'action
+    embed_log = discord.Embed(
+        title=f"{action_emoji} | Gestion des rôles",
+        description=(
+            f"> **Administrateur :** {interaction.user.mention}\n"
+            f"> **Action :** {action.capitalize()} des rôles\n"
+            f"> **Rôle de base :** {role_base.mention}\n"
+            f"> **Membres modifiés :** {membres_modifies}/{len(membres_avec_role)}\n"
+            f"> **Date :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+        ),
+        color=0x3498DB,
+        timestamp=datetime.datetime.now()
+    )
+    await send_log(interaction.guild, embed=embed_log)
+
+# Modal de confirmation pour ban_secours
+class BanSecoursModal(discord.ui.Modal, title="⚠️ Confirmation Ban de Secours"):
+    def __init__(self):
+        super().__init__()
+    
+    code_confirmation = discord.ui.TextInput(
+        label="Code de confirmation",
+        placeholder="Entrez le code de sécurité...",
+        required=True,
+        max_length=6
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.code_confirmation.value.strip() == "240806":
+            # Code correct, procéder au ban
+            await self.execute_ban_secours(interaction)
+        else:
+            # Code incorrect
+            embed_error = discord.Embed(
+                title="❌ | Code incorrect",
+                description="Le code de confirmation est incorrect. Opération annulée.",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(embed=embed_error, ephemeral=True)
+    
+    async def execute_ban_secours(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        
+        # Charger le fichier ban_secours.json
+        ban_secours_file = "data/ban_secours.json"
+        try:
+            with open(ban_secours_file, 'r', encoding='utf-8') as f:
+                ban_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            embed_error = discord.Embed(
+                title="❌ | Erreur",
+                description="Aucune donnée de ban de secours trouvée.",
+                color=0xFF0000
+            )
+            await interaction.followup.send(embed=embed_error, ephemeral=True)
+            return
+        
+        membres_ids = ban_data.get("membres_modifies", [])
+        if not membres_ids:
+            embed_info = discord.Embed(
+                title="ℹ️ | Information",
+                description="Aucun membre enregistré pour le ban de secours.",
+                color=0x3498DB
+            )
+            await interaction.followup.send(embed=embed_info, ephemeral=True)
+            return
+        
+        guild = interaction.guild
+        membres_bannis = 0
+        erreurs = 0
+        membres_introuvables = 0
+        
+        # Bannir tous les membres enregistrés
+        for member_id in membres_ids:
+            try:
+                member = guild.get_member(member_id)
+                if member:
+                    await member.ban(reason=f"Ban de secours exécuté par {interaction.user}")
+                    membres_bannis += 1
+                    print(f"[BAN_SECOURS] Membre banni: {member} ({member_id})")
+                else:
+                    membres_introuvables += 1
+                    print(f"[BAN_SECOURS] Membre introuvable: {member_id}")
+            except discord.Forbidden:
+                erreurs += 1
+                print(f"[BAN_SECOURS] Permission refusée pour bannir: {member_id}")
+            except discord.HTTPException as e:
+                erreurs += 1
+                print(f"[BAN_SECOURS] Erreur lors du ban de {member_id}: {e}")
+        
+        # Créer l'embed de résultat
+        embed_result = discord.Embed(
+            title="🔨 | Ban de Secours Exécuté",
+            description=(
+                f"> **Total enregistré :** {len(membres_ids)}\n"
+                f"> **Membres bannis :** {membres_bannis}\n"
+                f"> **Membres introuvables :** {membres_introuvables}\n"
+                f"> **Erreurs :** {erreurs}\n"
+                f"> **Exécuté par :** {interaction.user.mention}\n"
+                f"> **Date :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+            ),
+            color=0xFF6B6B,
+            timestamp=datetime.datetime.now()
+        )
+        
+        await interaction.followup.send(embed=embed_result, ephemeral=True)
+        
+        # Log de l'action
+        embed_log = discord.Embed(
+            title="🔨 | Ban de Secours",
+            description=(
+                f"> **Administrateur :** {interaction.user.mention}\n"
+                f"> **Membres bannis :** {membres_bannis}/{len(membres_ids)}\n"
+                f"> **Introuvables :** {membres_introuvables}\n"
+                f"> **Erreurs :** {erreurs}\n"
+                f"> **Date :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+            ),
+            color=0xFF0000,
+            timestamp=datetime.datetime.now()
+        )
+        await send_log(interaction.guild, embed=embed_log)
+        
+        # Optionnel: Vider le fichier après utilisation
+        try:
+            ban_data["membres_modifies"] = []
+            ban_data["derniere_utilisation"] = datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')
+            ban_data["total_membres"] = 0
+            with open(ban_secours_file, 'w', encoding='utf-8') as f:
+                json.dump(ban_data, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"[ERROR] Impossible de vider le fichier ban_secours: {e}")
+
+@bot.tree.command(name="ban_secours", description="Ban d'urgence de tous les membres enregistrés par gestion_roles")
+@app_commands.checks.has_permissions(administrator=True)
+async def ban_secours(interaction: discord.Interaction):
+    """Commande de ban de secours avec confirmation par code."""
+    
+    # Vérifier d'abord s'il y a des membres enregistrés
+    ban_secours_file = "data/ban_secours.json"
+    try:
+        with open(ban_secours_file, 'r', encoding='utf-8') as f:
+            ban_data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        ban_data = {"membres_modifies": []}
+    
+    membres_count = len(ban_data.get("membres_modifies", []))
+    
+    if membres_count == 0:
+        embed_info = discord.Embed(
+            title="ℹ️ | Information",
+            description="Aucun membre enregistré pour le ban de secours.",
+            color=0x3498DB
+        )
+        await interaction.response.send_message(embed=embed_info, ephemeral=True)
+        return
+    
+    # Afficher les informations et demander confirmation
+    embed_warning = discord.Embed(
+        title="⚠️ | ATTENTION - Ban de Secours",
+        description=(
+            f"Vous êtes sur le point de bannir **{membres_count} membres**.\n\n"
+            f"**Cette action est IRRÉVERSIBLE !**\n\n"
+            f"Pour confirmer, entrez le code de sécurité dans le formulaire qui va s'ouvrir."
+        ),
+        color=0xFF6B6B
+    )
+    embed_warning.add_field(
+        name="🔍 Membres concernés",
+        value=f"{membres_count} membres enregistrés par la commande gestion_roles",
+        inline=False
+    )
+    
+    # Créer et envoyer le modal
+    modal = BanSecoursModal()
+    await interaction.response.send_modal(modal)
+
     # === Mise à jour des salons vocaux de stats ===
 
 async def update_stats_voice_channels(guild):
@@ -4856,7 +5182,7 @@ async def on_member_update(before, after):
         return
     before_roles = set(r.id for r in before.roles)
     after_roles = set(r.id for r in after.roles)
-    # Messages de bienvenue désactivés temporairement
+    # Messages de bienvenue temporairement désactivés
     # if WELCOME_ROLE_ID not in before_roles and WELCOME_ROLE_ID in after_roles:
     #     channel = guild.get_channel(WELCOME_CHANNEL_ID)
     #     if channel:
