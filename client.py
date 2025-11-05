@@ -4669,6 +4669,7 @@ async def remboursement(
 )
 async def reset_debt(interaction: discord.Interaction, role: discord.Role = None):
     """Supprime toutes les dettes et emprunts ou celles d'un rôle spécifique."""
+    global loans
     await interaction.response.defer(ephemeral=True)
     
     if role:
@@ -4684,7 +4685,6 @@ async def reset_debt(interaction: discord.Interaction, role: discord.Role = None
             montant_total += int(principal * (1 + taux / 100))
         
         # Supprimer les emprunts du rôle
-        global loans
         loans = [emprunt for emprunt in loans if emprunt.get("demandeur_id") != str(role.id)]
         
         # Message de confirmation
