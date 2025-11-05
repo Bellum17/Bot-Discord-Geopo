@@ -4826,8 +4826,11 @@ async def gestion_roles(interaction: discord.Interaction, action: str = "ajouter
                     membres_modifies += 1
                     membres_modifies_ids.append(member.id)  # Enregistrer l'ID
             else:
-                # Retirer les rôles présents
+                # Retirer les rôles présents (incluant le rôle de base)
                 roles_to_remove = [role for role in roles_objects if role in member.roles]
+                # Ajouter le rôle de base à la liste des rôles à retirer
+                if role_base in member.roles:
+                    roles_to_remove.append(role_base)
                 if roles_to_remove:
                     await member.remove_roles(*roles_to_remove, reason=f"Gestion automatique des rôles par {interaction.user}")
                     membres_modifies += 1
@@ -5082,10 +5085,14 @@ async def update_stats_voice_channels(guild):
     if not category or not isinstance(category, discord.CategoryChannel):
         print(f"[STATS VOICE] Catégorie non trouvée ou invalide : {category}")
         return
-    membres_role = guild.get_role(membres_role_id)
+    
+    # Compter TOUS les membres du serveur, pas seulement ceux avec le rôle
+    membres_count = guild.member_count
+    
+    # Compter les joueurs (ceux qui ont le rôle joueurs)
     joueurs_role = guild.get_role(joueurs_role_id)
-    membres_count = len(membres_role.members) if membres_role else 0
     joueurs_count = len(joueurs_role.members) if joueurs_role else 0
+    
     # Cherche les salons existants
     membres_channel = None
     joueurs_channel = None
