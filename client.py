@@ -1666,33 +1666,33 @@ async def creer_pays(
             )
             embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
             await interaction.followup.send(embed=embed)
-            # Envoi du message de bienvenue dans le salon spécifique
-            bienvenue_channel_id = 1393945519327281153
-            bienvenue_channel = interaction.guild.get_channel(bienvenue_channel_id)
-            if bienvenue_channel:
-                # Récupération des rôles pour l'affichage
-                regime_role = interaction.guild.get_role(int(regime_politique)) if regime_politique else None
-                gouvernement_role = interaction.guild.get_role(int(gouvernement)) if gouvernement else None
-                religion_role = interaction.guild.get_role(int(religion)) if religion else None
-                continent_role = interaction.guild.get_role(int(continent)) if continent else None
-                drapeau_emoji = drapeau_perso if drapeau_perso else ""
-                bienvenue_embed = discord.Embed(
-                    title="🏛️ | Un nouveau Pays fait son apparition",
-                    description=(
-                        "⠀\n"
-                        f"> − **Nom du pays** : {role.mention}\n"
-                        f"> − **Gouvernement** : {gouvernement_role.mention if gouvernement_role else 'Non défini'}\n"
-                        f"> − **Régime Politique** : {regime_role.mention if regime_role else 'Non défini'}\n"
-                        f"> − **Religion** : {religion_role.mention if religion_role else 'Non défini'}\n"
-                        f"> − **Continent** : {continent_role.mention if continent_role else 'Non défini'}\n"
-                        f"> − **Drapeau personnalisé** : {drapeau_emoji}\n"
-                        "> \n"
-                        f"> En te souhaitant une belle expérience {dirigeant.mention} sur **PAX RUINAE** !\n⠀"
-                    ),
-                    color=0x162e50
-                )
-                bienvenue_embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
-                await bienvenue_channel.send(embed=bienvenue_embed)
+            # Message de bienvenue de création de pays désactivé temporairement
+            # bienvenue_channel_id = 1393945519327281153
+            # bienvenue_channel = interaction.guild.get_channel(bienvenue_channel_id)
+            # if bienvenue_channel:
+            #     # Récupération des rôles pour l'affichage
+            #     regime_role = interaction.guild.get_role(int(regime_politique)) if regime_politique else None
+            #     gouvernement_role = interaction.guild.get_role(int(gouvernement)) if gouvernement else None
+            #     religion_role = interaction.guild.get_role(int(religion)) if religion else None
+            #     continent_role = interaction.guild.get_role(int(continent)) if continent else None
+            #     drapeau_emoji = drapeau_perso if drapeau_perso else ""
+            #     bienvenue_embed = discord.Embed(
+            #         title="🏛️ | Un nouveau Pays fait son apparition",
+            #         description=(
+            #             "⠀\n"
+            #             f"> − **Nom du pays** : {role.mention}\n"
+            #             f"> − **Gouvernement** : {gouvernement_role.mention if gouvernement_role else 'Non défini'}\n"
+            #             f"> − **Régime Politique** : {regime_role.mention if regime_role else 'Non défini'}\n"
+            #             f"> − **Religion** : {religion_role.mention if religion_role else 'Non défini'}\n"
+            #             f"> − **Continent** : {continent_role.mention if continent_role else 'Non défini'}\n"
+            #             f"> − **Drapeau personnalisé** : {drapeau_emoji}\n"
+            #             "> \n"
+            #             f"> En te souhaitant une belle expérience {dirigeant.mention} sur **PAX RUINAE** !\n⠀"
+            #         ),
+            #         color=0x162e50
+            #     )
+            #     bienvenue_embed.set_image(url=image if image and is_valid_image_url(image) else IMAGE_URL)
+            #     await bienvenue_channel.send(embed=bienvenue_embed)
         except Exception as e:
             print(f"[ERROR] Envoi embed confirmation : {e}")
             await interaction.followup.send(f"> Pays créé, mais erreur lors de l'envoi du message : {e}", ephemeral=True)
@@ -4856,19 +4856,20 @@ async def on_member_update(before, after):
         return
     before_roles = set(r.id for r in before.roles)
     after_roles = set(r.id for r in after.roles)
-    if WELCOME_ROLE_ID not in before_roles and WELCOME_ROLE_ID in after_roles:
-        channel = guild.get_channel(WELCOME_CHANNEL_ID)
-        if channel:
-            try:
-                await channel.send(WELCOME_PUBLIC_MESSAGE.format(mention=after.mention))
-            except Exception as exc:
-                print(f"[WARN] Impossible d'envoyer le message de bienvenue public: {exc}")
-        try:
-            await after.send(WELCOME_DM_MESSAGE)
-        except discord.Forbidden:
-            print(f"[WARN] Impossible d'envoyer un DM de bienvenue à {after} (forbidden)")
-        except discord.HTTPException as exc:
-            print(f"[WARN] Échec de l'envoi du DM de bienvenue: {exc}")
+    # Messages de bienvenue désactivés temporairement
+    # if WELCOME_ROLE_ID not in before_roles and WELCOME_ROLE_ID in after_roles:
+    #     channel = guild.get_channel(WELCOME_CHANNEL_ID)
+    #     if channel:
+    #         try:
+    #             await channel.send(WELCOME_PUBLIC_MESSAGE.format(mention=after.mention))
+    #         except Exception as exc:
+    #             print(f"[WARN] Impossible d'envoyer le message de bienvenue public: {exc}")
+    #     try:
+    #         await after.send(WELCOME_DM_MESSAGE)
+    #     except discord.Forbidden:
+    #         print(f"[WARN] Impossible d'envoyer un DM de bienvenue à {after} (forbidden)")
+    #     except discord.HTTPException as exc:
+    #         print(f"[WARN] Échec de l'envoi du DM de bienvenue: {exc}")
     if membres_role_id in before_roles or membres_role_id in after_roles or joueurs_role_id in before_roles or joueurs_role_id in after_roles:
         print(f"[DEBUG] Changement de rôle détecté pour {after.display_name} (avant: {before_roles}, après: {after_roles})")
         print(f"[DEBUG] Appel de update_stats_voice_channels pour guild: {guild.name} ({guild.id})")
