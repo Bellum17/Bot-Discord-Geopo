@@ -4049,14 +4049,143 @@ async def classement_lvl(interaction: discord.Interaction):
 
 # === SYSTÈME D'EMPRUNT AVEC TAUX ÉVOLUTIF ===
 
+class EmpruntConfirmationView(discord.ui.View):
+    """Vue de confirmation pour les emprunts avec simulation."""
+    
+    def __init__(self, user, somme, taux_mensuel, mois_nom, annee):
+        super().__init__(timeout=300)  # 5 minutes
+        self.user = user
+        self.somme = somme
+        self.taux_mensuel = taux_mensuel
+        self.mois_nom = mois_nom
+        self.annee = annee
+    
+    @discord.ui.button(label="✅ Confirmer l'emprunt", style=discord.ButtonStyle.green)
+    async def confirmer_emprunt(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Confirme et crée l'emprunt."""
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Vous n'êtes pas autorisé à utiliser ce bouton.", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        # Créer l'emprunt
+        demandeur_id = str(self.user.id)
+        banque_centrale_id = "BOT"
+        
+        # Crédit du demandeur
+        balances[demandeur_id] = balances.get(demandeur_id, 0) + self.somme
+        print(f"[DEBUG] Crédit du demandeur {self.user.name} (ID: {demandeur_id}), montant: {self.somme}")
+        
+        # Création de l'emprunt
+        emprunt = {
+            "id": f"{demandeur_id}-{int(time.time())}",
+            "demandeur_id": demandeur_id,
+            "role_id": None,  # Pas de rôle, toujours Banque centrale
+            "somme": self.somme,  # Montant initial
+            "montant_actuel": self.somme,  # Montant évolutif avec intérêts
+            "taux_mensuel_actuel": self.taux_mensuel,
+            "date_debut": int(time.time()),
+            "mois_debut": self.mois_nom,
+            "annee_debut": self.annee,
+            "remboursements": [],
+            "historique_interets": []
+        }
+        loans.append(emprunt)
+        save_loans(loans)
+        save_balances(balances)
+        
+        print(f"[DEBUG] Emprunt créé: demandeur={demandeur_id}, somme={self.somme}, taux={self.taux_mensuel}%")
+        print(f"[DEBUG] Total emprunts actifs: {len(loans)}")
+        
+        # Log de la transaction
+        log_transaction(
+            from_id=banque_centrale_id,
+            to_id=demandeur_id,
+            amount=self.somme,
+            transaction_type="emprunt",
+            guild_id=str(interaction.guild.id)
+        )
+        save_all_json_to_postgres()
+        
+        # Log embed
+        log_embed = discord.Embed(
+            title="💸 | Création d'emprunt",
+            description=(
+                f"> **Demandeur :** {self.user.mention}\n"
+                f"> **Montant :** {format_number(self.somme)} {MONNAIE_EMOJI}\n"
+                f"> **Taux mensuel :** {self.taux_mensuel}%\n"
+                f"> **Date RP :** {self.mois_nom} {self.annee}\n"
+                f"> **Débiteur :** Banque centrale{INVISIBLE_CHAR}"
+            ),
+            color=EMBED_COLOR,
+            timestamp=datetime.datetime.now()
+        )
+        await send_log(interaction.guild, embed=log_embed)
+        
+        # Log dans le salon staff
+        staff_channel_id = 1412876030980391063
+        staff_channel = interaction.guild.get_channel(staff_channel_id)
+        if staff_channel:
+            await staff_channel.send(embed=log_embed)
+        
+        # Réponse de confirmation
+        confirmation_embed = discord.Embed(
+            title="✅ | Emprunt créé avec succès",
+            description=(
+                f"> **Montant accordé :** {format_number(self.somme)} {MONNAIE_EMOJI}\n"
+                f"> **Taux d'intérêt mensuel :** {self.taux_mensuel}%\n"
+                f"> **Source :** Banque centrale\n"
+                f"> **Date RP :** {self.mois_nom} {self.annee}\n\n"
+                f"⚠️ **Important :** Les intérêts sont appliqués **automatiquement chaque mois RP** "
+                f"et le taux évolue selon le montant restant dû.\n\n"
+                f"⏳ **Remboursement :** Possible uniquement après **1 an minimum** (12 mois RP)."
+            ),
+            color=0x00FF00
+        )
+        
+        # Désactiver les boutons
+        for item in self.children:
+            item.disabled = True
+        
+        await interaction.edit_original_response(
+            content="**Emprunt confirmé et créé !**",
+            embed=confirmation_embed,
+            view=self
+        )
+    
+    @discord.ui.button(label="❌ Annuler", style=discord.ButtonStyle.red)
+    async def annuler_emprunt(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Annule l'emprunt."""
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Vous n'êtes pas autorisé à utiliser ce bouton.", ephemeral=True)
+            return
+        
+        # Désactiver les boutons
+        for item in self.children:
+            item.disabled = True
+        
+        embed = discord.Embed(
+            title="❌ Emprunt annulé",
+            description="L'emprunt a été annulé par l'utilisateur.",
+            color=0xFF0000
+        )
+        
+        await interaction.response.edit_message(
+            content="**Emprunt annulé**",
+            embed=embed,
+            view=self
+        )
+
+
 def get_taux_interet(montant):
     """
     Calcule le taux d'intérêt mensuel selon le montant emprunté.
     
     Tranches :
     - 0 à 200M : 4,15 %/mois
-    - 200M à 500M : 4,85 %/mois
-    - 500M à 800M : 5,55 %/mois
+    - 200M à 500M : 4,75 %/mois
+    - 500M à 800M : 5,50 %/mois
     - 800M à 1Md : 6,25 %/mois
     """
     montant_millions = montant / 1_000_000
@@ -4064,9 +4193,9 @@ def get_taux_interet(montant):
     if montant_millions <= 200:
         return 4.15
     elif montant_millions <= 500:
-        return 4.85
+        return 4.75
     elif montant_millions <= 800:
-        return 5.55
+        return 5.50
     else:  # 800M à 1Md
         return 6.25
 
@@ -4113,19 +4242,13 @@ def appliquer_interets_mensuels():
 
 @bot.tree.command(name="creer_emprunt", description="Emprunte de l'argent à la Banque centrale avec taux évolutif")
 @app_commands.describe(
-    somme="Montant à emprunter (maximum 1 milliard)",
-    role="Rôle (pays) à débiter - si non spécifié, débit de la Banque centrale"
+    somme="Montant à emprunter (maximum 1 milliard)"
 )
 async def creer_emprunt(
     interaction: discord.Interaction,
-    somme: int,
-    role: discord.Role = None
+    somme: int
 ):
-    await interaction.response.defer(ephemeral=True)
-    
-    demandeur_id = str(interaction.user.id)
-    role_id = str(role.id) if role else None
-    banque_centrale_id = "BOT"
+    await interaction.response.defer()
     
     # Vérification des montants
     if somme <= 0:
@@ -4139,113 +4262,78 @@ async def creer_emprunt(
     # Calcul du taux d'intérêt selon la tranche
     taux_mensuel = get_taux_interet(somme)
     
-    # Vérification du PIB si le demandeur est un pays
-    pib = None
-    if role:
-        # Récupérer le PIB depuis pib_data
-        pib_data = load_pib()
-        pib_info = pib_data.get(str(role.id), {})
-        pib = pib_info.get("pib", None)
-        
-        # Si le PIB est trouvé et la somme dépasse 50% du PIB, erreur
-        if pib and somme > 0.5 * pib:
-            await interaction.followup.send(
-                f"> ❌ **Erreur :** L'emprunt ({format_number(somme)}) dépasse 50% du PIB du pays ({format_number(pib)}). "
-                f"Emprunt refusé pour raison de stabilité économique !",
-                ephemeral=True
-            )
-            return
+    # Simulation sur 12 mois avec intérêts simples (4.85% × 12 = 58.2%)
+    pourcentage_total_simple = taux_mensuel * 12
+    total_interets_simple = somme * (pourcentage_total_simple / 100)
+    montant_total_simple = somme + total_interets_simple
+    interets_par_mois = somme * (taux_mensuel / 100)
     
-    # Débit du rôle ou Banque centrale
-    if role:
-        balances[role_id] = balances.get(role_id, 0) - somme
-        debiteur = role.mention
-        print(f"[DEBUG] Débit du pays {role.name} (ID: {role_id}), montant: {somme}")
-    else:
-        debiteur = "Banque centrale"
-        print(f"[DEBUG] Débit de la Banque centrale, montant: {somme}")
+    # Créer la vue de confirmation avec simulation
+    embed = discord.Embed(
+        title="⚠️ AVERTISSEMENT - CONDITIONS D'EMPRUNT",
+        description=f"Vous êtes sur le point d'emprunter {format_number(somme)} {MONNAIE_EMOJI}",
+        color=0xFF6600
+    )
     
-    # Crédit du demandeur
-    balances[demandeur_id] = balances.get(demandeur_id, 0) + somme
-    print(f"[DEBUG] Crédit du demandeur {interaction.user.name} (ID: {demandeur_id}), montant: {somme}")
+    embed.add_field(
+        name="📊 SIMULATION SUR 12 MOIS :",
+        value=(
+            f"• Taux mensuel : {taux_mensuel}% ({format_number(int(interets_par_mois))} {MONNAIE_EMOJI}/mois)\n"
+            f"• Total intérêts après 12 mois : {format_number(int(total_interets_simple))} {MONNAIE_EMOJI}\n"
+            f"• Pourcentage total : {pourcentage_total_simple:.2f}%\n"
+            f"• Montant total dû : {format_number(int(montant_total_simple))} {MONNAIE_EMOJI}"
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="💰 SYSTÈME DE TAUX ÉVOLUTIF :",
+        value=(
+            "• 0 à 200M : **4,15%/mois**\n"
+            "• 200M à 500M : **4,85%/mois**\n"
+            "• 500M à 800M : **5,55%/mois**\n"
+            "• 800M à 1Md : **6,25%/mois**"
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="⚠️ IMPORTANT :",
+        value=(
+            "• Les intérêts sont appliqués **automatiquement chaque mois RP**\n"
+            "• Le taux évolue selon le montant restant dû\n"
+            "• Remboursement possible uniquement après **1 an minimum** (12 mois RP)\n"
+            "• Cette simulation est **indicative** (taux peut changer selon l'évolution du montant)"
+        ),
+        inline=False
+    )
     
     # Récupération de la date RP actuelle
     calendrier = load_calendrier()
     mois_nom = CALENDRIER_MONTHS[calendrier["mois_index"]] if calendrier else "Inconnu"
     annee = calendrier["annee"] if calendrier else 0
     
-    # Création de l'emprunt
-    emprunt = {
-        "id": f"{demandeur_id}-{int(time.time())}",
-        "demandeur_id": demandeur_id,
-        "role_id": role_id,
-        "somme": somme,  # Montant initial
-        "montant_actuel": somme,  # Montant évolutif avec intérêts
-        "taux_mensuel_actuel": taux_mensuel,
-        "date_debut": int(time.time()),
-        "mois_debut": mois_nom,
-        "annee_debut": annee,
-        "remboursements": [],
-        "historique_interets": []
-    }
-    loans.append(emprunt)
-    save_loans(loans)
-    save_balances(balances)
-    
-    print(f"[DEBUG] Emprunt créé: demandeur={demandeur_id}, role_id={role_id}, somme={somme}, taux={taux_mensuel}%")
-    print(f"[DEBUG] Total emprunts actifs: {len(loans)}")
-    
-    # Log de la transaction
-    log_transaction(
-        from_id=role_id if role else banque_centrale_id,
-        to_id=demandeur_id,
-        amount=somme,
-        transaction_type="emprunt",
-        guild_id=str(interaction.guild.id)
-    )
-    save_all_json_to_postgres()
-    
-    # Log embed
-    embed = discord.Embed(
-        title="💸 | Création d'emprunt",
-        description=(
-            f"> **Demandeur :** {interaction.user.mention}\n"
-            f"> **Montant :** {format_number(somme)} {MONNAIE_EMOJI}\n"
-            f"> **Taux mensuel :** {taux_mensuel}%\n"
-            f"> **Date RP :** {mois_nom} {annee}\n"
-            f"> **Débiteur :** {debiteur}{INVISIBLE_CHAR}"
+    embed.add_field(
+        name="📋 Détails de l'emprunt",
+        value=(
+            f"Demandeur : {interaction.user.mention}\n"
+            f"Pays : {interaction.user.display_name}\n"
+            f"Source : Banque centrale\n"
+            f"Montant : {format_number(somme)} {MONNAIE_EMOJI}"
         ),
-        color=EMBED_COLOR,
-        timestamp=datetime.datetime.now()
+        inline=False
     )
-    await send_log(interaction.guild, embed=embed)
     
-    # Log dans le salon staff
-    staff_channel_id = 1412876030980391063
-    staff_channel = interaction.guild.get_channel(staff_channel_id)
-    if staff_channel:
-        await staff_channel.send(embed=embed)
+    embed.set_footer(text=f"Hier à {datetime.datetime.now().strftime('%H:%M')}")
     
-    # Réponse à l'utilisateur avec explication du système
-    confirmation_embed = discord.Embed(
-        title="✅ | Emprunt créé avec succès",
-        description=(
-            f"> **Montant accordé :** {format_number(somme)} {MONNAIE_EMOJI}\n"
-            f"> **Taux d'intérêt mensuel :** {taux_mensuel}%\n"
-            f"> **Source :** {debiteur}\n"
-            f"> **Date RP :** {mois_nom} {annee}\n\n"
-            f"📊 **Système de taux évolutif :**\n"
-            f"> • 0 à 200M : **4,15%/mois**\n"
-            f"> • 200M à 500M : **4,85%/mois**\n"
-            f"> • 500M à 800M : **5,55%/mois**\n"
-            f"> • 800M à 1Md : **6,25%/mois**\n\n"
-            f"⚠️ **Important :** Les intérêts sont appliqués **automatiquement chaque mois RP** "
-            f"et le taux évolue selon le montant restant dû.\n\n"
-            f"⏳ **Remboursement :** Possible uniquement après **1 an minimum** (12 mois RP)."
-        ),
-        color=0x00FF00
+    # Créer la vue de confirmation
+    view = EmpruntConfirmationView(interaction.user, somme, taux_mensuel, mois_nom, annee)
+    
+    await interaction.followup.send(
+        content="Confirmez-vous cet emprunt ?",
+        embed=embed,
+        view=view
     )
-    await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
 
 # Commande /liste_emprunt : affiche la liste des emprunts du joueur avec pagination
 @bot.tree.command(name="liste_emprunt", description="Affiche la liste de vos emprunts avec taux évolutif")
