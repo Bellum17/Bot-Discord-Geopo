@@ -4069,18 +4069,39 @@ class EmpruntConfirmationView(discord.ui.View):
         
         await interaction.response.defer()
         
+        # Fonction pour trouver le rôle de pays de l'utilisateur
+        def get_user_country_role(user):
+            """Retourne le rôle de pays de l'utilisateur en se basant uniquement sur les balances."""
+            for role in user.roles:
+                role_id = str(role.id)
+                # Un rôle est considéré comme un pays s'il existe dans le système de balances
+                if role_id in balances:
+                    return role
+            return None
+        
+        # Trouver le rôle de pays de l'utilisateur
+        user_country_role = get_user_country_role(self.user)
+        if not user_country_role:
+            embed = discord.Embed(
+                title="❌ Aucun pays détecté",
+                description="Vous devez avoir un rôle de pays pour emprunter de l'argent.",
+                color=0xff4444
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+        
         # Créer l'emprunt
-        demandeur_id = str(self.user.id)
+        demandeur_id = str(user_country_role.id)  # ID du rôle pays, pas de l'utilisateur
         banque_centrale_id = "BOT"
         
-        # Crédit du demandeur
+        # Crédit du pays (rôle)
         balances[demandeur_id] = balances.get(demandeur_id, 0) + self.somme
-        print(f"[DEBUG] Crédit du demandeur {self.user.name} (ID: {demandeur_id}), montant: {self.somme}")
+        print(f"[DEBUG] Crédit du pays {user_country_role.name} (ID: {demandeur_id}), montant: {self.somme}")
         
         # Création de l'emprunt
         emprunt = {
             "id": f"{demandeur_id}-{int(time.time())}",
-            "demandeur_id": demandeur_id,
+            "demandeur_id": demandeur_id,  # ID du rôle pays
             "role_id": None,  # Pas de rôle, toujours Banque centrale
             "somme": self.somme,  # Montant initial
             "montant_actuel": self.somme,  # Montant évolutif avec intérêts
@@ -4095,7 +4116,7 @@ class EmpruntConfirmationView(discord.ui.View):
         save_loans(loans)
         save_balances(balances)
         
-        print(f"[DEBUG] Emprunt créé: demandeur={demandeur_id}, somme={self.somme}, taux={self.taux_mensuel}%")
+        print(f"[DEBUG] Emprunt créé: pays={user_country_role.name} (ID: {demandeur_id}), somme={self.somme}, taux={self.taux_mensuel}%")
         print(f"[DEBUG] Total emprunts actifs: {len(loans)}")
         
         # Log de la transaction
@@ -4113,6 +4134,7 @@ class EmpruntConfirmationView(discord.ui.View):
             title="💸 | Création d'emprunt",
             description=(
                 f"> **Demandeur :** {self.user.mention}\n"
+                f"> **Pays :** {user_country_role.mention}\n"
                 f"> **Montant :** {format_number(self.somme)} {MONNAIE_EMOJI}\n"
                 f"> **Taux mensuel :** {self.taux_mensuel}%\n"
                 f"> **Date RP :** {self.mois_nom} {self.annee}\n"
@@ -4133,6 +4155,7 @@ class EmpruntConfirmationView(discord.ui.View):
         confirmation_embed = discord.Embed(
             title="✅ | Emprunt créé avec succès",
             description=(
+                f"> **Pays bénéficiaire :** {user_country_role.mention}\n"
                 f"> **Montant accordé :** {format_number(self.somme)} {MONNAIE_EMOJI}\n"
                 f"> **Taux d'intérêt mensuel :** {self.taux_mensuel}%\n"
                 f"> **Source :** Banque centrale\n"
@@ -4639,24 +4662,55 @@ async def remboursement(
             ephemeral=True
         )
 
-@bot.tree.command(name="reset_debt", description="Supprime toutes les dettes et emprunts du serveur")
+@bot.tree.command(name="reset_debt", description="Supprime toutes les dettes et emprunts du serveur ou d'un rôle spécifique")
 @app_commands.checks.has_permissions(administrator=True)
-async def reset_debt(interaction: discord.Interaction):
-    """Supprime toutes les dettes et emprunts."""
+@app_commands.describe(
+    role="Rôle (pays) dont supprimer les dettes (optionnel, sinon toutes les dettes)"
+)
+async def reset_debt(interaction: discord.Interaction, role: discord.Role = None):
+    """Supprime toutes les dettes et emprunts ou celles d'un rôle spécifique."""
     await interaction.response.defer(ephemeral=True)
     
-    # Sauvegarder le nombre d'emprunts avant suppression
-    nombre_emprunts = len(loans)
-    
-    # Calculer le montant total des emprunts
-    montant_total = 0
-    for emprunt in loans:
-        principal = emprunt.get("somme", 0)
-        taux = emprunt.get("taux", 0)
-        montant_total += int(principal * (1 + taux / 100))
-    
-    # Vider la liste des emprunts
-    loans.clear()
+    if role:
+        # Supprimer seulement les emprunts du rôle spécifique
+        emprunts_role = [emprunt for emprunt in loans if emprunt.get("demandeur_id") == str(role.id)]
+        nombre_emprunts = len(emprunts_role)
+        
+        # Calculer le montant total des emprunts du rôle
+        montant_total = 0
+        for emprunt in emprunts_role:
+            principal = emprunt.get("somme", 0)
+            taux = emprunt.get("taux_mensuel_actuel", 0)
+            montant_total += int(principal * (1 + taux / 100))
+        
+        # Supprimer les emprunts du rôle
+        global loans
+        loans = [emprunt for emprunt in loans if emprunt.get("demandeur_id") != str(role.id)]
+        
+        # Message de confirmation
+        message_confirmation = f"> **{nombre_emprunts} emprunts** de {role.mention} ont été supprimés"
+        message_log = f"> **Rôle concerné :** {role.mention}\n> **Emprunts supprimés :** {nombre_emprunts}"
+        titre_log = f"🗑️ | Suppression des dettes - {role.name}"
+        titre_confirmation = f"✅ | Dettes de {role.name} supprimées"
+    else:
+        # Sauvegarder le nombre d'emprunts avant suppression
+        nombre_emprunts = len(loans)
+        
+        # Calculer le montant total des emprunts
+        montant_total = 0
+        for emprunt in loans:
+            principal = emprunt.get("somme", 0)
+            taux = emprunt.get("taux_mensuel_actuel", 0)
+            montant_total += int(principal * (1 + taux / 100))
+        
+        # Vider la liste des emprunts
+        loans.clear()
+        
+        # Message de confirmation
+        message_confirmation = f"> **{nombre_emprunts} emprunts** ont été supprimés"
+        message_log = f"> **Emprunts supprimés :** {nombre_emprunts}"
+        titre_log = "🗑️ | Réinitialisation des dettes"
+        titre_confirmation = "✅ | Dettes supprimées"
     
     # Sauvegarder les changements
     save_loans(loans)
@@ -4664,10 +4718,10 @@ async def reset_debt(interaction: discord.Interaction):
     
     # Log de l'action
     embed_log = discord.Embed(
-        title="🗑️ | Réinitialisation des dettes",
+        title=titre_log,
         description=(
             f"> **Administrateur :** {interaction.user.mention}\n"
-            f"> **Emprunts supprimés :** {nombre_emprunts}\n"
+            f"{message_log}\n"
             f"> **Montant total effacé :** {format_number(montant_total)} {MONNAIE_EMOJI}\n"
             f"> **Date :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}"
         ),
@@ -4678,11 +4732,11 @@ async def reset_debt(interaction: discord.Interaction):
     
     # Confirmation à l'utilisateur
     confirmation_embed = discord.Embed(
-        title="✅ | Dettes supprimées",
+        title=titre_confirmation,
         description=(
-            f"> **{nombre_emprunts} emprunts** ont été supprimés\n"
+            f"{message_confirmation}\n"
             f"> **Montant total effacé :** {format_number(montant_total)} {MONNAIE_EMOJI}\n"
-            f"> Toutes les dettes ont été annulées"
+            f"> Toutes les dettes concernées ont été annulées"
         ),
         color=0x00FF00
     )
