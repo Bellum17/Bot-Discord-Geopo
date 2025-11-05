@@ -4826,20 +4826,20 @@ CALENDRIER_MONTHS = [
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
 ]
 
-# Durées IRL pour chaque mois (en jours)
+# Durées IRL pour chaque mois (en jours) - Tous les mois durent 2 jours maintenant
 CALENDRIER_DUREES = {
     "Janvier": 2,   # 2 jours IRL
-    "Février": 1,   # 1 jour IRL 
+    "Février": 2,   # 2 jours IRL (modifié de 1 à 2)
     "Mars": 2,      # 2 jours IRL
-    "Avril": 1,     # 1 jour IRL
+    "Avril": 2,     # 2 jours IRL (modifié de 1 à 2)
     "Mai": 2,       # 2 jours IRL
-    "Juin": 1,      # 1 jour IRL
+    "Juin": 2,      # 2 jours IRL (modifié de 1 à 2)
     "Juillet": 2,   # 2 jours IRL
-    "Août": 1,      # 1 jour IRL
+    "Août": 2,      # 2 jours IRL (modifié de 1 à 2)
     "Septembre": 2, # 2 jours IRL
-    "Octobre": 1,   # 1 jour IRL
+    "Octobre": 2,   # 2 jours IRL (modifié de 1 à 2)
     "Novembre": 2,  # 2 jours IRL
-    "Décembre": 1   # 1 jour IRL
+    "Décembre": 2   # 2 jours IRL (modifié de 1 à 2)
 }
 
 def load_calendrier():
@@ -4872,14 +4872,9 @@ def get_duree_mois(mois_nom):
     return CALENDRIER_DUREES.get(mois_nom, 1)
 
 def get_jour_display(mois_nom, jour_index):
-    """Retourne l'affichage correct du jour selon la durée du mois."""
-    duree_mois = get_duree_mois(mois_nom)
-    if duree_mois == 1:
-        # Mois de 1 jour : toujours 1/1
-        return "1/1"
-    else:
-        # Mois de 2 jours : 1/2 ou 2/2
-        return "1/2" if jour_index == 0 else "2/2"
+    """Retourne l'affichage correct du jour - maintenant tous les mois ont 2 jours."""
+    # Tous les mois durent maintenant 2 jours : 1/2 ou 2/2
+    return "1/2" if jour_index == 0 else "2/2"
 
 def avancer_calendrier_un_jour():
     """Avance le calendrier d'un jour RP et retourne les nouvelles données."""
@@ -4901,21 +4896,15 @@ def avancer_calendrier_un_jour():
     # Variable pour détecter le passage au mois suivant
     passage_mois = False
     
-    # Logique d'avancement selon la durée du mois
+    # Logique d'avancement selon la durée du mois (maintenant tous les mois durent 2 jours)
     if jours_irl_ecoules >= duree_mois:
-        if duree_mois == 1:
-            # Mois de 1 jour : 1/1 -> 1/1 du mois suivant (pas de jour_index = 1)
+        # Tous les mois durent 2 jours : 1/2 -> 2/2 -> 1/2 du mois suivant
+        if jour_index == 0:  # 1/2 -> 2/2
+            jour_index = 1
+        else:  # 2/2 -> 1/2 du mois suivant
             jour_index = 0
             mois_index += 1
             passage_mois = True
-        else:
-            # Mois de 2 jours : progression normale
-            if jour_index == 0:  # 1/2 -> 2/2
-                jour_index = 1
-            else:  # 2/2 -> 1/2 du mois suivant
-                jour_index = 0
-                mois_index += 1
-                passage_mois = True
         
         # Reset du compteur de jours IRL
         jours_irl_ecoules = 0
@@ -5029,28 +5018,23 @@ async def envoyer_message_calendrier(calendrier_data, raison="Mise à jour autom
         return None
 
 def calculate_fin_with_calendar(duree_mois):
-    """Calcule la date de fin d'un développement basé sur le calendrier RP."""
+    """Calcule la date de fin d'un développement basé sur le calendrier RP.
+    Tous les développements finissent maintenant au 2/2 du mois de fin."""
     calendrier_data = load_calendrier()
     if not calendrier_data:
         # Si pas de calendrier, estimation approximative
-        return time.time() + (duree_mois * 1.5 * 24 * 3600)
+        return time.time() + (duree_mois * 2 * 24 * 3600)  # 2 jours par mois maintenant
     
     mois_actuel = calendrier_data.get("mois_index", 0)
     annee_actuelle = calendrier_data.get("annee", 2072)
-    jour_actuel = calendrier_data.get("jour_index", 0)  # 0 = 1/X, 1 = 2/X
+    jour_actuel = calendrier_data.get("jour_index", 0)  # 0 = 1/2, 1 = 2/2
     
     # Calcule le mois de fin RP (on soustrait 1 car on compte le mois de début)
     mois_fin = (mois_actuel + duree_mois - 1) % 12
     annee_fin = annee_actuelle + ((mois_actuel + duree_mois - 1) // 12)
     
-    # Pour le jour de fin : toujours 2/2 pour les mois de 2 jours, 1/1 pour les mois de 1 jour
-    mois_nom_fin = CALENDRIER_MONTHS[mois_fin]
-    duree_mois_fin = get_duree_mois(mois_nom_fin)
-    
-    if duree_mois_fin == 1:
-        jour_fin = 0  # 1/1 pour les mois de 1 jour
-    else:
-        jour_fin = 1  # 2/2 pour les mois de 2 jours (toujours le dernier jour)
+    # Toujours finir au 2/2 (jour_fin = 1)
+    jour_fin = 1  # 2/2 pour tous les développements
     
     return calculate_real_timestamp_from_calendar_with_day(mois_fin, annee_fin, jour_fin)
 
@@ -5090,10 +5074,8 @@ def calculate_real_timestamp_from_calendar_with_day(mois_fin_rp, annee_fin_rp, j
     
     # Ajouter les jours pour atteindre le jour spécifique dans le mois de fin
     if mois_difference >= 0:
-        # Si jour_fin_rp = 1 (2/X) et qu'on est dans un mois de 2 jours, ajouter 1 jour
-        mois_nom_fin = CALENDRIER_MONTHS[mois_fin_rp]
-        duree_mois_fin = get_duree_mois(mois_nom_fin)
-        if jour_fin_rp == 1 and duree_mois_fin == 2:
+        # Maintenant tous les mois durent 2 jours, donc si jour_fin_rp = 1 (2/2), ajouter 1 jour
+        if jour_fin_rp == 1:
             jours_irl_necessaires += 1
     
     # Conversion en timestamp
@@ -5105,47 +5087,11 @@ def calculate_real_timestamp_from_calendar_with_day(mois_fin_rp, annee_fin_rp, j
     return int(target_date.timestamp())
 
 def calculate_real_timestamp_from_calendar(mois_fin_rp, annee_fin_rp):
-    """Convertit une date RP en timestamp réel IRL."""
-    calendrier_data = load_calendrier()
-    if not calendrier_data:
-        return int(time.time() + (30 * 24 * 3600))
+    """Convertit une date RP en timestamp réel IRL. 
+    Par défaut, vise toujours le 2/2 du mois de fin."""
+    # Utiliser la fonction avec jour spécifique, en visant toujours le 2/2
+    return calculate_real_timestamp_from_calendar_with_day(mois_fin_rp, annee_fin_rp, 1)  # 1 = 2/2
     
-    mois_actuel_rp = calendrier_data.get("mois_index", 0)
-    annee_actuelle_rp = calendrier_data.get("annee", 2072)
-    jour_actuel = calendrier_data.get("jour_index", 0)
-    
-    # Calculer la différence en mois RP
-    mois_total_actuel = annee_actuelle_rp * 12 + mois_actuel_rp
-    mois_total_fin = annee_fin_rp * 12 + mois_fin_rp
-    mois_difference = mois_total_fin - mois_total_actuel
-    
-    if mois_difference <= 0:
-        return int(time.time())
-    
-    # Calculer les jours IRL nécessaires selon l'alternance
-    jours_irl_necessaires = 0
-    
-    # Finir le mois actuel si on est sur 1/2
-    if jour_actuel == 0:
-        mois_nom = CALENDRIER_MONTHS[mois_actuel_rp]
-        duree_mois_actuel = get_duree_mois(mois_nom)
-        jours_irl_necessaires += duree_mois_actuel - calendrier_data.get("jours_irl_ecoules", 0)
-        mois_difference -= 1
-    
-    # Calculer les mois suivants
-    for i in range(mois_difference):
-        mois_futur = (mois_actuel_rp + i + 1) % 12
-        mois_nom_futur = CALENDRIER_MONTHS[mois_futur]
-        jours_irl_necessaires += get_duree_mois(mois_nom_futur)
-    
-    # Conversion en timestamp
-    now_paris = datetime.datetime.now(ZoneInfo("Europe/Paris"))
-    demain = now_paris.date() + datetime.timedelta(days=1)
-    next_midnight = datetime.datetime.combine(demain, datetime.time(0, 0, 0), tzinfo=ZoneInfo("Europe/Paris"))
-    
-    target_date = next_midnight + datetime.timedelta(days=jours_irl_necessaires - 1)
-    return int(target_date.timestamp())
-
 def format_discord_timestamp(timestamp):
     """Formate un timestamp pour Discord."""
     return f"<t:{int(timestamp)}:f>"
