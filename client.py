@@ -5086,8 +5086,22 @@ async def update_stats_voice_channels(guild):
         print(f"[STATS VOICE] Catégorie non trouvée ou invalide : {category}")
         return
     
-    # Compter TOUS les membres du serveur, pas seulement ceux avec le rôle
-    membres_count = guild.member_count
+    # Compter TOUS les membres du serveur de façon plus fiable
+    try:
+        # Essayer d'abord guild.member_count (plus rapide)
+        membres_count = guild.member_count
+        
+        # Si le nombre semble trop bas, forcer une requête pour vérifier
+        if membres_count < 500:  # Si moins de 500, c'est probablement un problème de cache
+            print(f"[DEBUG] Nombre de membres suspects ({membres_count}), vérification...")
+            # Alternative: compter manuellement (plus lent mais plus précis)
+            membres_count = len([m for m in guild.members if not m.bot])
+            print(f"[DEBUG] Recompte manuel: {membres_count} membres humains")
+        
+        print(f"[STATS] Total membres: {membres_count}")
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du comptage des membres: {e}")
+        membres_count = guild.member_count  # Fallback
     
     # Compter les joueurs (ceux qui ont le rôle joueurs)
     joueurs_role = guild.get_role(joueurs_role_id)
@@ -5119,11 +5133,11 @@ async def update_stats_voice_channels(guild):
 # === Tâche planifiée pour mise à jour des salons vocaux de stats ===
 from discord.ext.tasks import loop
 
-@loop(seconds=600)
+@loop(seconds=300)  # Vérifie toutes les 5 minutes au lieu de 10
 async def update_stats_voice_channels_periodically():
     guild = bot.get_guild(PRIMARY_GUILD_ID)
     if guild:
-        print("[DEBUG] Mise à jour périodique des salons vocaux de stats")
+        print(f"[DEBUG] Mise à jour périodique des salons vocaux de stats - Membres en cache: {guild.member_count}")
         await update_stats_voice_channels(guild)
 
 @bot.event
