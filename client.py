@@ -5193,6 +5193,47 @@ async def on_ready():
     else:
         print("📅 Aucun calendrier actif ou calendrier terminé")
 
+# === Protection contre les bots non vérifiés ===
+@bot.event
+async def on_member_join(member):
+    """Bannit automatiquement les bots non vérifiés."""
+    if member.bot:
+        # Vérifier si le bot est vérifié par Discord
+        if not member.public_flags.verified_bot:
+            try:
+                # Bannir le bot non vérifié
+                await member.ban(reason="Bot non vérifié - Ban automatique de sécurité")
+                
+                # Log de l'action
+                embed_log = discord.Embed(
+                    title="🚫 | Bot non vérifié banni",
+                    description=(
+                        f"> **Bot banni :** {member.mention} ({member.name}#{member.discriminator})\n"
+                        f"> **ID :** {member.id}\n"
+                        f"> **Raison :** Bot non vérifié par Discord\n"
+                        f"> **Date :** {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+                    ),
+                    color=0xFF0000,
+                    timestamp=datetime.datetime.now()
+                )
+                embed_log.add_field(
+                    name="ℹ️ Informations",
+                    value="Seuls les bots vérifiés par Discord sont autorisés sur ce serveur.",
+                    inline=False
+                )
+                
+                # Envoyer le log
+                await send_log(member.guild, embed=embed_log)
+                
+                print(f"[SECURITY] Bot non vérifié banni: {member.name} ({member.id})")
+                
+            except discord.Forbidden:
+                print(f"[ERROR] Permission refusée pour bannir le bot: {member.name} ({member.id})")
+            except discord.HTTPException as e:
+                print(f"[ERROR] Erreur lors du ban du bot {member.name}: {e}")
+        else:
+            print(f"[INFO] Bot vérifié autorisé: {member.name} ({member.id})")
+
 # === Mise à jour dynamique des salons vocaux de stats ===
 @bot.event
 async def on_member_update(before, after):
