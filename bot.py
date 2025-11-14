@@ -1,3 +1,12 @@
+import sys
+
+class AudioopStub:
+    """Stub module pour remplacer audioop dans Python 3.13+"""
+    def __getattr__(self, name):
+        raise AttributeError(f"audioop.{name} n'est pas disponible")
+
+sys.modules['audioop'] = AudioopStub()
+
 import discord
 from discord.ext import commands
 import os
